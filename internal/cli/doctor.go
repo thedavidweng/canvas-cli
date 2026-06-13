@@ -57,7 +57,7 @@ func NewDoctorCmd() *cobra.Command {
 			// 5. API connectivity and token validity check
 			checks = append(checks, checkAPIAndToken(cfg, timeout))
 
-			// 7. Write safety check
+			// 6. Write safety check
 			checks = append(checks, checkWriteSafety(cfg))
 
 			if jsonMode {
