@@ -1,6 +1,8 @@
 package output
 
 // Exit codes matching the JSON contract in docs/json-contract.md.
+// All codes are defined here for the contract spec and external consumers,
+// even if not all are currently referenced in production code.
 const (
 	CodeSuccess          = 0
 	CodeGenericError     = 1

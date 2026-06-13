@@ -196,12 +196,12 @@ func TestWriteEvent_FileCreatedIfMissing(t *testing.T) {
 }
 
 func TestDefaultPath_ReturnsValidPath(t *testing.T) {
-	got := DefaultPath()
+	got := defaultPath()
 	if got == "" {
-		t.Fatal("DefaultPath() returned empty string")
+		t.Fatal("defaultPath() returned empty string")
 	}
 	if !strings.HasSuffix(got, filepath.Join("canvas-cli", "audit.jsonl")) {
-		t.Errorf("DefaultPath() = %q, want suffix canvas-cli/audit.jsonl", got)
+		t.Errorf("defaultPath() = %q, want suffix canvas-cli/audit.jsonl", got)
 	}
 }
 
@@ -211,10 +211,10 @@ func TestDefaultPath_RespectsXDGStateHome(t *testing.T) {
 	}
 	dir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", dir)
-	got := DefaultPath()
+	got := defaultPath()
 	want := filepath.Join(dir, "canvas-cli", "audit.jsonl")
 	if got != want {
-		t.Errorf("DefaultPath() = %q, want %q", got, want)
+		t.Errorf("defaultPath() = %q, want %q", got, want)
 	}
 }
 
