@@ -249,10 +249,11 @@ profiles:
 // --- XDG path ---
 
 func TestXDGConfigPath_UsesXDGConfigHome(t *testing.T) {
-	setEnv(t, "XDG_CONFIG_HOME", "/tmp/test-xdg-config")
+	dir := t.TempDir()
+	setEnv(t, "XDG_CONFIG_HOME", dir)
 
 	got := XDGConfigPath()
-	want := "/tmp/test-xdg-config/canvas-cli/config.yaml"
+	want := filepath.Join(dir, "canvas-cli", "config.yaml")
 	if got != want {
 		t.Errorf("XDGConfigPath = %q, want %q", got, want)
 	}

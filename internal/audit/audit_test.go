@@ -195,9 +195,10 @@ func TestWriteEvent_FileCreatedIfMissing(t *testing.T) {
 }
 
 func TestDefaultPath_XDGStateHome(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", "/tmp/test-xdg-state")
+	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", dir)
 	got := DefaultPath()
-	want := "/tmp/test-xdg-state/canvas-cli/audit.jsonl"
+	want := filepath.Join(dir, "canvas-cli", "audit.jsonl")
 	if got != want {
 		t.Errorf("DefaultPath() = %q, want %q", got, want)
 	}

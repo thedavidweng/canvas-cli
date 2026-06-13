@@ -279,7 +279,7 @@ func TestAnnouncementsCreate_ReadOnlyReturnsExit7(t *testing.T) {
 	cmd.SetOut(&buf)
 	_ = cmd.Flags().Set("course", "1")
 	_ = cmd.Flags().Set("title", "Welcome")
-	_ = cmd.Flags().Set("body-file", "/dev/null")
+	_ = cmd.Flags().Set("body-file", os.DevNull)
 	_ = cmd.Flags().Set("confirm", "true")
 
 	err := cmd.RunE(cmd, nil)
