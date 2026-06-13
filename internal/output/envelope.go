@@ -4,8 +4,8 @@ package output
 
 import "github.com/thedavidweng/canvas-cli/internal/canvas"
 
-// SchemaVersion is the current JSON output contract version.
-const SchemaVersion = "2026-06-12"
+// SchemaVersion is re-exported from the canvas package for convenience.
+const SchemaVersion = canvas.SchemaVersion
 
 // NewSuccess builds a success Envelope with ok=true and the given data.
 // Optional meta overrides are merged into the base Meta (command and schema_version).

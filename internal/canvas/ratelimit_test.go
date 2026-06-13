@@ -1,10 +1,8 @@
 package canvas
 
 import (
-	"context"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -167,86 +165,3 @@ func TestShouldRetryBackoffIncreases(t *testing.T) {
 	}
 }
 
-func TestDoWithRetryRetries429(t *testing.T) {
-	attempts := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		if attempts < 3 {
-			w.WriteHeader(429)
-			return
-		}
-		w.WriteHeader(200)
-		w.Write([]byte(`{"ok":true}`))
-	}))
-	defer srv.Close()
-
-	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	resp, err := DoWithRetry(context.Background(), c, "GET", "/api/v1/test", nil, nil, 3)
-	if err != nil {
-		t.Fatalf("DoWithRetry() error: %v", err)
-	}
-	resp.Body.Close()
-
-	if attempts != 3 {
-		t.Errorf("attempts = %d, want 3", attempts)
-	}
-	if resp.StatusCode != 200 {
-		t.Errorf("StatusCode = %d, want 200", resp.StatusCode)
-	}
-}
-
-func TestDoWithRetryExhaustsRetries(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(429)
-	}))
-	defer srv.Close()
-
-	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	resp, err := DoWithRetry(context.Background(), c, "GET", "/api/v1/test", nil, nil, 2)
-	if err != nil {
-		t.Fatalf("DoWithRetry() error: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Should return the last 429 response
-	if resp.StatusCode != 429 {
-		t.Errorf("StatusCode = %d, want 429", resp.StatusCode)
-	}
-}
-
-func TestDoWithRetryDoesNotRetrySuccess(t *testing.T) {
-	attempts := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		w.WriteHeader(200)
-		w.Write([]byte(`{}`))
-	}))
-	defer srv.Close()
-
-	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	resp, err := DoWithRetry(context.Background(), c, "GET", "/api/v1/test", nil, nil, 3)
-	if err != nil {
-		t.Fatalf("DoWithRetry() error: %v", err)
-	}
-	resp.Body.Close()
-
-	if attempts != 1 {
-		t.Errorf("attempts = %d, want 1", attempts)
-	}
-}
-
-func TestDoWithRetryContextCancellation(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(429)
-	}))
-	defer srv.Close()
-
-	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-
-	_, err := DoWithRetry(ctx, c, "GET", "/api/v1/test", nil, nil, 10)
-	if err == nil {
-		t.Fatal("expected error from cancelled context, got nil")
-	}
-}

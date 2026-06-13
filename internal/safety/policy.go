@@ -1,6 +1,6 @@
 package safety
 
-import "os"
+import "github.com/thedavidweng/canvas-cli/internal/output"
 
 // SafetyLevel represents the risk level of an operation.
 type SafetyLevel int
@@ -42,7 +42,7 @@ func (e *SafetyError) Error() string {
 var (
 	ErrSafetyBlocked = &SafetyError{
 		Message:  "operation blocked by read-only mode",
-		ExitCode: 7,
+		ExitCode: output.CodeSafetyBlocked,
 	}
 
 	ErrNeedsConfirm = &SafetyError{
@@ -89,11 +89,6 @@ func (p Policy) Check(level SafetyLevel) error {
 
 	// --read-only blocks all writes, even with --confirm.
 	if p.ReadOnly {
-		return ErrSafetyBlocked
-	}
-
-	// CANVAS_READ_ONLY=1 env var also blocks writes.
-	if os.Getenv("CANVAS_READ_ONLY") == "1" {
 		return ErrSafetyBlocked
 	}
 

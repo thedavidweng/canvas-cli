@@ -181,7 +181,7 @@ func newVersionCmd(version string) *cobra.Command {
 						"commit":  Commit,
 						"date":    Date,
 					},
-					Meta: canvas.Meta{SchemaVersion: "2026-06-12", Command: "version"},
+					Meta: canvas.Meta{SchemaVersion: output.SchemaVersion, Command: "version"},
 				}
 				output.WriteJSON(cmd.OutOrStdout(), env, false)
 				return

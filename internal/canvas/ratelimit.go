@@ -1,25 +1,16 @@
 package canvas
 
 import (
-	"context"
-	"io"
 	"math"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 )
 
-// RateLimitMeta captures rate-limit headers from a Canvas response.
-type RateLimitMeta struct {
-	RequestCost float64 `json:"request_cost"`
-	Remaining   float64 `json:"remaining"`
-}
-
 // CaptureRateMeta reads rate-limit headers from a response.
-func CaptureRateMeta(resp *http.Response) *RateLimitMeta {
-	meta := &RateLimitMeta{}
+func CaptureRateMeta(resp *http.Response) *RateLimit {
+	meta := &RateLimit{}
 
 	if cost := resp.Header.Get("X-Request-Cost"); cost != "" {
 		if v, err := strconv.ParseFloat(cost, 64); err == nil {
@@ -98,40 +89,3 @@ func backoffDelay(attempt int) time.Duration {
 	return time.Duration(delay + jitter)
 }
 
-// DoWithRetry executes an HTTP request with automatic retry for transient failures.
-// This is the standalone retry function; Client.Do now has built-in retry.
-func DoWithRetry(ctx context.Context, client *Client, method, path string, query url.Values, body io.Reader, maxRetries int) (*http.Response, error) {
-	var lastResp *http.Response
-
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		resp, err := client.doOnce(ctx, method, path, query, body, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		lastResp = resp
-
-		retry, delay := ShouldRetry(resp, attempt, maxRetries)
-		if !retry {
-			return resp, nil
-		}
-
-		resp.Body.Close()
-
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return nil, ctx.Err()
-		case <-timer.C:
-		}
-	}
-
-	return lastResp, nil
-}

@@ -13,15 +13,7 @@ func ListSections(ctx context.Context, client *Client, courseID string) ([]Secti
 		"include[]": {"total_students"},
 	}
 
-	var sections []Section
-	_, err := Request(ctx, client, RequestOptions{
-		Method:     "GET",
-		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/sections", courseID),
-		Query:      query,
-		Paginate:   true,
-		PageSize:   100,
-		DecodeInto: &sections,
-	})
+	sections, _, err := List[Section](ctx, client, fmt.Sprintf("/api/v1/courses/%s/sections", courseID), query, 100)
 	if err != nil {
 		return nil, fmt.Errorf("list sections for course %s: %w", courseID, err)
 	}

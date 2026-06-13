@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,24 +10,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
-	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
-
-// checkHighRiskSafety evaluates the safety policy for a high-risk write operation.
-// It returns nil if the operation is allowed, or an *exitError if blocked.
-func checkHighRiskSafety(cfg *config.ResolvedConfig, dryRun, confirm bool) error {
-	policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm, false)
-	if err := policy.Check(safety.HighRiskWrite); err != nil {
-		var se *safety.SafetyError
-		if errors.As(err, &se) {
-			return &exitError{msg: se.Message, exitCode: se.ExitCode}
-		}
-		return err
-	}
-	return nil
-}
 
 // NewGradingCmd returns the `grade` parent command.
 func NewGradingCmd() *cobra.Command {

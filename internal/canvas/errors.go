@@ -11,7 +11,7 @@ func NormalizeError(resp *http.Response, command string) Envelope {
 	env := Envelope{
 		OK: false,
 		Meta: Meta{
-			SchemaVersion: "2026-06-12",
+			SchemaVersion: SchemaVersion,
 			Command:       command,
 		},
 	}

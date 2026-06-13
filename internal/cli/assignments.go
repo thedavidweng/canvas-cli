@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -387,7 +385,6 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 			// Write audit log on successful mutation.
 			if cfg.AuditEnabled {
 				auditBody, _ := json.Marshal(sub)
-				h := sha256.Sum256(auditBody)
 				auditor := audit.NewAuditor(cfg.AuditPath, true)
 				auditor.WriteEvent(canvas.AuditEvent{
 					Time:           time.Now().UTC().Format(time.RFC3339),
@@ -398,7 +395,7 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 					Method:         "POST",
 					Path:           fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID),
 					Resource:       map[string]string{"course_id": courseID, "assignment_id": assignmentID},
-					RequestHash:    "sha256:" + hex.EncodeToString(h[:]),
+					RequestHash:    audit.HashBody(string(auditBody)),
 					ResponseStatus: 200,
 					DryRun:         false,
 					Success:        true,
@@ -428,14 +425,6 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 	cmd.Flags().Bool("confirm", false, "confirm write operation")
 	cmd.Flags().Bool("read-only", false, "block all write operations")
 	return cmd
-}
-
-// truncateString truncates s to maxLen characters, appending "..." if truncated.
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }
 
 func newAssignmentsUpdateCmd() *cobra.Command {

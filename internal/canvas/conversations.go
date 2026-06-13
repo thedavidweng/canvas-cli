@@ -56,20 +56,15 @@ func SendMessage(ctx context.Context, client *Client, recipients []string, subje
 		return Conversation{}, fmt.Errorf("marshal send message payload: %w", err)
 	}
 
-	resp, err := client.Do(ctx, "POST", "/api/v1/conversations", nil, bytes.NewReader(payloadBytes))
+	var conversation Conversation
+	_, err = Request(ctx, client, RequestOptions{
+		Method:     "POST",
+		PathOrURL:  "/api/v1/conversations",
+		Body:       bytes.NewReader(payloadBytes),
+		DecodeInto: &conversation,
+	})
 	if err != nil {
 		return Conversation{}, fmt.Errorf("send message: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		env := NormalizeError(resp, "POST")
-		return Conversation{}, fmt.Errorf("API error: %s (status %d)", env.Error.Message, env.Error.Status)
-	}
-
-	var conversation Conversation
-	if err := json.NewDecoder(resp.Body).Decode(&conversation); err != nil {
-		return Conversation{}, fmt.Errorf("decode send message response: %w", err)
 	}
 
 	return conversation, nil
@@ -87,20 +82,15 @@ func ReplyToConversation(ctx context.Context, client *Client, conversationID, bo
 		return Conversation{}, fmt.Errorf("marshal reply payload: %w", err)
 	}
 
-	resp, err := client.Do(ctx, "POST", fmt.Sprintf("/api/v1/conversations/%s/add_message", conversationID), nil, bytes.NewReader(payloadBytes))
+	var conversation Conversation
+	_, err = Request(ctx, client, RequestOptions{
+		Method:     "POST",
+		PathOrURL:  fmt.Sprintf("/api/v1/conversations/%s/add_message", conversationID),
+		Body:       bytes.NewReader(payloadBytes),
+		DecodeInto: &conversation,
+	})
 	if err != nil {
 		return Conversation{}, fmt.Errorf("reply to conversation %s: %w", conversationID, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		env := NormalizeError(resp, "POST")
-		return Conversation{}, fmt.Errorf("API error: %s (status %d)", env.Error.Message, env.Error.Status)
-	}
-
-	var conversation Conversation
-	if err := json.NewDecoder(resp.Body).Decode(&conversation); err != nil {
-		return Conversation{}, fmt.Errorf("decode reply response: %w", err)
 	}
 
 	return conversation, nil
@@ -118,15 +108,13 @@ func ArchiveConversation(ctx context.Context, client *Client, conversationID str
 		return fmt.Errorf("marshal archive payload: %w", err)
 	}
 
-	resp, err := client.Do(ctx, "PUT", fmt.Sprintf("/api/v1/conversations/%s", conversationID), nil, bytes.NewReader(payloadBytes))
+	_, err = Request(ctx, client, RequestOptions{
+		Method:    "PUT",
+		PathOrURL: fmt.Sprintf("/api/v1/conversations/%s", conversationID),
+		Body:      bytes.NewReader(payloadBytes),
+	})
 	if err != nil {
 		return fmt.Errorf("archive conversation %s: %w", conversationID, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		env := NormalizeError(resp, "PUT")
-		return fmt.Errorf("API error: %s (status %d)", env.Error.Message, env.Error.Status)
 	}
 
 	return nil

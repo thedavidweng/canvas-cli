@@ -1,67 +1,15 @@
 package cli
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/thedavidweng/canvas-cli/internal/audit"
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
-	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
-
-// exitError is an error that carries a process exit code.
-type exitError struct {
-	msg      string
-	exitCode int
-}
-
-func (e *exitError) Error() string { return e.msg }
-func (e *exitError) ExitCode() int { return e.exitCode }
-
-// checkSafety evaluates the safety policy for a write operation.
-// It returns nil if the operation is allowed, or an *exitError if blocked.
-func checkSafety(cfg *config.ResolvedConfig, dryRun, confirm bool) error {
-	policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm, false)
-	if err := policy.Check(safety.LowRiskWrite); err != nil {
-		var se *safety.SafetyError
-		if errors.As(err, &se) {
-			return &exitError{msg: se.Message, exitCode: se.ExitCode}
-		}
-		return err
-	}
-	return nil
-}
-
-// writeAudit writes an audit event for a mutation command.
-func writeAudit(cfg *config.ResolvedConfig, command, method, path, body string, dryRun bool) {
-	if !cfg.AuditEnabled {
-		return
-	}
-	auditor := audit.NewAuditor(cfg.AuditPath, cfg.AuditEnabled)
-	h := sha256.Sum256([]byte(body))
-	auditor.WriteEvent(canvas.AuditEvent{
-		Time:           time.Now().UTC().Format(time.RFC3339),
-		SchemaVersion:  "2026-06-12",
-		Command:        command,
-		Profile:        cfg.Profile,
-		BaseURL:        cfg.BaseURL,
-		Method:         method,
-		Path:           path,
-		Resource:       map[string]string{},
-		RequestHash:    "sha256:" + hex.EncodeToString(h[:]),
-		ResponseStatus: 200,
-		DryRun:         dryRun,
-		Success:        true,
-	})
-}
 
 // NewDiscussionsCmd returns the `discussions` parent command.
 func NewDiscussionsCmd() *cobra.Command {

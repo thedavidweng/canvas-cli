@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -47,12 +48,12 @@ func newCoursesListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List courses",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
-
-			jsonMode, _ := cmd.Flags().GetBool("json")
+			cfg := GetConfig(cmd.Context())
+			jsonMode := isJSONMode(cmd)
 
 			query := url.Values{}
 			if v, _ := cmd.Flags().GetString("enrollment-state"); v != "" {
@@ -73,37 +74,20 @@ func newCoursesListCmd() *cobra.Command {
 				query.Set("search", v)
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
 			courses, _, err := canvas.ListCourses(cmd.Context(), client, query)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "courses.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "courses.list", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, courses, "courses.list", jsonMode, func(w io.Writer) error {
+				tbl := output.Table{
+					Headers: []string{"ID", "Name", "Code", "State"},
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(courses, "courses.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode: table output
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Name", "Code", "State"},
-			}
-			for _, c := range courses {
-				tbl.Rows = append(tbl.Rows, []string{c.ID, c.Name, c.CourseCode, c.WorkflowState})
-			}
-			return tbl.Render(w, false)
+				for _, c := range courses {
+					tbl.Rows = append(tbl.Rows, []string{c.ID, c.Name, c.CourseCode, c.WorkflowState})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -122,46 +106,29 @@ func newCoursesGetCmd() *cobra.Command {
 		Short: "Get a course by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
-			}
-
-			jsonMode, _ := cmd.Flags().GetBool("json")
-			courseID := args[0]
-
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
-			course, err := canvas.GetCourse(cmd.Context(), client, courseID, nil)
+			client, err := getClientFromContext(cmd.Context())
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "courses.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
 				return err
 			}
+			cfg := GetConfig(cmd.Context())
+			jsonMode := isJSONMode(cmd)
+			courseID := args[0]
 
-			if jsonMode {
-				env := output.NewSuccess(course, "courses.get", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+			course, err := canvas.GetCourse(cmd.Context(), client, courseID, nil)
+			if err != nil {
+				return writeError(cmd.OutOrStdout(), err, "courses.get", jsonMode)
 			}
 
-			// Human mode
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "ID:    %s\n", course.ID)
-			fmt.Fprintf(w, "Name:  %s\n", course.Name)
-			fmt.Fprintf(w, "Code:  %s\n", course.CourseCode)
-			fmt.Fprintf(w, "State: %s\n", course.WorkflowState)
-			if course.Term != nil {
-				fmt.Fprintf(w, "Term:  %s\n", course.Term.Name)
-			}
-			return nil
+			return writeOutput(cmd.OutOrStdout(), cfg, course, "courses.get", jsonMode, func(w io.Writer) error {
+				fmt.Fprintf(w, "ID:    %s\n", course.ID)
+				fmt.Fprintf(w, "Name:  %s\n", course.Name)
+				fmt.Fprintf(w, "Code:  %s\n", course.CourseCode)
+				fmt.Fprintf(w, "State: %s\n", course.WorkflowState)
+				if course.Term != nil {
+					fmt.Fprintf(w, "Term:  %s\n", course.Term.Name)
+				}
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -174,48 +141,31 @@ func newCoursesTabsCmd() *cobra.Command {
 		Use:   "tabs",
 		Short: "List course tabs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
-
-			jsonMode, _ := cmd.Flags().GetBool("json")
+			cfg := GetConfig(cmd.Context())
+			jsonMode := isJSONMode(cmd)
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
 				return fmt.Errorf("--course is required")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
 			tabs, err := canvas.ListCourseTabs(cmd.Context(), client, courseID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "courses.tabs")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "courses.tabs", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, tabs, "courses.tabs", jsonMode, func(w io.Writer) error {
+				tbl := output.Table{
+					Headers: []string{"ID", "Label", "Type", "Position"},
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(tabs, "courses.tabs", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Label", "Type", "Position"},
-			}
-			for _, t := range tabs {
-				tbl.Rows = append(tbl.Rows, []string{t.ID, t.Label, t.Type, fmt.Sprintf("%d", t.Position)})
-			}
-			return tbl.Render(w, false)
+				for _, t := range tabs {
+					tbl.Rows = append(tbl.Rows, []string{t.ID, t.Label, t.Type, fmt.Sprintf("%d", t.Position)})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")

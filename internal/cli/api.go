@@ -103,7 +103,7 @@ func newApiGetCmd() *cobra.Command {
 					OK:    false,
 					Error: &errInfo,
 					Meta: canvas.Meta{
-						SchemaVersion: "2026-06-12",
+						SchemaVersion: output.SchemaVersion,
 						Command:       "api.get",
 					},
 				}
@@ -333,7 +333,7 @@ func newApiPostCmd() *cobra.Command {
 					OK:    false,
 					Error: &errInfo,
 					Meta: canvas.Meta{
-						SchemaVersion: "2026-06-12",
+						SchemaVersion: output.SchemaVersion,
 						Command:       "api.post",
 					},
 				}
@@ -439,7 +439,7 @@ func newApiPutCmd() *cobra.Command {
 					OK:    false,
 					Error: &errInfo,
 					Meta: canvas.Meta{
-						SchemaVersion: "2026-06-12",
+						SchemaVersion: output.SchemaVersion,
 						Command:       "api.put",
 					},
 				}
@@ -533,7 +533,7 @@ func newApiDeleteCmd() *cobra.Command {
 					OK:    false,
 					Error: &errInfo,
 					Meta: canvas.Meta{
-						SchemaVersion: "2026-06-12",
+						SchemaVersion: output.SchemaVersion,
 						Command:       "api.delete",
 					},
 				}

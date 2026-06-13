@@ -155,18 +155,20 @@ func TestCheck_ReadOnly_BlocksAllWrites(t *testing.T) {
 	}
 }
 
-// --- CANVAS_READ_ONLY=1 env blocks writes ---
+// --- CANVAS_READ_ONLY env var should NOT be read by Policy.Check ---
+// The config layer resolves CANVAS_READ_ONLY into ResolvedConfig.ReadOnly,
+// which is passed to NewPolicy. Policy.Check must not bypass that by
+// reading os.Getenv directly.
 
-func TestCheck_ReadOnlyViaEnvVar(t *testing.T) {
+func TestCheck_EnvVarDoesNotInfluencePolicy(t *testing.T) {
 	t.Setenv("CANVAS_READ_ONLY", "1")
 
-	p := NewPolicy(false, false, true, false) // --confirm but env overrides
-	err := p.Check(HighRiskWrite)
-	if err == nil {
-		t.Fatal("expected error when CANVAS_READ_ONLY=1")
-	}
-	if !errors.Is(err, ErrSafetyBlocked) {
-		t.Errorf("expected ErrSafetyBlocked, got %v", err)
+	// Policy says ReadOnly=false (config decided it's not read-only).
+	// The env var must have NO effect on Check().
+	p := NewPolicy(false, false, true, false)
+	err := p.Check(LowRiskWrite)
+	if err != nil {
+		t.Fatalf("Policy{ReadOnly:false} with --confirm should allow LowRiskWrite even when CANVAS_READ_ONLY=1 is set, got: %v", err)
 	}
 }
 

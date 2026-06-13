@@ -127,16 +127,20 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 
 	retries := prof.Retries
 	if envRetries := os.Getenv("CANVAS_RETRIES"); envRetries != "" {
-		if v, err := strconv.Atoi(envRetries); err == nil {
-			retries = v
+		v, err := strconv.Atoi(envRetries)
+		if err != nil {
+			return nil, fmt.Errorf("invalid CANVAS_RETRIES value %q: %w", envRetries, err)
 		}
+		retries = v
 	}
 
 	pageSize := prof.PageSize
 	if envPageSize := os.Getenv("CANVAS_PAGE_SIZE"); envPageSize != "" {
-		if v, err := strconv.Atoi(envPageSize); err == nil {
-			pageSize = v
+		v, err := strconv.Atoi(envPageSize)
+		if err != nil {
+			return nil, fmt.Errorf("invalid CANVAS_PAGE_SIZE value %q: %w", envPageSize, err)
 		}
+		pageSize = v
 	}
 
 	readOnly := prof.ReadOnly

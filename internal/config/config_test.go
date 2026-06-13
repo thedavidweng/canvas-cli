@@ -509,6 +509,58 @@ profiles:
 	}
 }
 
+// --- Invalid env var values ---
+
+func TestResolve_InvalidCANVAS_RETRIES_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_RETRIES", "abc")
+
+	_, err := Resolve(Options{}, cfg)
+	if err == nil {
+		t.Fatal("expected error for non-integer CANVAS_RETRIES")
+	}
+	if !strings.Contains(err.Error(), "CANVAS_RETRIES") {
+		t.Errorf("error should mention CANVAS_RETRIES, got: %v", err)
+	}
+}
+
+func TestResolve_InvalidCANVAS_PAGE_SIZE_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_PAGE_SIZE", "not-a-number")
+
+	_, err := Resolve(Options{}, cfg)
+	if err == nil {
+		t.Fatal("expected error for non-integer CANVAS_PAGE_SIZE")
+	}
+	if !strings.Contains(err.Error(), "CANVAS_PAGE_SIZE") {
+		t.Errorf("error should mention CANVAS_PAGE_SIZE, got: %v", err)
+	}
+}
+
 // --- Priority: flag > env > file ---
 
 func TestResolve_FullPrecedence(t *testing.T) {

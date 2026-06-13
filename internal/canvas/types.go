@@ -7,6 +7,9 @@ import (
 	"net/url"
 )
 
+// SchemaVersion is the current JSON output contract version.
+const SchemaVersion = "2026-06-12"
+
 // Envelope is the top-level JSON output wrapper.
 type Envelope struct {
 	OK    bool       `json:"ok"`

@@ -14,34 +14,16 @@ func ListPages(ctx context.Context, client *Client, courseID string, query url.V
 		query = url.Values{}
 	}
 
-	var pages []Page
-	meta, err := Request(ctx, client, RequestOptions{
-		Method:     "GET",
-		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/pages", courseID),
-		Query:      query,
-		Paginate:   true,
-		PageSize:   100,
-		DecodeInto: &pages,
-	})
+	pages, meta, err := List[Page](ctx, client, fmt.Sprintf("/api/v1/courses/%s/pages", courseID), query, 100)
 	if err != nil {
-		return nil, meta.Pagination, fmt.Errorf("list pages for course %s: %w", courseID, err)
+		return nil, meta, fmt.Errorf("list pages for course %s: %w", courseID, err)
 	}
 
-	return pages, meta.Pagination, nil
+	return pages, meta, nil
 }
 
 // GetPage returns a single page by its URL slug.
 // It sends GET /api/v1/courses/{courseID}/pages/{pageURL}.
 func GetPage(ctx context.Context, client *Client, courseID, pageURL string) (Page, error) {
-	var page Page
-	_, err := Request(ctx, client, RequestOptions{
-		Method:     "GET",
-		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/pages/%s", courseID, pageURL),
-		DecodeInto: &page,
-	})
-	if err != nil {
-		return page, fmt.Errorf("get page %s in course %s: %w", pageURL, courseID, err)
-	}
-
-	return page, nil
+	return Get[Page](ctx, client, fmt.Sprintf("/api/v1/courses/%s/pages/%s", courseID, pageURL))
 }
