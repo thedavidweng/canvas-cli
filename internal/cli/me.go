@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/output"
 )

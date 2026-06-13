@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
@@ -240,7 +241,6 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 
 			result := &FileDownloadResult{Total: len(files)}
 			var entries []FileManifestEntry
-			var failures []error
 
 			for _, f := range files {
 				entry := FileManifestEntry{
@@ -270,7 +270,6 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 					entry.DownloadStatus = "error"
 					entry.Error = createErr.Error()
 					entries = append(entries, entry)
-					failures = append(failures, createErr)
 					result.Failed++
 					continue
 				}
@@ -281,7 +280,6 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 					entry.DownloadStatus = "error"
 					entry.Error = dlErr.Error()
 					entries = append(entries, entry)
-					failures = append(failures, dlErr)
 					result.Failed++
 					continue
 				}

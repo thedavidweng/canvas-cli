@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
@@ -282,7 +283,7 @@ func newGradeImportCmd() *cobra.Command {
 			if dryRun {
 				var summary strings.Builder
 				for uid, score := range gradeData {
-					summary.WriteString(fmt.Sprintf("  user %s -> %s\n", uid, score))
+					fmt.Fprintf(&summary, "  user %s -> %s\n", uid, score)
 				}
 				preview := safety.FormatPreview(safety.Preview{
 					Method:         "POST",

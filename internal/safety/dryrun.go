@@ -18,10 +18,10 @@ type Preview struct {
 func FormatPreview(p Preview) string {
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("DRY RUN: %s %s\n", p.Method, p.Path))
+	fmt.Fprintf(&b, "DRY RUN: %s %s\n", p.Method, p.Path)
 
 	if len(p.ResourceIDs) > 0 {
-		b.WriteString(fmt.Sprintf("Resource IDs: %s\n", strings.Join(p.ResourceIDs, ", ")))
+		fmt.Fprintf(&b, "Resource IDs: %s\n", strings.Join(p.ResourceIDs, ", "))
 	}
 
 	if p.PayloadSummary != "" {
@@ -30,7 +30,7 @@ func FormatPreview(p Preview) string {
 		if len(summary) > maxLen {
 			summary = summary[:maxLen] + "... (truncated)"
 		}
-		b.WriteString(fmt.Sprintf("Payload: %s\n", summary))
+		fmt.Fprintf(&b, "Payload: %s\n", summary)
 	}
 
 	b.WriteString("No mutation sent.")

@@ -12,8 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"gopkg.in/yaml.v3"
+
+	"github.com/thedavidweng/canvas-cli/internal/canvas"
 )
 
 // Options holds explicit flag values that override everything else.

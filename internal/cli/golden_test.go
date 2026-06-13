@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
@@ -729,9 +730,9 @@ func TestGolden_TokenNotInStdout(t *testing.T) {
 		args    []string
 		flags   map[string]string
 	}{
-		{"me get", func() *cobra.Command { return newMeGetCmd() }, nil, map[string]string{"json": "true"}},
-		{"courses list", func() *cobra.Command { return newCoursesListCmd() }, nil, map[string]string{"json": "true"}},
-		{"api get", func() *cobra.Command { return newApiGetCmd() }, []string{"/api/v1/courses"}, map[string]string{"json": "true"}},
+		{"me get", newMeGetCmd, nil, map[string]string{"json": "true"}},
+		{"courses list", newCoursesListCmd, nil, map[string]string{"json": "true"}},
+		{"api get", newApiGetCmd, []string{"/api/v1/courses"}, map[string]string{"json": "true"}},
 	}
 
 	for _, tc := range commands {

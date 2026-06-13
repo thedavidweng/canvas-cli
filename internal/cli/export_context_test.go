@@ -385,7 +385,7 @@ func TestExportContext_NetworkError(t *testing.T) {
 		t.Fatalf("ExportContext should not fail on network error (should warn): %v", err)
 	}
 
-	if result.ExportMeta.SectionsFailed == nil || len(result.ExportMeta.SectionsFailed) == 0 {
+	if len(result.ExportMeta.SectionsFailed) == 0 {
 		t.Error("expected section to fail on network error")
 	}
 

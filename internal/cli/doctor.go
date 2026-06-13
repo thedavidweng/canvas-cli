@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
@@ -44,7 +45,7 @@ func newDoctorCmd() *cobra.Command {
 				}
 			}
 
-			var checks []DoctorCheck
+			checks := make([]DoctorCheck, 0, 7)
 
 			// 1. Config file check
 			checks = append(checks, checkConfigFile())

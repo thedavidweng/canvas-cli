@@ -11,10 +11,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
-	"gopkg.in/yaml.v3"
 )
 
 // NewAuthCmd returns the `auth` parent command with all subcommands.
@@ -163,16 +164,17 @@ Do NOT use --token flag to avoid tokens in shell history.`,
 
 			// Read token
 			var token string
-			if tokenStdin {
+			switch {
+			case tokenStdin:
 				reader := bufio.NewReader(cmd.InOrStdin())
 				line, err := reader.ReadString('\n')
 				if err != nil && err != io.EOF {
 					return fmt.Errorf("failed to read token from stdin: %w", err)
 				}
 				token = strings.TrimSpace(line)
-			} else if tokenEnv != "" {
+			case tokenEnv != "":
 				token = "env:" + tokenEnv
-			} else {
+			default:
 				return fmt.Errorf("must specify --token-stdin or --token-env")
 			}
 

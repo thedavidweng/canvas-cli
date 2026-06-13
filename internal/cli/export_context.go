@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/output"
 )
@@ -109,26 +110,6 @@ func filterSince(items []any, since time.Time) []any {
 	return filtered
 }
 
-// filterSinceSingle checks if a single item passes the --since filter.
-func filterSinceSingle(item map[string]any, since time.Time) bool {
-	if since.IsZero() {
-		return true
-	}
-	updatedAt, exists := item["updated_at"]
-	if !exists {
-		return true
-	}
-	dateStr, ok := updatedAt.(string)
-	if !ok {
-		return true
-	}
-	t, err := time.Parse(time.RFC3339, dateStr)
-	if err != nil {
-		return true
-	}
-	return !t.Before(since)
-}
-
 // fetchListRaw fetches a paginated list endpoint and returns raw []map[string]any.
 // This preserves all fields from the Canvas API response.
 func fetchListRaw(ctx context.Context, client *canvas.Client, path string, query url.Values, pageSize int) ([]map[string]any, int, error) {
@@ -217,7 +198,7 @@ func fetchSingleRaw(ctx context.Context, client *canvas.Client, path string, que
 // classifyStatusCode returns an authError for 401, or a generic error.
 func classifyStatusCode(status int) error {
 	if status == 401 {
-		return &authError{msg: fmt.Sprintf("API error: status 401")}
+		return &authError{msg: "API error: status 401"}
 	}
 	return fmt.Errorf("API error: status %d", status)
 }
