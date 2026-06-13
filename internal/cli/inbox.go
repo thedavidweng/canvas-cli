@@ -37,7 +37,7 @@ func newInboxListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			conversations, _, err := canvas.ListConversations(cmd.Context(), client, canvas.RequestOptions{PageSize: 100})
 			if err != nil {
@@ -85,7 +85,7 @@ func newInboxGetCmd() *cobra.Command {
 
 			conversationID := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			conversation, err := canvas.GetConversation(cmd.Context(), client, conversationID)
 			if err != nil {
@@ -165,7 +165,7 @@ func newInboxSendCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			conversation, err := canvas.SendMessage(cmd.Context(), client, []string{to}, subject, body)
 			if err != nil {
 				return err
@@ -219,7 +219,7 @@ func newInboxReplyCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			_, err := canvas.ReplyToConversation(cmd.Context(), client, conversationID, body)
 			if err != nil {
 				return err
@@ -266,7 +266,7 @@ func newInboxArchiveCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			if err := canvas.ArchiveConversation(cmd.Context(), client, conversationID); err != nil {
 				return err
 			}

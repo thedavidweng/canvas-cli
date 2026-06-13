@@ -38,7 +38,7 @@ func newRubricsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			rubrics, err := canvas.ListRubrics(cmd.Context(), client, courseID)
 			if err != nil {

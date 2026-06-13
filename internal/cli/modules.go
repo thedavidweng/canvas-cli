@@ -45,7 +45,7 @@ func newModulesListCmd() *cobra.Command {
 				return fmt.Errorf("--course is required")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			modules, _, err := canvas.ListModules(cmd.Context(), client, courseID, url.Values{})
 			if err != nil {
 				if jsonMode {
@@ -107,7 +107,7 @@ func newModulesGetCmd() *cobra.Command {
 			}
 			moduleID := args[0]
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			mod, err := canvas.GetModule(cmd.Context(), client, courseID, moduleID)
 			if err != nil {
 				if jsonMode {
@@ -164,7 +164,7 @@ func newModulesItemsCmd() *cobra.Command {
 				return fmt.Errorf("--module is required")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			items, _, err := canvas.ListModuleItems(cmd.Context(), client, courseID, moduleID, url.Values{})
 			if err != nil {
 				if jsonMode {
@@ -225,7 +225,7 @@ func newModulesItemCmd() *cobra.Command {
 			}
 			itemID := args[0]
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			item, err := canvas.GetModuleItem(cmd.Context(), client, courseID, moduleID, itemID)
 			if err != nil {
 				if jsonMode {
@@ -335,7 +335,7 @@ func runModulePublish(cmd *cobra.Command, args []string, published bool) error {
 		return nil
 	}
 
-	client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+	client := newClientFromCfg(cfg)
 	_, err := canvas.PublishModule(cmd.Context(), client, courseID, moduleID, published)
 	if err != nil {
 		return err

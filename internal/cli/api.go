@@ -70,7 +70,7 @@ func newApiGetCmd() *cobra.Command {
 				}
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			if paginate {
 				return handlePaginatedRequest(cmd, client, path, query, pageSize, limit, cfg, jsonMode, rawMode)
@@ -98,7 +98,7 @@ func newApiGetCmd() *cobra.Command {
 
 			if resp.StatusCode >= 400 {
 				// Create error from the already-read body
-				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,
@@ -263,7 +263,7 @@ func newApiPostCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			resp, err := client.Do(cmd.Context(), "POST", path, nil, bytes.NewReader(payload))
 			if err != nil {
 				if jsonMode {
@@ -286,7 +286,7 @@ func newApiPostCmd() *cobra.Command {
 			writeAudit(cfg, "api.post", "POST", path, string(payload), false)
 
 			if resp.StatusCode >= 400 {
-				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,
@@ -369,7 +369,7 @@ func newApiPutCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			resp, err := client.Do(cmd.Context(), "PUT", path, nil, bytes.NewReader(payload))
 			if err != nil {
 				if jsonMode {
@@ -392,7 +392,7 @@ func newApiPutCmd() *cobra.Command {
 			writeAudit(cfg, "api.put", "PUT", path, string(payload), false)
 
 			if resp.StatusCode >= 400 {
-				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,
@@ -463,7 +463,7 @@ func newApiDeleteCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			resp, err := client.Do(cmd.Context(), "DELETE", path, nil, nil)
 			if err != nil {
 				if jsonMode {
@@ -486,7 +486,7 @@ func newApiDeleteCmd() *cobra.Command {
 			writeAudit(cfg, "api.delete", "DELETE", path, "", false)
 
 			if resp.StatusCode >= 400 {
-				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,

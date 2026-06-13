@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -143,5 +144,331 @@ func TestNormalizeErrorGenericCode(t *testing.T) {
 	}
 	if env.Error.Category != "api" {
 		t.Errorf("Category = %q, want %q", env.Error.Category, "api")
+	}
+}
+
+// --- Cookie session expiry tests ---
+
+func TestIsCookieSessionExpiredErr(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "nil error",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "cookie session expired error",
+			err:  &CookieSessionExpiredError{Location: "https://school.instructure.com/login"},
+			want: true,
+		},
+		{
+			name: "other error",
+			err:  fmt.Errorf("some other error"),
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isCookieSessionExpiredErr(tt.err); got != tt.want {
+				t.Errorf("isCookieSessionExpiredErr() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCookieSessionExpiredError_Error(t *testing.T) {
+	err := &CookieSessionExpiredError{Location: "https://school.instructure.com/login"}
+	msg := err.Error()
+	if !strings.Contains(msg, "session expired") {
+		t.Errorf("error message should contain 'session expired', got: %s", msg)
+	}
+	if !strings.Contains(msg, "/login") {
+		t.Errorf("error message should contain location, got: %s", msg)
+	}
+}
+
+func TestClassifyRedirect_AuthRedirects(t *testing.T) {
+	tests := []struct {
+		name     string
+		location string
+		isAuth   bool
+	}{
+		{"login path", "https://school.instructure.com/login", true},
+		{"logout path", "https://school.instructure.com/logout", true},
+		{"saml path", "https://school.instructure.com/saml/sso", true},
+		{"cas path", "https://school.instructure.com/cas/login", true},
+		{"shibboleth path", "https://school.instructure.com/Shibboleth.sso/Login", true},
+		{"idp path", "https://school.instructure.com/idp/SSO", true},
+		{"shibboleth host", "https://shibboleth.school.edu/sso", true},
+		{"cas host", "https://cas.school.edu/login", true},
+		{"regular API path", "https://school.instructure.com/api/v1/courses", false},
+		{"homepage", "https://school.instructure.com/", false},
+		{"dashboard", "https://school.instructure.com/dashboard", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isAuthRedirect(tt.location)
+			if got != tt.isAuth {
+				t.Errorf("isAuthRedirect(%q) = %v, want %v", tt.location, got, tt.isAuth)
+			}
+		})
+	}
+}
+
+func TestIsCookieSessionExpired(t *testing.T) {
+	tests := []struct {
+		name       string
+		status     int
+		body       string
+		headers    map[string]string
+		baseURL    string
+		reqHeaders map[string]string
+		want       bool
+	}{
+		// 401 is always expired.
+		{
+			name:   "401 unauthorized",
+			status: 401,
+			body:   `{"message":"Unauthorized"}`,
+			want:   true,
+		},
+		{
+			name:   "401 empty body",
+			status: 401,
+			body:   "",
+			want:   true,
+		},
+		// 403 with auth signals.
+		{
+			name:   "403 with csrf in body",
+			status: 403,
+			body:   "<html>CSRF token mismatch</html>",
+			want:   true,
+		},
+		{
+			name:   "403 with session in body",
+			status: 403,
+			body:   "<html>Session expired</html>",
+			want:   true,
+		},
+		{
+			name:   "403 with authenticity in body",
+			status: 403,
+			body:   "<html>Invalid authenticity token</html>",
+			want:   true,
+		},
+		{
+			name:   "403 without auth signal",
+			status: 403,
+			body:   `{"message":"Forbidden"}`,
+			want:   false,
+		},
+		// 302/303 redirects.
+		{
+			name:    "302 to login",
+			status:  302,
+			headers: map[string]string{"Location": "https://school.instructure.com/login"},
+			baseURL: "https://school.instructure.com",
+			want:    true,
+		},
+		{
+			name:    "303 to logout",
+			status:  303,
+			headers: map[string]string{"Location": "https://school.instructure.com/logout"},
+			baseURL: "https://school.instructure.com",
+			want:    true,
+		},
+		{
+			name:    "302 to saml",
+			status:  302,
+			headers: map[string]string{"Location": "https://school.instructure.com/saml/sso"},
+			baseURL: "https://school.instructure.com",
+			want:    true,
+		},
+		{
+			name:    "302 to shibboleth host",
+			status:  302,
+			headers: map[string]string{"Location": "https://shibboleth.school.edu/sso"},
+			baseURL: "https://school.instructure.com",
+			want:    true,
+		},
+		{
+			name:    "302 to cas host",
+			status:  302,
+			headers: map[string]string{"Location": "https://cas.school.edu/login"},
+			baseURL: "https://school.instructure.com",
+			want:    true,
+		},
+		{
+			name:    "302 external host with auth prefix",
+			status:  302,
+			headers: map[string]string{"Location": "https://idp.school.edu/sso/saml"},
+			baseURL: "https://school.instructure.com",
+			want:    true,
+		},
+		{
+			name:    "302 same host non-auth path",
+			status:  302,
+			headers: map[string]string{"Location": "https://school.instructure.com/dashboard"},
+			baseURL: "https://school.instructure.com",
+			want:    false,
+		},
+		{
+			name:    "302 external host non-auth path",
+			status:  302,
+			headers: map[string]string{"Location": "https://other.example.com/dashboard"},
+			baseURL: "https://school.instructure.com",
+			want:    false,
+		},
+		{
+			name:    "302 missing location header",
+			status:  302,
+			baseURL: "https://school.instructure.com",
+			want:    false,
+		},
+		// 200 with HTML login page.
+		{
+			name:       "200 html login page with json accept",
+			status:     200,
+			body:       "<html><login page></html>",
+			headers:    map[string]string{"Content-Type": "text/html"},
+			baseURL:    "https://school.instructure.com",
+			reqHeaders: map[string]string{"Accept": "application/json"},
+			want:       true,
+		},
+		{
+			name:       "200 html with canvas json accept",
+			status:     200,
+			body:       "<html><login page></html>",
+			headers:    map[string]string{"Content-Type": "text/html"},
+			baseURL:    "https://school.instructure.com",
+			reqHeaders: map[string]string{"Accept": "application/json+canvas-string-ids"},
+			want:       true,
+		},
+		{
+			name:       "200 html without json accept",
+			status:     200,
+			body:       "<html>Some page</html>",
+			headers:    map[string]string{"Content-Type": "text/html"},
+			baseURL:    "https://school.instructure.com",
+			reqHeaders: map[string]string{"Accept": "text/html"},
+			want:       false,
+		},
+		{
+			name:    "200 html no request object",
+			status:  200,
+			body:    "<html>Some page</html>",
+			headers: map[string]string{"Content-Type": "text/html"},
+			baseURL: "https://school.instructure.com",
+			want:    false,
+		},
+		// 200 JSON success.
+		{
+			name:    "200 json success",
+			status:  200,
+			body:    `{"id":1,"name":"Course"}`,
+			headers: map[string]string{"Content-Type": "application/json"},
+			baseURL: "https://school.instructure.com",
+			want:    false,
+		},
+		{
+			name:    "200 canvas json success",
+			status:  200,
+			body:    `{"id":"1","name":"Course"}`,
+			headers: map[string]string{"Content-Type": "application/json+canvas-string-ids"},
+			baseURL: "https://school.instructure.com",
+			want:    false,
+		},
+		// 404 is not auth failure.
+		{
+			name:   "404 not found",
+			status: 404,
+			body:   `{"message":"Not Found"}`,
+			want:   false,
+		},
+		// Body CSRF error (catch-all).
+		{
+			name:    "200 text with authenticity token in body",
+			status:  200,
+			body:    "<html> authenticity token mismatch</html>",
+			headers: map[string]string{"Content-Type": "text/plain"},
+			want:    true,
+		},
+		{
+			name:   "500 with csrf in body",
+			status: 500,
+			body:   "<html>CSRF token invalid</html>",
+			want:   true,
+		},
+		// Normal server error without CSRF.
+		{
+			name:   "500 server error without csrf",
+			status: 500,
+			body:   `{"message":"Internal Server Error"}`,
+			want:   false,
+		},
+		// Normal 200 with text/plain (no CSRF in body).
+		{
+			name:    "200 text plain no csrf",
+			status:  200,
+			body:    "OK",
+			headers: map[string]string{"Content-Type": "text/plain"},
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := http.Header{}
+			for k, v := range tt.headers {
+				h.Set(k, v)
+			}
+			resp := &http.Response{
+				StatusCode: tt.status,
+				Header:     h,
+				Body:       io.NopCloser(strings.NewReader(tt.body)),
+			}
+			if tt.reqHeaders != nil {
+				req, _ := http.NewRequest("GET", "https://example.com", nil)
+				for k, v := range tt.reqHeaders {
+					req.Header.Set(k, v)
+				}
+				resp.Request = req
+			}
+			got := IsCookieSessionExpired(resp, []byte(tt.body), tt.baseURL)
+			if got != tt.want {
+				t.Errorf("IsCookieSessionExpired() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHostMatches(t *testing.T) {
+	tests := []struct {
+		name     string
+		baseURL  string
+		location string
+		want     bool
+	}{
+		{"same host", "https://school.instructure.com", "https://school.instructure.com/login", true},
+		{"different host", "https://school.instructure.com", "https://idp.school.edu/sso", false},
+		{"same host with port", "https://school.instructure.com:8080", "https://school.instructure.com:8080/api", true},
+		{"different port", "https://school.instructure.com:8080", "https://school.instructure.com:9090/api", false},
+		{"case insensitive", "https://School.Instructure.Com", "https://school.instructure.com/login", true},
+		{"empty base", "", "https://school.instructure.com/login", false},
+		{"empty location", "https://school.instructure.com", "", false},
+		{"both empty", "", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hostMatches(tt.baseURL, tt.location)
+			if got != tt.want {
+				t.Errorf("hostMatches(%q, %q) = %v, want %v", tt.baseURL, tt.location, got, tt.want)
+			}
+		})
 	}
 }

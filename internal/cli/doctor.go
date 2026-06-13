@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -40,7 +41,7 @@ func NewDoctorCmd() *cobra.Command {
 				}
 			}
 
-			checks := make([]DoctorCheck, 0, 6)
+			checks := make([]DoctorCheck, 0, 7)
 
 			// 1. Config file check
 			checks = append(checks, checkConfigFile())
@@ -50,6 +51,9 @@ func NewDoctorCmd() *cobra.Command {
 
 			// 3. Token present check
 			checks = append(checks, checkTokenPresent(cfg))
+
+			// 3.5. Session cookie check
+			checks = append(checks, checkSessionCookie(cfg))
 
 			// 4. Base URL check
 			checks = append(checks, checkBaseURL(cfg))
@@ -152,16 +156,45 @@ func checkConfigPermissions() DoctorCheck {
 
 func checkTokenPresent(cfg *config.ResolvedConfig) DoctorCheck {
 	if cfg == nil || cfg.Token == "" {
+		if cfg != nil && cfg.Cookie != "" {
+			return DoctorCheck{
+				Check:   "token_present",
+				Status:  "warn",
+				Message: "using experimental cookie auth (no token)",
+			}
+		}
 		return DoctorCheck{
 			Check:   "token_present",
 			Status:  "fail",
-			Message: "no token configured",
+			Message: "no token or cookie configured",
 		}
 	}
 	return DoctorCheck{
 		Check:   "token_present",
 		Status:  "pass",
 		Message: "token is present",
+	}
+}
+
+func checkSessionCookie(cfg *config.ResolvedConfig) DoctorCheck {
+	if cfg == nil || cfg.Cookie == "" {
+		return DoctorCheck{
+			Check:   "session_cookie",
+			Status:  "pass",
+			Message: "no session cookie configured (using token auth)",
+		}
+	}
+	if strings.TrimSpace(cfg.Cookie) == "" {
+		return DoctorCheck{
+			Check:   "session_cookie",
+			Status:  "warn",
+			Message: "cookie configured but may be expired",
+		}
+	}
+	return DoctorCheck{
+		Check:   "session_cookie",
+		Status:  "pass",
+		Message: "session cookie configured",
 	}
 }
 
@@ -203,15 +236,18 @@ func checkBaseURL(cfg *config.ResolvedConfig) DoctorCheck {
 }
 
 func checkAPIAndToken(cfg *config.ResolvedConfig, timeout time.Duration) DoctorCheck {
-	if cfg == nil || cfg.BaseURL == "" || cfg.Token == "" {
+	if cfg == nil || cfg.BaseURL == "" || (cfg.Token == "" && cfg.Cookie == "") {
 		return DoctorCheck{
 			Check:   "api_and_token",
 			Status:  "fail",
-			Message: "skipped (missing base URL or token)",
+			Message: "skipped (missing base URL, token, or cookie)",
 		}
 	}
 
 	client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", timeout, 0)
+	if cfg.Token == "" && cfg.Cookie != "" {
+		client.WithCookie(cfg.Cookie, cfg.CSRFToken)
+	}
 	ctx := context.Background()
 	resp, err := client.Do(ctx, "GET", "/api/v1/users/self", nil, nil)
 	if err != nil {

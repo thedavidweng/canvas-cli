@@ -96,7 +96,7 @@ func newSubmissionsListCmd() *cobra.Command {
 				return fmt.Errorf("--assignment is required")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			submissions, _, err := canvas.ListSubmissions(cmd.Context(), client, courseID, assignmentID, canvas.RequestOptions{})
 			if err != nil {
 				if jsonMode {
@@ -169,7 +169,7 @@ func newSubmissionsGetCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			sub, err := canvas.GetSubmission(cmd.Context(), client, courseID, assignmentID, userID)
 			if err != nil {
@@ -245,7 +245,7 @@ func newSubmissionsDownloadCmd() *cobra.Command {
 				return fmt.Errorf("--out is required")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			result, err := DownloadSubmissions(cmd.Context(), client, courseID, assignmentID, outDir, DownloadOptions{
 				NoOverwrite: noOverwrite,
 			})
@@ -339,7 +339,7 @@ func newSubmissionsCommentCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			sub, err := canvas.AddComment(cmd.Context(), client, courseID, assignmentID, userID, comment)
 			if err != nil {
 				if jsonMode {

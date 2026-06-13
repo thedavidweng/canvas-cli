@@ -46,7 +46,7 @@ func newUsersListCmd() *cobra.Command {
 				query.Set("enrollment_type[]", enrollmentType)
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			users, _, err := canvas.ListUsers(cmd.Context(), client, courseID, canvas.RequestOptions{
 				Query: query,

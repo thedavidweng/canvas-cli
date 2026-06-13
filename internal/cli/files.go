@@ -46,7 +46,7 @@ func newFilesListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			files, _, err := canvas.ListFiles(cmd.Context(), client, courseID, nil)
 			if err != nil {
@@ -95,7 +95,7 @@ func newFilesGetCmd() *cobra.Command {
 
 			fileID := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			file, err := canvas.GetFile(cmd.Context(), client, fileID)
 			if err != nil {
@@ -160,7 +160,7 @@ func newFilesDownloadCmd() *cobra.Command {
 				}
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			f, err := os.Create(outPath)
 			if err != nil {
@@ -223,7 +223,7 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 			noOverwrite, _ := cmd.Flags().GetBool("no-overwrite")
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			// List all files for the course
 			files, _, err := canvas.ListFiles(cmd.Context(), client, courseID, nil)
@@ -392,7 +392,7 @@ func newFilesUploadCmd() *cobra.Command {
 				return fmt.Errorf("read file %s: %w", filePath, err)
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			// Upload via 3-step flow
 			fileID, err := canvas.UploadFile(cmd.Context(), client, courseID, filePath, content)

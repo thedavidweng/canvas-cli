@@ -38,7 +38,7 @@ func newEnrollmentsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			enrollments, _, err := canvas.ListEnrollments(cmd.Context(), client, courseID, canvas.RequestOptions{})
 			if err != nil {

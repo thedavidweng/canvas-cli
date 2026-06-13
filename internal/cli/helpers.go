@@ -23,7 +23,28 @@ func getClientFromContext(ctx context.Context) (*canvas.Client, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("no config loaded")
 	}
-	return canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries), nil
+	return newClientFromCfg(cfg), nil
+}
+
+// newClientFromCfg creates a canvas client from a resolved config, applying
+// cookie auth when token is absent.
+func newClientFromCfg(cfg *config.ResolvedConfig) *canvas.Client {
+	client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+	if cfg.Token == "" && cfg.Cookie != "" {
+		client.WithCookie(cfg.Cookie, cfg.CSRFToken)
+	}
+	return client
+}
+
+// cookieAuthBaseURL returns cfg.BaseURL as a variadic string slice when cookie
+// auth is active (token absent, cookie present). Returns nil otherwise.
+// Use this to pass baseURL to NormalizeError/NormalizeErrorFromBody only when
+// cookie session expiry detection should apply.
+func cookieAuthBaseURL(cfg *config.ResolvedConfig) []string {
+	if cfg.Token == "" && cfg.Cookie != "" {
+		return []string{cfg.BaseURL}
+	}
+	return nil
 }
 
 // isJSONMode checks the --json flag on the command.
