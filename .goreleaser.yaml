@@ -103,7 +103,7 @@ sboms:
     documents:
       - "${artifact}.sbom.json"
 
-brews:
+homebrew:
   - name: canvas
     repository:
       owner: thedavidweng
