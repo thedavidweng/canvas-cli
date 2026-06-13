@@ -1,0 +1,34 @@
+# Binaries
+bin/
+dist/
+canvas
+
+# Go workspace
+go.work
+go.work.sum
+
+# Test and coverage
+coverage.out
+*.prof
+*.cpu
+*.mem
+*.test
+
+# OS
+.DS_Store
+__MACOSX
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tools
+.claude/
+
+# Configs and logs
+config.yaml
+audit.jsonl
+*.log
+.env

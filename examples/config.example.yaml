@@ -1,0 +1,18 @@
+current_profile: default
+
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: env:CANVAS_TOKEN
+    timeout: 30s
+    retries: 3
+    page_size: 100
+    read_only: false
+
+output:
+  json_pretty: false
+  no_color: false
+
+audit:
+  enabled: true
+  path: ~/.local/state/canvas-cli/audit.jsonl
