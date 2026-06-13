@@ -24,18 +24,70 @@ go install github.com/thedavidweng/canvas-cli/cmd/canvas@latest
 
 ## Getting Started
 
-### 1. Authenticate
+### 1. Get your Canvas access token
+
+1. Open your Canvas instance in a browser (e.g. `https://school.instructure.com`)
+2. Click **Account** -> **Settings**
+3. Under **Approved Integrations**, click **+ New Access Token**
+4. Give it a name (e.g. `canvas-cli`) and click **Generate Token**
+5. Copy the token — you won't see it again
+
+### 2. Log in
 
 ```bash
-# Pass token via stdin (recommended — avoids shell history leaks)
+canvas auth login
+```
+
+The CLI will walk you through it:
+
+```
+Profile name (default): school
+Canvas Instance URL (e.g. https://school.instructure.com): https://school.instructure.com
+Generate an access token at: https://school.instructure.com/profile/settings
+  Account -> Settings -> Approved Integrations -> New Access Token
+
+Access Token: ********
+Verifying credentials...
+
+Authenticated as: Jane Doe (jane@school.edu)
+
+Credentials saved to profile "school" in ~/.config/canvas-cli/config.yaml
+```
+
+For scripting, use flags instead:
+
+```bash
+# From stdin (safe — no shell history leak)
 echo "YOUR_TOKEN" | canvas auth login --base-url https://school.instructure.com --token-stdin
 
-# Or via environment variable
+# From environment variable
 export CANVAS_TOKEN="YOUR_TOKEN"
 canvas auth login --base-url https://school.instructure.com --token-env CANVAS_TOKEN
 ```
 
-### 2. Explore your courses
+### Multiple accounts
+
+Use `--profile` to manage multiple institutions or users:
+
+```bash
+# Set up two schools
+canvas auth login --profile school1 --base-url https://school1.instructure.com
+canvas auth login --profile school2 --base-url https://school2.instructure.com
+
+# Switch default profile
+canvas auth use school1
+
+# Or use a specific profile inline
+canvas --profile school2 courses list
+
+# Or via environment variable
+CANVAS_PROFILE=school2 canvas courses list
+
+# List all profiles
+canvas auth profiles
+```
+
+### 3. Explore your courses
 
 ```bash
 canvas courses list
@@ -44,7 +96,7 @@ canvas assignments list --course 123
 canvas files list --course 123
 ```
 
-### 3. Export course context for agents
+### 4. Export course context for agents
 
 ```bash
 canvas courses export-context --course 123 --out course-context.json

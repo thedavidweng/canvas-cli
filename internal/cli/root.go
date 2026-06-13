@@ -71,11 +71,6 @@ func NewRootCmd(version string) *cobra.Command {
 
 	// PersistentPreRunE: resolve config from flags + env + file.
 	cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
-		// Commands that do not require a fully resolved config.
-		if commandSkipsFullConfig(c) {
-			return nil
-		}
-
 		configPath, _ := c.Flags().GetString("config")
 		profileName, _ := c.Flags().GetString("profile")
 		baseURLFlag, _ := c.Flags().GetString("base-url")
@@ -97,7 +92,17 @@ func NewRootCmd(version string) *cobra.Command {
 
 		resolved, err := config.Resolve(opts, cfg)
 		if err != nil {
-			return fmt.Errorf("config error: %w", err)
+			// Commands that tolerate missing config get a best-effort resolution.
+			if commandSkipsFullConfig(c) {
+				resolved = &config.ResolvedConfig{
+					Profile: cfg.CurrentProfile,
+				}
+				if baseURLFlag != "" {
+					resolved.BaseURL = baseURLFlag
+				}
+			} else {
+				return fmt.Errorf("config error: %w\n\nRun `canvas auth login` to set up credentials.", err)
+			}
 		}
 
 		// Merge global flags into the resolved config.
@@ -254,6 +259,7 @@ func commandSkipsFullConfig(cmd *cobra.Command) bool {
 		"canvas completion",
 		"canvas auth login",
 		"canvas auth logout",
+		"canvas auth status",
 		"canvas auth profiles",
 		"canvas auth use",
 		"canvas doctor":

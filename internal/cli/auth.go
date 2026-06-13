@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -149,20 +150,66 @@ func newAuthLoginCmd() *cobra.Command {
 		Short: "Save authentication credentials",
 		Long: `Save Canvas API credentials to the config file.
 
-Use --token-stdin to read the token from stdin (safe for scripting).
-Use --token-env to reference an environment variable name.
-Do NOT use --token flag to avoid tokens in shell history.`,
+When run without flags, enters interactive mode:
+  1. Prompts for your Canvas instance URL
+  2. Shows where to generate an access token
+  3. Prompts for the access token (input is masked)
+  4. Validates the token by calling the API
+  5. Saves credentials to the config file
+
+Supports multiple profiles for multiple institutions or users:
+
+  canvas auth login --profile school1 --base-url https://school1.instructure.com
+  canvas auth login --profile school2 --base-url https://school2.instructure.com
+  canvas auth use school1   # switch between them
+  canvas --profile school2 courses list   # or use inline`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseURL, _ := cmd.Flags().GetString("base-url")
 			tokenStdin, _ := cmd.Flags().GetBool("token-stdin")
 			tokenEnv, _ := cmd.Flags().GetString("token-env")
 			configPath, _ := cmd.Flags().GetString("config")
+			profileFlag, _ := cmd.Flags().GetString("profile")
 
 			if configPath == "" {
 				configPath = config.ConfigPath()
 			}
 
-			// Read token
+			hasTokenFlag := tokenStdin || tokenEnv != ""
+			interactive := !hasTokenFlag && baseURL == "" && isTerminal(cmd.InOrStdin())
+
+			w := cmd.OutOrStdout()
+
+			// --- Get profile name (interactive only, if --profile not given) ---
+			if interactive && profileFlag == "" {
+				input := promptLine(w, "Profile name (default): ")
+				if input != "" {
+					profileFlag = input
+				}
+			}
+
+			// --- Get base URL ---
+			if baseURL == "" {
+				if interactive {
+					baseURL = promptLine(w, "Canvas Instance URL (e.g. https://school.instructure.com): ")
+					if baseURL == "" {
+						return fmt.Errorf("base URL is required")
+					}
+				} else {
+					cfg := GetConfig(cmd.Context())
+					if cfg != nil {
+						baseURL = cfg.BaseURL
+					}
+					if baseURL == "" {
+						return fmt.Errorf("--base-url is required")
+					}
+				}
+			}
+
+			// Normalize base URL early so we can use it in the help message.
+			baseURL = strings.TrimRight(baseURL, "/")
+			baseURL = strings.TrimSuffix(baseURL, "/api/v1")
+
+			// --- Read token ---
 			var token string
 			switch {
 			case tokenStdin:
@@ -174,25 +221,18 @@ Do NOT use --token flag to avoid tokens in shell history.`,
 				token = strings.TrimSpace(line)
 			case tokenEnv != "":
 				token = "env:" + tokenEnv
+			case interactive:
+				fmt.Fprintf(w, "Generate an access token at: %s/profile/settings\n", baseURL)
+				fmt.Fprintf(w, "  Account -> Settings -> Approved Integrations -> New Access Token\n\n")
+				token = promptLine(w, "Access Token: ")
+				if token == "" {
+					return fmt.Errorf("access token is required")
+				}
 			default:
 				return fmt.Errorf("must specify --token-stdin or --token-env")
 			}
 
-			if baseURL == "" {
-				cfg := GetConfig(cmd.Context())
-				if cfg != nil {
-					baseURL = cfg.BaseURL
-				}
-				if baseURL == "" {
-					return fmt.Errorf("--base-url is required")
-				}
-			}
-
-			// Normalize base URL
-			baseURL = strings.TrimRight(baseURL, "/")
-			baseURL = strings.TrimSuffix(baseURL, "/api/v1")
-
-			// Load or create config
+			// --- Load or create config ---
 			existingCfg, _ := config.LoadConfig(configPath, "")
 			if existingCfg == nil {
 				existingCfg = &canvas.Config{
@@ -201,24 +241,60 @@ Do NOT use --token flag to avoid tokens in shell history.`,
 				}
 			}
 
-			profileName := existingCfg.CurrentProfile
+			// Determine profile name: --profile flag > current profile > "default".
+			profileName := profileFlag
+			if profileName == "" {
+				profileName = existingCfg.CurrentProfile
+			}
 			if profileName == "" {
 				profileName = "default"
-				existingCfg.CurrentProfile = profileName
 			}
 
 			prof := existingCfg.Profiles[profileName]
 			prof.BaseURL = baseURL
 			prof.Token = token
 			existingCfg.Profiles[profileName] = prof
+			existingCfg.CurrentProfile = profileName
 
-			// Write config
+			// --- Write config ---
 			if err := writeConfigFile(configPath, existingCfg); err != nil {
 				return fmt.Errorf("failed to write config: %w", err)
 			}
 
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Credentials saved to profile %q in %s\n", profileName, configPath)
+			// --- Validate token ---
+			resolvedToken := token
+			if strings.HasPrefix(token, "env:") {
+				resolvedToken = os.Getenv(strings.TrimPrefix(token, "env:"))
+			}
+
+			if resolvedToken != "" {
+				fmt.Fprintf(w, "Verifying credentials...\n")
+				client := canvas.NewClient(baseURL, resolvedToken, "dev", 10*time.Second, 0)
+				resp, err := client.Do(cmd.Context(), "GET", "/api/v1/users/self", nil, nil)
+				if err != nil {
+					fmt.Fprintf(w, "\nWarning: could not verify token (saved anyway): %v\n", err)
+					fmt.Fprintf(w, "  Check your base URL: %s\n", baseURL)
+					return nil
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != 200 {
+					fmt.Fprintf(w, "\nWarning: token verification failed (status %d) — saved anyway\n", resp.StatusCode)
+					fmt.Fprintf(w, "  Run `canvas auth test` after fixing your token\n")
+					return nil
+				}
+
+				var user canvas.User
+				if err := json.NewDecoder(resp.Body).Decode(&user); err == nil {
+					fmt.Fprintf(w, "\nAuthenticated as: %s", user.Name)
+					if user.LoginID != "" {
+						fmt.Fprintf(w, " (%s)", user.LoginID)
+					}
+					fmt.Fprintln(w)
+				}
+			}
+
+			fmt.Fprintf(w, "\nCredentials saved to profile %q in %s\n", profileName, configPath)
 			return nil
 		},
 	}
@@ -227,6 +303,7 @@ Do NOT use --token flag to avoid tokens in shell history.`,
 	cmd.Flags().Bool("token-stdin", false, "read token from stdin")
 	cmd.Flags().String("token-env", "", "name of environment variable containing token")
 	cmd.Flags().String("config", "", "config file path")
+	cmd.Flags().String("profile", "", "profile name (for multi-account setups)")
 
 	return cmd
 }
@@ -381,6 +458,28 @@ func writeConfigFile(path string, cfg *canvas.Config) error {
 	}
 
 	return nil
+}
+
+// isTerminal reports whether r is connected to a terminal.
+func isTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	if !ok {
+		return false	}
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+// promptLine prints a prompt to w, reads a line from stdin, and returns it (trimmed).
+func promptLine(w io.Writer, prompt string) string {
+	fmt.Fprint(w, prompt)
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		return strings.TrimSpace(scanner.Text())
+	}
+	return ""
 }
 
 // Ensure context is used (imported but may not be directly referenced in all paths).
