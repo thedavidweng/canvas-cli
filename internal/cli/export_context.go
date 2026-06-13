@@ -18,7 +18,9 @@ import (
 // allExportSections lists every section the export-context command can fetch.
 var allExportSections = []string{
 	"course", "tabs", "modules", "assignments", "assignment_groups",
-	"files", "pages", "announcements", "discussions", "submissions", "grades",
+	"files", "folders", "pages", "announcements", "discussions",
+	"quizzes", "rubrics", "enrollments", "sections", "calendar_events",
+	"submissions", "grades",
 }
 
 // ExportContextOpts controls which sections to fetch and filtering behavior.
@@ -47,9 +49,15 @@ type ExportResult struct {
 	Assignments      []any      `json:"assignments,omitempty"`
 	AssignmentGroups []any      `json:"assignment_groups,omitempty"`
 	Files            []any      `json:"files,omitempty"`
+	Folders          []any      `json:"folders,omitempty"`
 	Pages            []any      `json:"pages,omitempty"`
 	Announcements    []any      `json:"announcements,omitempty"`
 	Discussions      []any      `json:"discussions,omitempty"`
+	Quizzes          []any      `json:"quizzes,omitempty"`
+	Rubrics          []any      `json:"rubrics,omitempty"`
+	Enrollments      []any      `json:"enrollments,omitempty"`
+	Sections         []any      `json:"sections,omitempty"`
+	CalendarEvents   []any      `json:"calendar_events,omitempty"`
 	Submissions      []any      `json:"submissions,omitempty"`
 	Grades           []any      `json:"grades,omitempty"`
 	ExportMeta       ExportMeta `json:"_export_meta"`
@@ -287,12 +295,24 @@ func fetchSection(ctx context.Context, client *canvas.Client, courseID, section 
 		return fetchAssignmentGroupsSection(ctx, client, courseID, result)
 	case "files":
 		return fetchFilesSection(ctx, client, courseID, since, result)
+	case "folders":
+		return fetchFoldersSection(ctx, client, courseID, result)
 	case "pages":
 		return fetchPagesSection(ctx, client, courseID, since, result)
 	case "announcements":
 		return fetchAnnouncementsSection(ctx, client, courseID, since, result)
 	case "discussions":
 		return fetchDiscussionsSection(ctx, client, courseID, since, result)
+	case "quizzes":
+		return fetchQuizzesSection(ctx, client, courseID, since, result)
+	case "rubrics":
+		return fetchRubricsSection(ctx, client, courseID, result)
+	case "enrollments":
+		return fetchEnrollmentsSection(ctx, client, courseID, result)
+	case "sections":
+		return fetchSectionsSection(ctx, client, courseID, result)
+	case "calendar_events":
+		return fetchCalendarEventsSection(ctx, client, courseID, since, result)
 	case "submissions":
 		return fetchSubmissionsSection(ctx, client, courseID, since, result)
 	case "grades":
@@ -426,6 +446,10 @@ func fetchPagesSection(ctx context.Context, client *canvas.Client, courseID stri
 	// First get page list
 	pages, reqCount, err := fetchListRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/pages", courseID), nil, 100)
 	if err != nil {
+		// Pages list may be disabled; try to extract page URLs from modules instead.
+		if result.Modules != nil {
+			return fetchPagesFromModules(ctx, client, courseID, since, result, reqCount)
+		}
 		return reqCount, classifyError(err)
 	}
 
@@ -445,6 +469,53 @@ func fetchPagesSection(ctx context.Context, client *canvas.Client, courseID stri
 			continue
 		}
 		fullPages = append(fullPages, page)
+	}
+
+	filtered := filterSince(fullPages, since)
+	if len(filtered) > 0 {
+		result.Pages = filtered
+	}
+	return reqCount, nil
+}
+
+// fetchPagesFromModules extracts page URLs from module items and fetches each page individually.
+func fetchPagesFromModules(ctx context.Context, client *canvas.Client, courseID string, since time.Time, result *ExportResult, baseReqCount int) (int, error) {
+	reqCount := baseReqCount
+	seen := make(map[string]bool)
+	var fullPages []any
+
+	for _, mod := range result.Modules {
+		m, ok := mod.(map[string]any)
+		if !ok {
+			continue
+		}
+		items, ok := m["items"].([]any)
+		if !ok {
+			continue
+		}
+		for _, item := range items {
+			it, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if it["type"] != "Page" {
+				continue
+			}
+			pageURL, _ := it["page_url"].(string)
+			if pageURL == "" || seen[pageURL] {
+				continue
+			}
+			seen[pageURL] = true
+
+			page, rc, err := fetchSingleRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/pages/%s", courseID, pageURL), nil)
+			reqCount += rc
+			if err != nil {
+				// Include stub without body
+				fullPages = append(fullPages, it)
+				continue
+			}
+			fullPages = append(fullPages, page)
+		}
 	}
 
 	filtered := filterSince(fullPages, since)
@@ -526,6 +597,101 @@ func fetchGradesSection(ctx context.Context, client *canvas.Client, courseID str
 			anyItems[i] = item
 		}
 		result.Grades = anyItems
+	}
+	return reqCount, nil
+}
+
+func fetchFoldersSection(ctx context.Context, client *canvas.Client, courseID string, result *ExportResult) (int, error) {
+	items, reqCount, err := fetchListRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/folders", courseID), nil, 100)
+	if err != nil {
+		return reqCount, classifyError(err)
+	}
+	if len(items) > 0 {
+		anyItems := make([]any, len(items))
+		for i, item := range items {
+			anyItems[i] = item
+		}
+		result.Folders = anyItems
+	}
+	return reqCount, nil
+}
+
+func fetchQuizzesSection(ctx context.Context, client *canvas.Client, courseID string, since time.Time, result *ExportResult) (int, error) {
+	items, reqCount, err := fetchListRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/quizzes", courseID), nil, 100)
+	if err != nil {
+		return reqCount, classifyError(err)
+	}
+	anyItems := make([]any, len(items))
+	for i, item := range items {
+		anyItems[i] = item
+	}
+	filtered := filterSince(anyItems, since)
+	if len(filtered) > 0 {
+		result.Quizzes = filtered
+	}
+	return reqCount, nil
+}
+
+func fetchRubricsSection(ctx context.Context, client *canvas.Client, courseID string, result *ExportResult) (int, error) {
+	items, reqCount, err := fetchListRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/rubrics", courseID), nil, 100)
+	if err != nil {
+		return reqCount, classifyError(err)
+	}
+	if len(items) > 0 {
+		anyItems := make([]any, len(items))
+		for i, item := range items {
+			anyItems[i] = item
+		}
+		result.Rubrics = anyItems
+	}
+	return reqCount, nil
+}
+
+func fetchEnrollmentsSection(ctx context.Context, client *canvas.Client, courseID string, result *ExportResult) (int, error) {
+	items, reqCount, err := fetchListRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/enrollments", courseID), nil, 100)
+	if err != nil {
+		return reqCount, classifyError(err)
+	}
+	if len(items) > 0 {
+		anyItems := make([]any, len(items))
+		for i, item := range items {
+			anyItems[i] = item
+		}
+		result.Enrollments = anyItems
+	}
+	return reqCount, nil
+}
+
+func fetchSectionsSection(ctx context.Context, client *canvas.Client, courseID string, result *ExportResult) (int, error) {
+	items, reqCount, err := fetchListRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/sections", courseID), nil, 100)
+	if err != nil {
+		return reqCount, classifyError(err)
+	}
+	if len(items) > 0 {
+		anyItems := make([]any, len(items))
+		for i, item := range items {
+			anyItems[i] = item
+		}
+		result.Sections = anyItems
+	}
+	return reqCount, nil
+}
+
+func fetchCalendarEventsSection(ctx context.Context, client *canvas.Client, courseID string, since time.Time, result *ExportResult) (int, error) {
+	query := url.Values{
+		"context_codes[]": {fmt.Sprintf("course_%s", courseID)},
+	}
+	items, reqCount, err := fetchListRaw(ctx, client, "/api/v1/calendar_events", query, 100)
+	if err != nil {
+		return reqCount, classifyError(err)
+	}
+	anyItems := make([]any, len(items))
+	for i, item := range items {
+		anyItems[i] = item
+	}
+	filtered := filterSince(anyItems, since)
+	if len(filtered) > 0 {
+		result.CalendarEvents = filtered
 	}
 	return reqCount, nil
 }

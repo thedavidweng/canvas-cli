@@ -87,6 +87,31 @@ func setupExportMock(mock *testutil.MockCanvas) {
 		{"id": "600", "user_id": "1", "assignment_id": "100", "workflow_state": "graded", "score": 95.0, "updated_at": "2026-03-20T00:00:00Z"},
 	})
 
+	// Folders
+	mock.On("GET", "/api/v1/courses/1/folders", 200, []map[string]any{
+		{"id": "800", "name": "Course Files", "full_name": "course files", "parent_folder_id": nil},
+	})
+
+	// Quizzes
+	mock.On("GET", "/api/v1/courses/1/quizzes", 200, []map[string]any{
+		{"id": "900", "title": "Quiz 1", "points_possible": 50, "published": true, "updated_at": "2026-03-01T00:00:00Z"},
+	})
+
+	// Rubrics
+	mock.On("GET", "/api/v1/courses/1/rubrics", 200, []map[string]any{
+		{"id": "1000", "title": "Essay Rubric", "points_possible": 100},
+	})
+
+	// Sections
+	mock.On("GET", "/api/v1/courses/1/sections", 200, []map[string]any{
+		{"id": "1100", "name": "Section A", "course_id": "1", "total_students": 25},
+	})
+
+	// Calendar events
+	mock.On("GET", "/api/v1/calendar_events", 200, []map[string]any{
+		{"id": "1200", "title": "Midterm", "start_at": "2026-04-01T09:00:00Z", "end_at": "2026-04-01T11:00:00Z", "context_code": "course_1"},
+	})
+
 	// Grades (enrollments)
 	mock.On("GET", "/api/v1/courses/1/enrollments", 200, []map[string]any{
 		{"id": "700", "user_id": "1", "course_id": "1", "type": "StudentEnrollment", "enrollment_state": "active", "grades": map[string]any{"current_score": 92.5, "final_score": 92.5}},
@@ -136,6 +161,21 @@ func TestExportContext_AllSections(t *testing.T) {
 	}
 	if len(result.Discussions) != 1 {
 		t.Errorf("expected 1 discussion, got %d", len(result.Discussions))
+	}
+	if len(result.Folders) != 1 {
+		t.Errorf("expected 1 folder, got %d", len(result.Folders))
+	}
+	if len(result.Quizzes) != 1 {
+		t.Errorf("expected 1 quiz, got %d", len(result.Quizzes))
+	}
+	if len(result.Rubrics) != 1 {
+		t.Errorf("expected 1 rubric, got %d", len(result.Rubrics))
+	}
+	if len(result.Sections) != 1 {
+		t.Errorf("expected 1 section, got %d", len(result.Sections))
+	}
+	if len(result.CalendarEvents) != 1 {
+		t.Errorf("expected 1 calendar event, got %d", len(result.CalendarEvents))
 	}
 	if len(result.Submissions) != 1 {
 		t.Errorf("expected 1 submission, got %d", len(result.Submissions))

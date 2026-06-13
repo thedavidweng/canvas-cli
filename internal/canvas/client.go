@@ -43,11 +43,16 @@ func (c *Client) SetHTTPClient(hc *http.Client) {
 
 // Do executes an HTTP request with automatic retry for transient failures.
 func (c *Client) Do(ctx context.Context, method, path string, query url.Values, body io.Reader) (*http.Response, error) {
-	return c.doWithRetry(ctx, method, path, query, body, c.retries)
+	return c.DoWithHeaders(ctx, method, path, query, body, nil)
+}
+
+// DoWithHeaders executes an HTTP request with custom headers and automatic retry.
+func (c *Client) DoWithHeaders(ctx context.Context, method, path string, query url.Values, body io.Reader, headers http.Header) (*http.Response, error) {
+	return c.doWithRetry(ctx, method, path, query, body, c.retries, headers)
 }
 
 // doWithRetry executes the request with retry logic for 429, 403-rate-limit, and 5xx.
-func (c *Client) doWithRetry(ctx context.Context, method, path string, query url.Values, body io.Reader, maxRetries int) (*http.Response, error) {
+func (c *Client) doWithRetry(ctx context.Context, method, path string, query url.Values, body io.Reader, maxRetries int, headers http.Header) (*http.Response, error) {
 	var lastResp *http.Response
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -57,7 +62,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, query url
 		default:
 		}
 
-		resp, err := c.doOnce(ctx, method, path, query, body)
+		resp, err := c.doOnce(ctx, method, path, query, body, headers)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +89,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, query url
 }
 
 // doOnce executes a single HTTP request with default Canvas headers (no retry).
-func (c *Client) doOnce(ctx context.Context, method, path string, query url.Values, body io.Reader) (*http.Response, error) {
+func (c *Client) doOnce(ctx context.Context, method, path string, query url.Values, body io.Reader, headers http.Header) (*http.Response, error) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
@@ -102,6 +107,13 @@ func (c *Client) doOnce(ctx context.Context, method, path string, query url.Valu
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/json+canvas-string-ids")
+
+	// Apply custom headers (override defaults if needed).
+	for k, vals := range headers {
+		for _, v := range vals {
+			req.Header.Set(k, v)
+		}
+	}
 
 	return c.httpClient.Do(req)
 }

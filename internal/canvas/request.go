@@ -55,7 +55,7 @@ func Request(ctx context.Context, client *Client, opts RequestOptions) (*Respons
 	}
 
 	// Single request (non-paginated)
-	resp, err := client.Do(ctx, opts.Method, opts.PathOrURL, opts.Query, opts.Body)
+	resp, err := client.DoWithHeaders(ctx, opts.Method, opts.PathOrURL, opts.Query, opts.Body, opts.Headers)
 	if err != nil {
 		return meta, fmt.Errorf("request failed: %w", err)
 	}

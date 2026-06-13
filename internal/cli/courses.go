@@ -35,6 +35,8 @@ func NewCoursesCmd() *cobra.Command {
 	cmd.AddCommand(newCoursesGetCmd())
 	cmd.AddCommand(newCoursesTabsCmd())
 	cmd.AddCommand(newCoursesExportContextCmd())
+	cmd.AddCommand(newCoursesExportCmd())
+	cmd.AddCommand(newCoursesExportsCmd())
 
 	return cmd
 }

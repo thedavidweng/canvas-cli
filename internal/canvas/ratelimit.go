@@ -110,7 +110,7 @@ func DoWithRetry(ctx context.Context, client *Client, method, path string, query
 		default:
 		}
 
-		resp, err := client.doOnce(ctx, method, path, query, body)
+		resp, err := client.doOnce(ctx, method, path, query, body, nil)
 		if err != nil {
 			return nil, err
 		}
