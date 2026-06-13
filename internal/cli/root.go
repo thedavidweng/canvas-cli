@@ -65,7 +65,7 @@ func NewRootCmd(version string) *cobra.Command {
 	flags.Bool("quiet", false, "suppress non-essential output")
 	flags.Bool("no-color", false, "disable color output")
 	flags.Bool("confirm-delete", false, "confirm destructive operations")
-	flags.String("config", "", "config file path (default: $XDG_CONFIG_HOME/canvas-cli/config.yaml)")
+	flags.String("config", "", "config file path (default: OS config dir/canvas-cli/config.yaml)")
 	flags.String("profile", "", "config profile name")
 	flags.String("base-url", "", "Canvas instance base URL")
 

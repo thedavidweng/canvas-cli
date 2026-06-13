@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
@@ -64,15 +65,36 @@ func (a *Auditor) WriteEvent(event canvas.AuditEvent) error {
 	return nil
 }
 
-// DefaultPath returns the default audit log file path:
-// ${XDG_STATE_HOME:-~/.local/state}/canvas-cli/audit.jsonl
+// DefaultPath returns the default audit log file path using the OS-appropriate
+// state directory:
+//
+//	Linux:   $XDG_STATE_HOME/canvas-cli/audit.jsonl  (default ~/.local/state)
+//	macOS:   ~/Library/Application Support/canvas-cli/audit.jsonl
+//	Windows: %LOCALAPPDATA%\canvas-cli\audit.jsonl
 func DefaultPath() string {
-	base := os.Getenv("XDG_STATE_HOME")
-	if base == "" {
-		home, _ := os.UserHomeDir()
-		base = filepath.Join(home, ".local", "state")
+	return filepath.Join(stateDir(), "canvas-cli", "audit.jsonl")
+}
+
+// stateDir returns the OS-appropriate state directory.
+// On Linux:   $XDG_STATE_HOME, falling back to ~/.local/state
+// On macOS:   ~/Library/Application Support (same as config dir)
+// On Windows: %LOCALAPPDATA%
+func stateDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		if d := os.Getenv("LOCALAPPDATA"); d != "" {
+			return d
+		}
+	default: // linux, darwin, freebsd, etc.
+		if d := os.Getenv("XDG_STATE_HOME"); d != "" {
+			return d
+		}
 	}
-	return filepath.Join(base, "canvas-cli", "audit.jsonl")
+	if d, err := os.UserConfigDir(); err == nil {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "state")
 }
 
 // HashBody returns the SHA-256 hex digest of body, prefixed with "sha256:".

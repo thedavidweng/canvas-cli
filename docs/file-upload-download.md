@@ -69,4 +69,4 @@ The Canvas file upload process requires implementing the full 3-step flow via a 
 ### Platform notes
 
 - **Path sanitization:** Student names may contain characters invalid in filenames (e.g., `/`, `\`, `:`, `*`). Sanitize by replacing these with `_`.
-- **Windows:** The config path `${XDG_CONFIG_HOME:-~/.config}/canvas-cli/config.yaml` does not work on Windows. On Windows, fall back to `%APPDATA%\canvas-cli\config.yaml`. The audit log falls back to `%LOCALAPPDATA%\canvas-cli\audit.jsonl`.
+- **Cross-platform paths:** Config and audit paths are resolved via `os.UserConfigDir()` / `os.UserStateDir()`, which return OS-appropriate directories on Linux, macOS, and Windows automatically.

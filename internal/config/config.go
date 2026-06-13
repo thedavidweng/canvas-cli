@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -52,11 +51,11 @@ func (r *ResolvedConfig) String() string {
 }
 
 // LoadConfig reads and parses a YAML config file. If configPath is empty it
-// uses XDGConfigPath(). If profileOverride is non-empty it overrides
+// uses ConfigPath(). If profileOverride is non-empty it overrides
 // CurrentProfile.
 func LoadConfig(configPath, profileOverride string) (*canvas.Config, error) {
 	if configPath == "" {
-		configPath = XDGConfigPath()
+		configPath = ConfigPath()
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -166,25 +165,26 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 	}, nil
 }
 
-// XDGConfigPath returns the default config file path following the XDG spec:
-// ${XDG_CONFIG_HOME:-~/.config}/canvas-cli/config.yaml
-func XDGConfigPath() string {
-	base := os.Getenv("XDG_CONFIG_HOME")
-	if base == "" {
-		base = filepath.Join(homeDir(), ".config")
+// ConfigPath returns the default config file path using the OS-appropriate
+// config directory:
+//
+//	Linux:   $XDG_CONFIG_HOME/canvas-cli/config.yaml  (default ~/.config)
+//	macOS:   ~/Library/Application Support/canvas-cli/config.yaml
+//	Windows: %APPDATA%\canvas-cli\config.yaml
+func ConfigPath() string {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		base = filepath.Join(userHomeDir(), ".config")
 	}
 	return filepath.Join(base, "canvas-cli", "config.yaml")
 }
 
-// homeDir returns the user's home directory. On error it returns "".
-func homeDir() string {
+// userHomeDir returns the user's home directory. On error it returns "".
+func userHomeDir() string {
 	if h, err := os.UserHomeDir(); err == nil {
 		return h
 	}
-	if runtime.GOOS == "windows" {
-		return os.Getenv("USERPROFILE")
-	}
-	return os.Getenv("HOME")
+	return ""
 }
 
 // choose returns the first non-empty string from the arguments, implementing

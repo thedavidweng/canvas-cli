@@ -110,7 +110,7 @@ func newDoctorCmd() *cobra.Command {
 }
 
 func checkConfigFile() DoctorCheck {
-	configPath := config.XDGConfigPath()
+	configPath := config.ConfigPath()
 	_, err := os.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -134,7 +134,7 @@ func checkConfigFile() DoctorCheck {
 }
 
 func checkConfigPermissions() DoctorCheck {
-	configPath := config.XDGConfigPath()
+	configPath := config.ConfigPath()
 	info, err := os.Stat(configPath)
 	if err != nil {
 		return DoctorCheck{

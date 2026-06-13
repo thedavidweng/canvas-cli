@@ -246,27 +246,29 @@ profiles:
 	}
 }
 
-// --- XDG path ---
+// --- ConfigPath ---
 
-func TestXDGConfigPath_UsesXDGConfigHome(t *testing.T) {
-	dir := t.TempDir()
-	setEnv(t, "XDG_CONFIG_HOME", dir)
-
-	got := XDGConfigPath()
-	want := filepath.Join(dir, "canvas-cli", "config.yaml")
-	if got != want {
-		t.Errorf("XDGConfigPath = %q, want %q", got, want)
+func TestConfigPath_ReturnsValidPath(t *testing.T) {
+	got := ConfigPath()
+	if got == "" {
+		t.Fatal("ConfigPath returned empty string")
+	}
+	if !strings.HasSuffix(got, filepath.Join("canvas-cli", "config.yaml")) {
+		t.Errorf("ConfigPath = %q, want suffix canvas-cli/config.yaml", got)
 	}
 }
 
-func TestXDGConfigPath_FallsBackToDotConfig(t *testing.T) {
-	unsetEnv(t, "XDG_CONFIG_HOME")
+func TestConfigPath_RespectsXDGConfigHome(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("XDG_CONFIG_HOME only respected on Linux")
+	}
+	dir := t.TempDir()
+	setEnv(t, "XDG_CONFIG_HOME", dir)
 
-	got := XDGConfigPath()
-	home, _ := os.UserHomeDir()
-	want := filepath.Join(home, ".config", "canvas-cli", "config.yaml")
+	got := ConfigPath()
+	want := filepath.Join(dir, "canvas-cli", "config.yaml")
 	if got != want {
-		t.Errorf("XDGConfigPath = %q, want %q", got, want)
+		t.Errorf("ConfigPath = %q, want %q", got, want)
 	}
 }
 
@@ -540,11 +542,10 @@ profiles:
 	}
 }
 
-// --- homeDir helper on non-Windows ---
+// --- userHomeDir helper ---
 
-func TestHomeDir_ReturnsHomeOrEmpty(t *testing.T) {
-	// This just exercises the helper for coverage.
-	_ = homeDir()
+func TestUserHomeDir_ReturnsHomeOrEmpty(t *testing.T) {
+	_ = userHomeDir()
 }
 
 // Ensure the test file compiles on all platforms.

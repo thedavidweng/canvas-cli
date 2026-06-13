@@ -7,7 +7,7 @@
 - Tokens are never logged, printed to stdout, or included in error messages.
 - Tokens are never passed via `--token` flag (to avoid shell history exposure).
 - Tokens are read from stdin (`--token-stdin`) or environment variables (`--token-env`).
-- Tokens are stored in the config file (`$XDG_CONFIG_HOME/canvas-cli/config.yaml`) with `0600` permissions.
+- Tokens are stored in the config file (OS config dir `canvas-cli/config.yaml`) with `0600` permissions.
 - The `auth status` command reports only whether a token is present (`yes`/`no`), never the token value.
 - Environment variable references are stored as `env:VARNAME` in the config, not the resolved value.
 
@@ -20,7 +20,7 @@
 
 ## Audit logging
 
-Every mutation (when audit is enabled in config) writes a JSONL event to the audit log file at `$XDG_STATE_HOME/canvas-cli/audit.jsonl`. Each event includes:
+Every mutation (when audit is enabled in config) writes a JSONL event to the audit log file at the OS state dir `canvas-cli/audit.jsonl`. Each event includes:
 
 - `time`: UTC timestamp (RFC 3339)
 - `schema_version`: Output contract version

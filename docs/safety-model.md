@@ -121,7 +121,9 @@ Every remote mutation must append a local JSONL event.
 Default path:
 
 ```text
-${XDG_STATE_HOME:-~/.local/state}/canvas-cli/audit.jsonl
+Linux:   ~/.local/state/canvas-cli/audit.jsonl
+macOS:   ~/Library/Application Support/canvas-cli/audit.jsonl
+Windows: %LOCALAPPDATA%\canvas-cli\audit.jsonl
 ```
 
 Audit event shape:

@@ -20,10 +20,12 @@ CANVAS_CONFIG=/path/to/config.yaml
 
 ## Config file
 
-Default path:
+Default path (OS-appropriate):
 
 ```text
-${XDG_CONFIG_HOME:-~/.config}/canvas-cli/config.yaml
+Linux:   ~/.config/canvas-cli/config.yaml
+macOS:   ~/Library/Application Support/canvas-cli/config.yaml
+Windows: %APPDATA%\canvas-cli\config.yaml
 ```
 
 Example:

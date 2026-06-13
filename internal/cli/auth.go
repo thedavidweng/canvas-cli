@@ -159,7 +159,7 @@ Do NOT use --token flag to avoid tokens in shell history.`,
 			configPath, _ := cmd.Flags().GetString("config")
 
 			if configPath == "" {
-				configPath = config.XDGConfigPath()
+				configPath = config.ConfigPath()
 			}
 
 			// Read token
@@ -244,7 +244,7 @@ func newAuthLogoutCmd() *cobra.Command {
 
 			configPath, _ := cmd.Flags().GetString("config")
 			if configPath == "" {
-				configPath = config.XDGConfigPath()
+				configPath = config.ConfigPath()
 			}
 
 			existingCfg, err := config.LoadConfig(configPath, "")
@@ -282,7 +282,7 @@ func newAuthProfilesCmd() *cobra.Command {
 
 			configPath, _ := cmd.Flags().GetString("config")
 			if configPath == "" {
-				configPath = config.XDGConfigPath()
+				configPath = config.ConfigPath()
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
@@ -337,7 +337,7 @@ func newAuthUseCmd() *cobra.Command {
 
 			configPath, _ := cmd.Flags().GetString("config")
 			if configPath == "" {
-				configPath = config.XDGConfigPath()
+				configPath = config.ConfigPath()
 			}
 
 			existingCfg, err := config.LoadConfig(configPath, "")

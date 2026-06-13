@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -194,21 +195,24 @@ func TestWriteEvent_FileCreatedIfMissing(t *testing.T) {
 	}
 }
 
-func TestDefaultPath_XDGStateHome(t *testing.T) {
+func TestDefaultPath_ReturnsValidPath(t *testing.T) {
+	got := DefaultPath()
+	if got == "" {
+		t.Fatal("DefaultPath() returned empty string")
+	}
+	if !strings.HasSuffix(got, filepath.Join("canvas-cli", "audit.jsonl")) {
+		t.Errorf("DefaultPath() = %q, want suffix canvas-cli/audit.jsonl", got)
+	}
+}
+
+func TestDefaultPath_RespectsXDGStateHome(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("XDG_STATE_HOME only respected on Linux")
+	}
 	dir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", dir)
 	got := DefaultPath()
 	want := filepath.Join(dir, "canvas-cli", "audit.jsonl")
-	if got != want {
-		t.Errorf("DefaultPath() = %q, want %q", got, want)
-	}
-}
-
-func TestDefaultPath_Fallback(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", "")
-	got := DefaultPath()
-	home, _ := os.UserHomeDir()
-	want := filepath.Join(home, ".local", "state", "canvas-cli", "audit.jsonl")
 	if got != want {
 		t.Errorf("DefaultPath() = %q, want %q", got, want)
 	}

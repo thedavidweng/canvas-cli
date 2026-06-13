@@ -40,8 +40,8 @@ These are fixed and should not be revisited in pull requests:
 - **CLI framework**: Cobra
 - **Module path**: `github.com/thedavidweng/canvas-cli`
 - **Binary name**: `canvas`
-- **Config location**: `$XDG_CONFIG_HOME/canvas-cli/config.yaml`
-- **State location**: `$XDG_STATE_HOME/canvas-cli/`
+- **Config location**: OS config dir (`~/.config` on Linux, `~/Library/Application Support` on macOS, `%APPDATA%` on Windows)
+- **State location**: OS state dir (`~/.local/state` on Linux, `~/Library/Application Support` on macOS, `%LOCALAPPDATA%` on Windows)
 - **JSON output**: Stable envelope with `ok`, `data`, `error`, `meta` fields
 - **String IDs**: All Canvas resource IDs are strings (Canvas returns string IDs to avoid JavaScript precision loss)
 
