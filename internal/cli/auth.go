@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -482,6 +481,3 @@ func promptLine(w io.Writer, prompt string) string {
 	}
 	return ""
 }
-
-// Ensure context is used (imported but may not be directly referenced in all paths).
-var _ = context.Background

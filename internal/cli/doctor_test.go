@@ -14,7 +14,7 @@ import (
 )
 
 func TestDoctorCmd_Exists(t *testing.T) {
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	if cmd.Use != "doctor" {
 		t.Errorf("expected Use 'doctor', got %q", cmd.Use)
 	}
@@ -38,7 +38,7 @@ func TestDoctorCmd_AllChecksPass(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 
@@ -77,7 +77,7 @@ func TestDoctorCmd_JSONMode(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 	_ = cmd.Flags().Set("json", "true")
@@ -107,7 +107,7 @@ func TestDoctorCmd_NoToken(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 
@@ -131,7 +131,7 @@ func TestDoctorCmd_InvalidBaseURL(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 
@@ -156,7 +156,7 @@ func TestDoctorCmd_APIUnreachable(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 	_ = cmd.Flags().Set("timeout", "1s")
@@ -167,8 +167,8 @@ func TestDoctorCmd_APIUnreachable(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "api_reachable") {
-		t.Errorf("expected api_reachable check, got: %s", output)
+	if !strings.Contains(output, "api_and_token") {
+		t.Errorf("expected api_and_token check, got: %s", output)
 	}
 }
 
@@ -191,7 +191,7 @@ func TestDoctorCmd_WriteSafetyStatus(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 
@@ -214,7 +214,7 @@ func TestDoctorCmd_ExitCode3_AuthFail(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 
@@ -230,8 +230,7 @@ func TestDoctorCmd_CheckNames(t *testing.T) {
 		"config_permissions",
 		"token_present",
 		"base_url",
-		"api_reachable",
-		"token_valid",
+		"api_and_token",
 		"write_safety",
 	}
 
@@ -252,7 +251,7 @@ func TestDoctorCmd_CheckNames(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	cmd := newDoctorCmd()
+	cmd := NewDoctorCmd()
 	cmd.SetContext(WithConfig(context.Background(), cfg))
 	cmd.SetOut(&buf)
 	_ = cmd.Flags().Set("json", "true")

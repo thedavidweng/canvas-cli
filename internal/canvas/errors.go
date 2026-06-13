@@ -8,19 +8,31 @@ import (
 
 // NormalizeError converts an HTTP error response into a structured Envelope.
 func NormalizeError(resp *http.Response, command string) Envelope {
-	env := Envelope{
-		OK: false,
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	return Envelope{
+		OK:    false,
+		Error: normalizeErrorInfo(resp, bodyBytes),
 		Meta: Meta{
 			SchemaVersion: SchemaVersion,
 			Command:       command,
 		},
 	}
+}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
+// NormalizeErrorFromBody creates an ErrorInfo from an HTTP response whose body
+// has already been read. Use this when the body bytes are needed for other
+// purposes (e.g. JSON envelope construction) before error processing.
+func NormalizeErrorFromBody(resp *http.Response, bodyBytes []byte) ErrorInfo {
+	return *normalizeErrorInfo(resp, bodyBytes)
+}
 
+// normalizeErrorInfo is the shared implementation for NormalizeError and
+// NormalizeErrorFromBody.
+func normalizeErrorInfo(resp *http.Response, bodyBytes []byte) *ErrorInfo {
 	var bodyMap map[string]any
-	if err == nil && len(bodyBytes) > 0 {
+	if len(bodyBytes) > 0 {
 		json.Unmarshal(bodyBytes, &bodyMap)
 	}
 
@@ -78,6 +90,5 @@ func NormalizeError(resp *http.Response, command string) Envelope {
 		errInfo.CanvasRequestID = reqID
 	}
 
-	env.Error = errInfo
-	return env
+	return errInfo
 }

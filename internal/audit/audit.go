@@ -65,13 +65,13 @@ func (a *Auditor) WriteEvent(event canvas.AuditEvent) error {
 	return nil
 }
 
-// DefaultPath returns the default audit log file path using the OS-appropriate
+// defaultPath returns the default audit log file path using the OS-appropriate
 // state directory:
 //
 //	Linux:   $XDG_STATE_HOME/canvas-cli/audit.jsonl  (default ~/.local/state)
 //	macOS:   ~/Library/Application Support/canvas-cli/audit.jsonl
 //	Windows: %LOCALAPPDATA%\canvas-cli\audit.jsonl
-func DefaultPath() string {
+func defaultPath() string {
 	return filepath.Join(stateDir(), "canvas-cli", "audit.jsonl")
 }
 

@@ -22,13 +22,8 @@ type DoctorCheck struct {
 	Message string `json:"message"`
 }
 
-// NewDoctorCmd returns the `doctor` command for the root command.
+// NewDoctorCmd returns the `doctor` command.
 func NewDoctorCmd() *cobra.Command {
-	return newDoctorCmd()
-}
-
-// newDoctorCmd returns the `doctor` command.
-func newDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Validate CLI environment and configuration",
@@ -45,7 +40,7 @@ func newDoctorCmd() *cobra.Command {
 				}
 			}
 
-			checks := make([]DoctorCheck, 0, 7)
+			checks := make([]DoctorCheck, 0, 6)
 
 			// 1. Config file check
 			checks = append(checks, checkConfigFile())
@@ -59,11 +54,8 @@ func newDoctorCmd() *cobra.Command {
 			// 4. Base URL check
 			checks = append(checks, checkBaseURL(cfg))
 
-			// 5. API reachable check
-			checks = append(checks, checkAPIReachable(cfg, timeout))
-
-			// 6. Token valid check (same as API reachable for token auth)
-			checks = append(checks, checkTokenValid(cfg, timeout))
+			// 5. API connectivity and token validity check
+			checks = append(checks, checkAPIAndToken(cfg, timeout))
 
 			// 7. Write safety check
 			checks = append(checks, checkWriteSafety(cfg))
@@ -210,10 +202,10 @@ func checkBaseURL(cfg *config.ResolvedConfig) DoctorCheck {
 	}
 }
 
-func checkAPIReachable(cfg *config.ResolvedConfig, timeout time.Duration) DoctorCheck {
+func checkAPIAndToken(cfg *config.ResolvedConfig, timeout time.Duration) DoctorCheck {
 	if cfg == nil || cfg.BaseURL == "" || cfg.Token == "" {
 		return DoctorCheck{
-			Check:   "api_reachable",
+			Check:   "api_and_token",
 			Status:  "fail",
 			Message: "skipped (missing base URL or token)",
 		}
@@ -224,7 +216,7 @@ func checkAPIReachable(cfg *config.ResolvedConfig, timeout time.Duration) Doctor
 	resp, err := client.Do(ctx, "GET", "/api/v1/users/self", nil, nil)
 	if err != nil {
 		return DoctorCheck{
-			Check:   "api_reachable",
+			Check:   "api_and_token",
 			Status:  "fail",
 			Message: fmt.Sprintf("API unreachable: %v", err),
 		}
@@ -233,55 +225,20 @@ func checkAPIReachable(cfg *config.ResolvedConfig, timeout time.Duration) Doctor
 
 	if resp.StatusCode == http.StatusOK {
 		return DoctorCheck{
-			Check:   "api_reachable",
+			Check:   "api_and_token",
 			Status:  "pass",
-			Message: "API is reachable",
-		}
-	}
-	return DoctorCheck{
-		Check:   "api_reachable",
-		Status:  "fail",
-		Message: fmt.Sprintf("API returned status %d", resp.StatusCode),
-	}
-}
-
-func checkTokenValid(cfg *config.ResolvedConfig, timeout time.Duration) DoctorCheck {
-	if cfg == nil || cfg.BaseURL == "" || cfg.Token == "" {
-		return DoctorCheck{
-			Check:   "token_valid",
-			Status:  "fail",
-			Message: "skipped (missing base URL or token)",
-		}
-	}
-
-	client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", timeout, 0)
-	ctx := context.Background()
-	resp, err := client.Do(ctx, "GET", "/api/v1/users/self", nil, nil)
-	if err != nil {
-		return DoctorCheck{
-			Check:   "token_valid",
-			Status:  "fail",
-			Message: fmt.Sprintf("API call failed: %v", err),
-		}
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		return DoctorCheck{
-			Check:   "token_valid",
-			Status:  "pass",
-			Message: "token is valid",
+			Message: "API reachable, token valid",
 		}
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return DoctorCheck{
-			Check:   "token_valid",
+			Check:   "api_and_token",
 			Status:  "fail",
 			Message: "token is invalid or expired",
 		}
 	}
 	return DoctorCheck{
-		Check:   "token_valid",
+		Check:   "api_and_token",
 		Status:  "fail",
 		Message: fmt.Sprintf("API returned status %d", resp.StatusCode),
 	}

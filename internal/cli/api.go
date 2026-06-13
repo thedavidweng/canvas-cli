@@ -98,7 +98,7 @@ func newApiGetCmd() *cobra.Command {
 
 			if resp.StatusCode >= 400 {
 				// Create error from the already-read body
-				errInfo := createErrorFromResponse(resp, bodyBytes, "api.get")
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,
@@ -210,48 +210,6 @@ func handlePaginatedRequest(cmd *cobra.Command, client *canvas.Client, path stri
 	return nil
 }
 
-// createErrorFromResponse creates an ErrorInfo from an HTTP response and body bytes.
-func createErrorFromResponse(resp *http.Response, bodyBytes []byte, command string) canvas.ErrorInfo {
-	errInfo := canvas.ErrorInfo{
-		Status: resp.StatusCode,
-	}
-
-	// Try to parse body as JSON
-	var bodyMap map[string]any
-	if err := json.Unmarshal(bodyBytes, &bodyMap); err == nil {
-		errInfo.ResponseBody = bodyMap
-		if msg, ok := bodyMap["message"].(string); ok {
-			errInfo.Message = msg
-		}
-	}
-
-	// Map status codes to error codes
-	switch resp.StatusCode {
-	case http.StatusUnauthorized:
-		errInfo.Code = "CANVAS_AUTH_ERROR"
-		errInfo.Category = "auth"
-	case http.StatusForbidden:
-		errInfo.Code = "CANVAS_PERMISSION_DENIED"
-		errInfo.Category = "permission"
-	case http.StatusNotFound:
-		errInfo.Code = "CANVAS_NOT_FOUND"
-		errInfo.Category = "not_found"
-	case http.StatusUnprocessableEntity:
-		errInfo.Code = "CANVAS_VALIDATION_ERROR"
-		errInfo.Category = "validation"
-	default:
-		errInfo.Code = "CANVAS_API_ERROR"
-		errInfo.Category = "api"
-	}
-
-	// Extract Canvas request ID
-	if reqID := resp.Header.Get("X-Request-Id"); reqID != "" {
-		errInfo.CanvasRequestID = reqID
-	}
-
-	return errInfo
-}
-
 // extractResponseHeaders extracts relevant response headers for metadata.
 func extractResponseHeaders(resp *http.Response) []string {
 	var headers []string
@@ -328,7 +286,7 @@ func newApiPostCmd() *cobra.Command {
 			writeAudit(cfg, "api.post", "POST", path, string(payload), false)
 
 			if resp.StatusCode >= 400 {
-				errInfo := createErrorFromResponse(resp, bodyBytes, "api.post")
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,
@@ -434,7 +392,7 @@ func newApiPutCmd() *cobra.Command {
 			writeAudit(cfg, "api.put", "PUT", path, string(payload), false)
 
 			if resp.StatusCode >= 400 {
-				errInfo := createErrorFromResponse(resp, bodyBytes, "api.put")
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,
@@ -528,7 +486,7 @@ func newApiDeleteCmd() *cobra.Command {
 			writeAudit(cfg, "api.delete", "DELETE", path, "", false)
 
 			if resp.StatusCode >= 400 {
-				errInfo := createErrorFromResponse(resp, bodyBytes, "api.delete")
+				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes)
 				env := canvas.Envelope{
 					OK:    false,
 					Error: &errInfo,
