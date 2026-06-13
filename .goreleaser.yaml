@@ -103,20 +103,25 @@ sboms:
     documents:
       - "${artifact}.sbom.json"
 
-homebrew:
+homebrew_casks:
   - name: canvas
+    binaries:
+      - canvas
+    generate_completions_from_executable:
+      executable: "canvas"
+      args:
+        - completion
+      shell_parameter_format: cobra
+      shells:
+        - bash
+        - zsh
+        - fish
     repository:
       owner: thedavidweng
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: "https://github.com/thedavidweng/canvas-cli"
     description: "Agent-friendly CLI for Canvas LMS course management, assignments, submissions, and more"
-    license: "Apache-2.0"
-    install: |
-      bin.install "canvas"
-      generate_completions_from_executable(bin/"canvas", "completion")
-    test: |
-      system "#{bin}/canvas", "version"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
