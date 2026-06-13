@@ -45,7 +45,11 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 	if err != nil {
 		return "", fmt.Errorf("initiate upload: %w", err)
 	}
-	initReq.Header.Set("Authorization", "Bearer "+client.token)
+	if client.token != "" {
+		initReq.Header.Set("Authorization", "Bearer "+client.token)
+	} else if client.cookie != "" {
+		initReq.Header.Set("Cookie", client.cookie)
+	}
 	initReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	initReq.Header.Set("User-Agent", client.userAgent)
 	initReq.Header.Set("Accept", "application/json+canvas-string-ids")
@@ -122,7 +126,11 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 			canvasHost = parsed.Host
 		}
 		if parsedURL.Host == canvasHost {
-			req.Header.Set("Authorization", "Bearer "+client.token)
+			if client.token != "" {
+				req.Header.Set("Authorization", "Bearer "+client.token)
+			} else if client.cookie != "" {
+				req.Header.Set("Cookie", client.cookie)
+			}
 		}
 		req.Header.Set("User-Agent", client.userAgent)
 

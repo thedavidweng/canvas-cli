@@ -206,9 +206,10 @@ func (c *Client) DoURL(ctx context.Context, method, absoluteURL string, body io.
 			if csrf == "" {
 				csrf = c.csrfCached
 			}
-			if csrf != "" {
-				req.Header.Set("X-CSRF-Token", csrf)
+			if csrf == "" {
+				return nil, fmt.Errorf("CSRF token required for mutation with cookie auth")
 			}
+			req.Header.Set("X-CSRF-Token", csrf)
 		}
 	}
 	req.Header.Set("User-Agent", c.userAgent)

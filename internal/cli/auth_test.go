@@ -78,9 +78,9 @@ func TestAuthStatus_ShowsProfileAndBaseURL(t *testing.T) {
 	if strings.Contains(output, "secret-token-value") {
 		t.Errorf("auth status must never show the actual token value, got: %s", output)
 	}
-	// Should indicate token is present
-	if !strings.Contains(output, "present") && !strings.Contains(output, "yes") && !strings.Contains(output, "Yes") {
-		t.Errorf("expected token presence indication, got: %s", output)
+	// Should indicate token auth method
+	if !strings.Contains(output, "Auth:       token") {
+		t.Errorf("expected token auth method in output, got: %s", output)
 	}
 }
 
@@ -404,11 +404,8 @@ func TestAuthStatus_ShowsCookie(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "Cookie:   yes") {
-		t.Errorf("expected cookie presence in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Token:    no") {
-		t.Errorf("expected token absence in output, got: %s", output)
+	if !strings.Contains(output, "Auth:       cookie (experimental)") {
+		t.Errorf("expected cookie auth method in output, got: %s", output)
 	}
 	// Must never show the actual cookie value
 	if strings.Contains(output, "session-cookie-value") {
@@ -434,8 +431,8 @@ func TestAuthStatus_NoCookie(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "Cookie:   no") {
-		t.Errorf("expected cookie absence in output, got: %s", output)
+	if !strings.Contains(output, "Auth:       token") {
+		t.Errorf("expected token auth method in output, got: %s", output)
 	}
 }
 
@@ -475,6 +472,9 @@ func TestAuthStatus_JSONMode_ShowsCookiePresent(t *testing.T) {
 	}
 	if data["token_present"] != false {
 		t.Errorf("expected token_present=false, got %v", data["token_present"])
+	}
+	if data["auth_method"] != "cookie (experimental)" {
+		t.Errorf("expected auth_method='cookie (experimental)', got %v", data["auth_method"])
 	}
 }
 

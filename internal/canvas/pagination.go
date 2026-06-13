@@ -105,7 +105,7 @@ func Paginate[T any](ctx context.Context, client *Client, path string, query url
 		// Check for error status before decoding body. Canvas may return
 		// a JSON error object that would fail to decode as an array.
 		if resp.StatusCode >= 400 {
-			env := NormalizeError(resp, "GET")
+			env := NormalizeError(resp, "GET", client.baseURL)
 			resp.Body.Close()
 			return allItems, meta, fmt.Errorf("API error (status %d): %s", env.Error.Status, env.Error.Message)
 		}

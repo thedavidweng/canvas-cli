@@ -39,7 +39,8 @@ func (r *DefaultReader) ReadCookies(ctx context.Context, filters ...kooky.Filter
 var Reader CookieReader = &DefaultReader{}
 
 // ExtractCookies reads browser cookies for the given host.
-// Returns sessionCookie and csrfToken values.
+// Returns sessionCookie in "name=value" format suitable for the HTTP Cookie header,
+// and csrfToken as the raw value.
 // Filters by exact host match AND parent domain.
 // For canvas.school.edu: matches canvas.school.edu and school.edu.
 func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken string, err error) {
@@ -85,7 +86,7 @@ func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken 
 		if sessionCookie == "" {
 			for _, sessionName := range sessionCookieNames {
 				if name == sessionName {
-					sessionCookie = value
+					sessionCookie = name + "=" + value
 					break
 				}
 			}
@@ -178,7 +179,7 @@ func ExtractCookiesForBrowser(ctx context.Context, host, browserName string) (se
 		if sessionCookie == "" {
 			for _, sessionName := range sessionCookieNames {
 				if cookie.Name == sessionName {
-					sessionCookie = cookie.Value
+					sessionCookie = cookie.Name + "=" + cookie.Value
 					break
 				}
 			}

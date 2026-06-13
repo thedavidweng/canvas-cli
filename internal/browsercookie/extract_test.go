@@ -65,8 +65,8 @@ func TestExtractCookies_ExactHost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if session != "session123" {
-		t.Errorf("expected session 'session123', got '%s'", session)
+	if session != "_instructure_session=session123" {
+		t.Errorf("expected session '_instructure_session=session123', got '%s'", session)
 	}
 	if csrf != "csrf456" {
 		t.Errorf("expected csrf 'csrf456', got '%s'", csrf)
@@ -86,8 +86,8 @@ func TestExtractCookies_ParentDomain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if session != "session789" {
-		t.Errorf("expected session 'session789', got '%s'", session)
+	if session != "_instructure_session=session789" {
+		t.Errorf("expected session '_instructure_session=session789', got '%s'", session)
 	}
 	if csrf != "csrf012" {
 		t.Errorf("expected csrf 'csrf012', got '%s'", csrf)
@@ -107,8 +107,8 @@ func TestExtractCookies_CanvasSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if session != "canvas123" {
-		t.Errorf("expected session 'canvas123', got '%s'", session)
+	if session != "canvas_session=canvas123" {
+		t.Errorf("expected session 'canvas_session=canvas123', got '%s'", session)
 	}
 	if csrf != "csrf456" {
 		t.Errorf("expected csrf 'csrf456', got '%s'", csrf)
@@ -141,8 +141,8 @@ func TestExtractCookies_NoCSRFToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if session != "session123" {
-		t.Errorf("expected session 'session123', got '%s'", session)
+	if session != "_instructure_session=session123" {
+		t.Errorf("expected session '_instructure_session=session123', got '%s'", session)
 	}
 	if csrf != "" {
 		t.Errorf("expected empty csrf, got '%s'", csrf)
@@ -163,8 +163,8 @@ func TestExtractCookies_MultipleDomains(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if session != "session123" {
-		t.Errorf("expected session 'session123', got '%s'", session)
+	if session != "_instructure_session=session123" {
+		t.Errorf("expected session '_instructure_session=session123', got '%s'", session)
 	}
 	if csrf != "csrf456" {
 		t.Errorf("expected csrf 'csrf456', got '%s'", csrf)

@@ -55,10 +55,19 @@ func newAuthStatusCmd() *cobra.Command {
 			tokenPresent := cfg.Token != ""
 			cookiePresent := cfg.Cookie != ""
 
+			// Determine active auth method.
+			authMethod := "none"
+			if tokenPresent {
+				authMethod = "token"
+			} else if cookiePresent {
+				authMethod = "cookie (experimental)"
+			}
+
 			if jsonMode {
 				env := output.NewSuccess(map[string]any{
 					"profile":        cfg.Profile,
 					"base_url":       cfg.BaseURL,
+					"auth_method":    authMethod,
 					"token_present":  tokenPresent,
 					"cookie_present": cookiePresent,
 				}, "auth.status", canvas.Meta{
@@ -70,18 +79,9 @@ func newAuthStatusCmd() *cobra.Command {
 
 			// Human output
 			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Profile:  %s\n", cfg.Profile)
-			fmt.Fprintf(w, "Base URL: %s\n", cfg.BaseURL)
-			tokenStr := "no"
-			if tokenPresent {
-				tokenStr = "yes"
-			}
-			fmt.Fprintf(w, "Token:    %s\n", tokenStr)
-			cookieStr := "no"
-			if cookiePresent {
-				cookieStr = "yes"
-			}
-			fmt.Fprintf(w, "Cookie:   %s\n", cookieStr)
+			fmt.Fprintf(w, "Profile:    %s\n", cfg.Profile)
+			fmt.Fprintf(w, "Base URL:   %s\n", cfg.BaseURL)
+			fmt.Fprintf(w, "Auth:       %s\n", authMethod)
 			return nil
 		},
 	}
@@ -769,7 +769,7 @@ func promptLine(w io.Writer, prompt string) string {
 func readSecretFile(path string) (string, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return "", fmt.Errorf("cannot access file: %w", err)
+		return "", fmt.Errorf("cannot access secret file") // path redacted
 	}
 
 	perm := info.Mode().Perm()
@@ -780,7 +780,7 @@ func readSecretFile(path string) (string, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("cannot read file: %w", err)
+		return "", fmt.Errorf("cannot read secret file") // path redacted
 	}
 
 	return strings.TrimSpace(string(data)), nil
