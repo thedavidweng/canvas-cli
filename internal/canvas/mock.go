@@ -13,10 +13,10 @@ import (
 // field. When unset, methods return a 501 Not Implemented response (or
 // no-op for SetHTTPClient).
 type MockCanvasAPI struct {
-	DoFunc             func(ctx context.Context, method, path string, query url.Values, body io.Reader) (*http.Response, error)
-	DoWithHeadersFunc  func(ctx context.Context, method, path string, query url.Values, body io.Reader, headers http.Header) (*http.Response, error)
-	DoURLFunc          func(ctx context.Context, method, absoluteURL string, body io.Reader) (*http.Response, error)
-	SetHTTPClientFunc  func(hc *http.Client)
+	DoFunc            func(ctx context.Context, method, path string, query url.Values, body io.Reader) (*http.Response, error)
+	DoWithHeadersFunc func(ctx context.Context, method, path string, query url.Values, body io.Reader, headers http.Header) (*http.Response, error)
+	DoURLFunc         func(ctx context.Context, method, absoluteURL string, body io.Reader) (*http.Response, error)
+	SetHTTPClientFunc func(hc *http.Client)
 }
 
 // Do delegates to DoFunc, or returns 501 if unset.

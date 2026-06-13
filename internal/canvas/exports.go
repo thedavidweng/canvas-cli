@@ -11,12 +11,12 @@ import (
 
 // EpubExport represents a Canvas ePub export job.
 type EpubExport struct {
-	ID          string      `json:"id"`
-	CreatedAt   string      `json:"created_at"`
-	WorkflowState string  `json:"workflow_state"`
-	ProgressURL string      `json:"progress_url"`
-	UserID      string      `json:"user_id"`
-	Attachment  *Attachment `json:"attachment,omitempty"`
+	ID            string      `json:"id"`
+	CreatedAt     string      `json:"created_at"`
+	WorkflowState string      `json:"workflow_state"`
+	ProgressURL   string      `json:"progress_url"`
+	UserID        string      `json:"user_id"`
+	Attachment    *Attachment `json:"attachment,omitempty"`
 }
 
 // CourseEpubExport represents a course with its latest ePub export.
@@ -39,13 +39,13 @@ type ContentExport struct {
 
 // Progress represents a Canvas progress object.
 type Progress struct {
-	ID        string  `json:"id"`
-	ContextID string  `json:"context_id"`
-	ContextType string `json:"context_type"`
-	UserID    string  `json:"user_id"`
-	Tag       string  `json:"tag"`
-	Completion *float64 `json:"completion,omitempty"`
-	WorkflowState string `json:"workflow_state"`
+	ID            string   `json:"id"`
+	ContextID     string   `json:"context_id"`
+	ContextType   string   `json:"context_type"`
+	UserID        string   `json:"user_id"`
+	Tag           string   `json:"tag"`
+	Completion    *float64 `json:"completion,omitempty"`
+	WorkflowState string   `json:"workflow_state"`
 }
 
 // StartEpubExport creates a new ePub export for a course.

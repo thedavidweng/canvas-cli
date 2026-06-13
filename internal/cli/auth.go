@@ -464,7 +464,8 @@ func writeConfigFile(path string, cfg *canvas.Config) error {
 func isTerminal(r io.Reader) bool {
 	f, ok := r.(*os.File)
 	if !ok {
-		return false	}
+		return false
+	}
 	fi, err := f.Stat()
 	if err != nil {
 		return false

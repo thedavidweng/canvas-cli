@@ -101,7 +101,7 @@ func NewRootCmd(version string) *cobra.Command {
 					resolved.BaseURL = baseURLFlag
 				}
 			} else {
-				return fmt.Errorf("config error: %w\n\nRun `canvas auth login` to set up credentials.", err)
+				return fmt.Errorf("config error: %w (run `canvas auth login` to set up credentials)", err)
 			}
 		}
 

@@ -8,7 +8,7 @@ import (
 
 // ResponseMeta captures metadata from a Canvas API response.
 type ResponseMeta struct {
-	RateLimit  *RateLimit `json:"rate_limit,omitempty"`
+	RateLimit  *RateLimit     `json:"rate_limit,omitempty"`
 	Pagination PaginationMeta `json:"pagination"`
 	Warnings   []string       `json:"warnings,omitempty"`
 }

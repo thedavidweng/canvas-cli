@@ -164,4 +164,3 @@ func TestShouldRetryBackoffIncreases(t *testing.T) {
 		t.Errorf("backoff should increase: delays = %v", delays)
 	}
 }
-

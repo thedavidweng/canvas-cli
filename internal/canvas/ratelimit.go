@@ -88,4 +88,3 @@ func backoffDelay(attempt int) time.Duration {
 	jitter := rand.Float64() * delay * 0.25
 	return time.Duration(delay + jitter)
 }
-
