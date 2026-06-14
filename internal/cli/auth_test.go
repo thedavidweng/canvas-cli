@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -714,6 +715,9 @@ func TestAuthLogin_CookieFile(t *testing.T) {
 }
 
 func TestAuthLogin_CookieFile_BadPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not enforced on Windows")
+	}
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	cookieFilePath := filepath.Join(tmpDir, "cookie.txt")
@@ -789,6 +793,9 @@ func TestAuthLogin_CSRFTokenFile(t *testing.T) {
 }
 
 func TestAuthLogin_CSRFTokenFile_BadPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not enforced on Windows")
+	}
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	cookieFilePath := filepath.Join(tmpDir, "cookie.txt")
@@ -894,6 +901,9 @@ func TestReadSecretFile_ValidPermissions(t *testing.T) {
 }
 
 func TestReadSecretFile_TooPermissive(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not enforced on Windows")
+	}
 	tmpDir := t.TempDir()
 	secretPath := filepath.Join(tmpDir, "secret.txt")
 
@@ -911,6 +921,9 @@ func TestReadSecretFile_TooPermissive(t *testing.T) {
 }
 
 func TestReadSecretFile_GroupReadable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not enforced on Windows")
+	}
 	tmpDir := t.TempDir()
 	secretPath := filepath.Join(tmpDir, "secret.txt")
 
@@ -925,6 +938,9 @@ func TestReadSecretFile_GroupReadable(t *testing.T) {
 }
 
 func TestReadSecretFile_WorldReadable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not enforced on Windows")
+	}
 	tmpDir := t.TempDir()
 	secretPath := filepath.Join(tmpDir, "secret.txt")
 
