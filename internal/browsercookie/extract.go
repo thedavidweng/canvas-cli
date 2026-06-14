@@ -4,10 +4,10 @@ package browsercookie
 import (
 	"context"
 	"net/http"
-	"runtime"
 	"strings"
 
 	"github.com/browserutils/kooky"
+	_ "github.com/browserutils/kooky/browser/chrome" // register Chrome cookie store finder
 )
 
 // KOOKY_AVAILABLE indicates whether browser cookie extraction is compiled in.
@@ -23,63 +23,112 @@ var sessionCookieNames = []string{
 // CSRF cookie name.
 const csrfCookieName = "_csrf_token"
 
-// CookieReader abstracts cookie reading for testability.
+// StoreFinder abstracts cookie store discovery for testability.
+type StoreFinder func(ctx context.Context) []kooky.CookieStore
+
+// Finder is the package-level store finder; override in tests.
+var Finder StoreFinder = kooky.FindAllCookieStores
+
+// CookieReader abstracts cookie reading for testability (high-level mock).
 type CookieReader interface {
 	ReadCookies(ctx context.Context, filters ...kooky.Filter) (kooky.Cookies, error)
 }
 
-// DefaultReader uses kooky's built-in cookie reading.
-type DefaultReader struct{}
-
-func (r *DefaultReader) ReadCookies(ctx context.Context, filters ...kooky.Filter) (kooky.Cookies, error) {
-	return kooky.ReadCookies(ctx, filters...)
-}
-
-// Package-level reader variable for dependency injection.
-var Reader CookieReader = &DefaultReader{}
+// Reader is the package-level reader; when non-nil it overrides Finder.
+// Used only for testing.
+var Reader CookieReader
 
 // ExtractCookies reads browser cookies for the given host.
+// It tries the default browser first, then falls back to Chrome.
+// Stops at the first store that yields a valid session cookie.
 // Returns sessionCookie in "name=value" format suitable for the HTTP Cookie header,
 // and csrfToken as the raw value.
-// Filters by exact host match only (no parent domain matching to avoid
-// over-broad results with ccTLDs like *.ac.uk, *.edu.au, *.co.uk).
 func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken string, err error) {
+	// High-level mock path for testing.
+	if Reader != nil {
+		return extractWithReader(ctx, host)
+	}
+
+	domainFilter := kooky.Domain(host)
+
+	// Try default browser first, then fall back to others.
+	for _, browserName := range tryOrder() {
+		for _, store := range Finder(ctx) {
+			if store == nil {
+				continue
+			}
+			if !strings.EqualFold(store.Browser(), browserName) {
+				store.Close()
+				continue
+			}
+
+			session, csrf := readStoreCookies(ctx, store, domainFilter)
+			store.Close()
+
+			if session != "" {
+				return session, csrf, nil
+			}
+			if csrf != "" && csrfToken == "" {
+				csrfToken = csrf
+			}
+		}
+	}
+
+	return "", csrfToken, ErrNoSessionCookie
+}
+
+// extractWithReader uses the mock Reader for testing.
+func extractWithReader(ctx context.Context, host string) (sessionCookie, csrfToken string, err error) {
 	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host))
 	if err != nil {
 		return "", "", err
 	}
-
 	for _, cookie := range cookies {
 		if cookie == nil {
 			continue
 		}
-
-		name := cookie.Name
-		value := cookie.Value
-
-		// Check for CSRF token.
-		if name == csrfCookieName && csrfToken == "" {
-			csrfToken = value
+		if cookie.Name == csrfCookieName && csrfToken == "" {
+			csrfToken = cookie.Value
 			continue
 		}
-
-		// Check for session cookie by known names.
 		if sessionCookie == "" {
 			for _, sessionName := range sessionCookieNames {
-				if name == sessionName {
-					sessionCookie = name + "=" + value
+				if cookie.Name == sessionName {
+					sessionCookie = cookie.Name + "=" + cookie.Value
 					break
 				}
 			}
 		}
 	}
-
-	// Return error if no session cookie found.
 	if sessionCookie == "" {
 		return "", csrfToken, ErrNoSessionCookie
 	}
-
 	return sessionCookie, csrfToken, nil
+}
+
+// readStoreCookies reads cookies from a single store, returning the first
+// session cookie and CSRF token found.
+func readStoreCookies(ctx context.Context, store kooky.CookieStore, filters ...kooky.Filter) (sessionCookie, csrfToken string) {
+	for cookie, err := range store.TraverseCookies(filters...) {
+		if err != nil || cookie == nil {
+			continue
+		}
+		if cookie.Name == csrfCookieName && csrfToken == "" {
+			csrfToken = cookie.Value
+		}
+		if sessionCookie == "" {
+			for _, sessionName := range sessionCookieNames {
+				if cookie.Name == sessionName {
+					sessionCookie = cookie.Name + "=" + cookie.Value
+					break
+				}
+			}
+		}
+		if sessionCookie != "" {
+			return sessionCookie, csrfToken
+		}
+	}
+	return sessionCookie, csrfToken
 }
 
 // IsSessionCookie checks if a cookie is a known session cookie.
@@ -104,54 +153,43 @@ func IsCSRFCookie(cookie *http.Cookie) bool {
 }
 
 // ExtractCookiesForBrowser reads browser cookies for the given host,
-// filtering to a specific browser by name (e.g. "chrome", "firefox", "safari").
+// filtering to a specific browser by name (e.g. "chrome").
 func ExtractCookiesForBrowser(ctx context.Context, host, browserName string) (sessionCookie, csrfToken string, err error) {
-	browserFilter := kooky.FilterFunc(func(c *kooky.Cookie) bool {
-		if c.Browser == nil {
-			return false
-		}
-		return strings.EqualFold(c.Browser.Browser(), browserName)
-	})
+	domainFilter := kooky.Domain(host)
 
-	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host), browserFilter)
-	if err != nil {
-		return "", "", err
-	}
-
-	for _, cookie := range cookies {
-		if cookie == nil {
+	for _, store := range Finder(ctx) {
+		if store == nil {
 			continue
 		}
-		if cookie.Name == csrfCookieName && csrfToken == "" {
-			csrfToken = cookie.Value
+		if !strings.EqualFold(store.Browser(), browserName) {
+			store.Close()
 			continue
 		}
-		if sessionCookie == "" {
-			for _, sessionName := range sessionCookieNames {
-				if cookie.Name == sessionName {
-					sessionCookie = cookie.Name + "=" + cookie.Value
-					break
-				}
-			}
+
+		session, csrf := readStoreCookies(ctx, store, domainFilter)
+		store.Close()
+
+		if session != "" {
+			return session, csrf, nil
+		}
+		if csrf != "" && csrfToken == "" {
+			csrfToken = csrf
 		}
 	}
 
-	if sessionCookie == "" {
-		return "", csrfToken, ErrNoSessionCookie
-	}
-	return sessionCookie, csrfToken, nil
+	return "", csrfToken, ErrNoSessionCookie
 }
 
 // AvailableBrowsers returns browser names available on the current OS for cookie extraction.
+// Only returns browsers whose finders are compiled in (chrome on all platforms).
 func AvailableBrowsers() []string {
-	switch runtime.GOOS {
-	case "darwin":
-		return []string{"chrome", "firefox", "safari", "edge", "brave", "opera"}
-	case "linux":
-		return []string{"chrome", "firefox", "chromium", "opera", "brave"}
-	case "windows":
-		return []string{"chrome", "firefox", "edge", "brave", "opera"}
-	default:
-		return []string{"chrome", "firefox"}
+	return []string{"chrome"}
+}
+
+// tryOrder returns the browser detection order: default browser first, then chrome as fallback.
+func tryOrder() []string {
+	if def := defaultBrowser(); def != "" && def != "chrome" {
+		return []string{def, "chrome"}
 	}
+	return []string{"chrome"}
 }

@@ -485,6 +485,10 @@ func promptCookieAuth(ctx context.Context, w io.Writer, baseURL, browserOverride
 		return promptCookieManual(w)
 	}
 
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Reading cookies from your browser. You may be prompted to unlock")
+	fmt.Fprintln(w, "  your system keyring — please approve the access.")
+
 	// Build ordered list of browsers to try.
 	var tryBrowsers []string
 	if browserOverride != "" {
