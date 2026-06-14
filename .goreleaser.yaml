@@ -88,6 +88,15 @@ release:
     go install github.com/thedavidweng/canvas-cli/cmd/canvas@{{ .Tag }}
     ```
 
+    **Verify checksum:**
+    ```bash
+    cosign verify-blob \
+      --bundle checksums.txt.sig \
+      --certificate-identity-regexp='https://github.com/thedavidweng/canvas-cli' \
+      --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+      checksums.txt
+    ```
+
 signs:
   - artifacts: checksum
     cmd: cosign
