@@ -101,8 +101,9 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 
 		var uploadResp *http.Response
 		if parsedURL.Host == canvasHost {
-			// Same-host: use DoURL which handles auth, CSRF, and redirects.
-			uploadResp, err = client.DoURL(ctx, "POST", init.UploadURL, &buf)
+			// Same-host: use DoURLWithHeaders which handles auth, CSRF, and redirects.
+			uploadHeaders := http.Header{"Content-Type": {writer.FormDataContentType()}}
+			uploadResp, err = client.DoURLWithHeaders(ctx, "POST", init.UploadURL, &buf, uploadHeaders)
 			if err != nil {
 				return "", fmt.Errorf("upload file: %w", err)
 			}

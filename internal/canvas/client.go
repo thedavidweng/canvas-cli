@@ -194,6 +194,11 @@ func (c *Client) doOnce(ctx context.Context, method, path string, query url.Valu
 // and upload redirects). No base URL prepending.
 // Auth headers are only sent when the URL host matches the configured base URL host.
 func (c *Client) DoURL(ctx context.Context, method, absoluteURL string, body io.Reader) (*http.Response, error) {
+	return c.DoURLWithHeaders(ctx, method, absoluteURL, body, nil)
+}
+
+// DoURLWithHeaders is like DoURL but also applies custom headers.
+func (c *Client) DoURLWithHeaders(ctx context.Context, method, absoluteURL string, body io.Reader, headers http.Header) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, absoluteURL, body)
 	if err != nil {
 		return nil, err
@@ -222,6 +227,13 @@ func (c *Client) DoURL(ctx context.Context, method, absoluteURL string, body io.
 	}
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/json+canvas-string-ids")
+
+	// Apply custom headers (override defaults if needed).
+	for k, vals := range headers {
+		for _, v := range vals {
+			req.Header.Set(k, v)
+		}
+	}
 
 	// Per-request redirect policy for cookie auth.
 	hc := c.httpClient
