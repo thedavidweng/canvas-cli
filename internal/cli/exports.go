@@ -49,7 +49,7 @@ the file to the current directory (or --out path).`,
 				return fmt.Errorf("--format is required (epub, common_cartridge, qti, zip)")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			w := cmd.OutOrStdout()
 
 			if format == "epub" {
@@ -86,7 +86,7 @@ func newCoursesExportsCmd() *cobra.Command {
 				return fmt.Errorf("--course is required")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			exports, _, err := canvas.ListContentExports(cmd.Context(), client, courseID)
 			if err != nil {

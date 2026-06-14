@@ -224,11 +224,148 @@ func TestDoctorCmd_ExitCode3_AuthFail(t *testing.T) {
 	// This test just verifies the command runs
 }
 
+func TestDoctorCmd_CookieAuth_Warn(t *testing.T) {
+	// When token is empty but cookie is set, token_present should warn
+	cfg := &config.ResolvedConfig{
+		BaseURL: "https://school.instructure.com",
+		Token:   "",
+		Cookie:  "session-cookie-value",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := NewDoctorCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("doctor failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	data, ok := env.Data.([]any)
+	if !ok {
+		t.Fatalf("expected data to be array, got %T", env.Data)
+	}
+
+	checks := make(map[string]string)
+	for _, item := range data {
+		if check, ok := item.(map[string]any); ok {
+			name, _ := check["check"].(string)
+			status, _ := check["status"].(string)
+			checks[name] = status
+		}
+	}
+
+	if checks["token_present"] != "warn" {
+		t.Errorf("expected token_present=warn for cookie auth, got %s", checks["token_present"])
+	}
+	if checks["session_cookie"] != "pass" {
+		t.Errorf("expected session_cookie=pass, got %s", checks["session_cookie"])
+	}
+}
+
+func TestDoctorCmd_NoTokenNoCookie_Fail(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "https://school.instructure.com",
+		Token:   "",
+		Cookie:  "",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := NewDoctorCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("doctor failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	data, ok := env.Data.([]any)
+	if !ok {
+		t.Fatalf("expected data to be array, got %T", env.Data)
+	}
+
+	checks := make(map[string]string)
+	for _, item := range data {
+		if check, ok := item.(map[string]any); ok {
+			name, _ := check["check"].(string)
+			status, _ := check["status"].(string)
+			checks[name] = status
+		}
+	}
+
+	if checks["token_present"] != "fail" {
+		t.Errorf("expected token_present=fail when no token or cookie, got %s", checks["token_present"])
+	}
+	if checks["session_cookie"] != "pass" {
+		t.Errorf("expected session_cookie=pass when no cookie configured, got %s", checks["session_cookie"])
+	}
+}
+
+func TestDoctorCmd_SessionCookie_EmptyValue(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "https://school.instructure.com",
+		Token:   "test-token",
+		Cookie:  "   ",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := NewDoctorCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("doctor failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	data, ok := env.Data.([]any)
+	if !ok {
+		t.Fatalf("expected data to be array, got %T", env.Data)
+	}
+
+	checks := make(map[string]string)
+	for _, item := range data {
+		if check, ok := item.(map[string]any); ok {
+			name, _ := check["check"].(string)
+			status, _ := check["status"].(string)
+			checks[name] = status
+		}
+	}
+
+	if checks["session_cookie"] != "warn" {
+		t.Errorf("expected session_cookie=warn for whitespace-only cookie, got %s", checks["session_cookie"])
+	}
+}
+
 func TestDoctorCmd_CheckNames(t *testing.T) {
 	expectedChecks := []string{
 		"config_file",
 		"config_permissions",
 		"token_present",
+		"session_cookie",
 		"base_url",
 		"api_and_token",
 		"write_safety",

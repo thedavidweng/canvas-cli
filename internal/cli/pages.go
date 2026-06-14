@@ -42,7 +42,7 @@ func newPagesListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			pages, _, err := canvas.ListPages(cmd.Context(), client, courseID, nil)
 			if err != nil {
@@ -96,7 +96,7 @@ func newPagesGetCmd() *cobra.Command {
 
 			pageURL := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			page, err := canvas.GetPage(cmd.Context(), client, courseID, pageURL)
 			if err != nil {
@@ -184,7 +184,7 @@ func newPagesUpdateCmd() *cobra.Command {
 				"body": string(body),
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			_, err = canvas.UpdatePage(cmd.Context(), client, courseID, pageURL, updates)
 			if err != nil {
 				return err

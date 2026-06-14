@@ -45,7 +45,7 @@ func newDiscussionsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			discussions, _, err := canvas.ListDiscussions(cmd.Context(), client, courseID, nil)
 			if err != nil {
@@ -99,7 +99,7 @@ func newDiscussionsGetCmd() *cobra.Command {
 
 			discussionID := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			topic, err := canvas.GetDiscussion(cmd.Context(), client, courseID, discussionID)
 			if err != nil {
@@ -155,7 +155,7 @@ func newDiscussionsEntriesCmd() *cobra.Command {
 
 			discussionID := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			entries, _, err := canvas.ListDiscussionEntries(cmd.Context(), client, courseID, discussionID, nil)
 			if err != nil {
@@ -234,7 +234,7 @@ func newDiscussionsReplyCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			entry, err := canvas.ReplyToDiscussion(cmd.Context(), client, courseID, did, message)
 			if err != nil {
 				return err
@@ -298,7 +298,7 @@ func newDiscussionsReplyEntryCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			entry, err := canvas.ReplyToEntry(cmd.Context(), client, courseID, did, entryID, message)
 			if err != nil {
 				return err
@@ -368,7 +368,7 @@ func newDiscussionsCreateCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			topic, err := canvas.CreateDiscussion(cmd.Context(), client, courseID, title, string(body))
 			if err != nil {
 				return err

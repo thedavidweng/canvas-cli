@@ -42,7 +42,7 @@ func newAnnouncementsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			announcements, _, err := canvas.ListAnnouncements(cmd.Context(), client, courseID, nil)
 			if err != nil {
@@ -96,7 +96,7 @@ func newAnnouncementsGetCmd() *cobra.Command {
 			}
 			announcementID := args[0]
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			topic, err := canvas.GetAnnouncement(cmd.Context(), client, courseID, announcementID)
 			if err != nil {
 				if jsonMode {
@@ -185,7 +185,7 @@ func newAnnouncementsCreateCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			topic, err := canvas.CreateAnnouncement(cmd.Context(), client, courseID, title, string(body))
 			if err != nil {
 				return err

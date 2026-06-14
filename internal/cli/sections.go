@@ -38,7 +38,7 @@ func newSectionsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			sections, err := canvas.ListSections(cmd.Context(), client, courseID)
 			if err != nil {

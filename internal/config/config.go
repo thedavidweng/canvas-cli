@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 type Options struct {
 	BaseURL string
 	Token   string
+	Cookie  string
 	Profile string
 }
 
@@ -27,6 +29,8 @@ type Options struct {
 type ResolvedConfig struct {
 	BaseURL          string
 	Token            string
+	Cookie           string
+	CSRFToken        string
 	Profile          string
 	Timeout          string
 	TimeoutDuration  time.Duration
@@ -40,22 +44,43 @@ type ResolvedConfig struct {
 	OutputNoColor    bool
 	AuditEnabled     bool
 	AuditPath        string
+	Warnings         []string
 }
 
-// String returns a human-readable summary with the token redacted.
+// String returns a human-readable summary with sensitive values redacted.
 func (r *ResolvedConfig) String() string {
+	tokenStr := "(not set)"
+	if r.Token != "" {
+		tokenStr = "***REDACTED***"
+	}
+	cookieStr := "(not set)"
+	if r.Cookie != "" {
+		cookieStr = "***REDACTED***"
+	}
 	return fmt.Sprintf(
-		"Profile: %s\nBaseURL: %s\nToken: ***REDACTED***\nTimeout: %s\nRetries: %d\nPageSize: %d\nReadOnly: %t\nDefaultCourse: %s",
-		r.Profile, r.BaseURL, r.Timeout, r.Retries, r.PageSize, r.ReadOnly, r.DefaultCourse,
+		"Profile: %s\nBaseURL: %s\nToken: %s\nCookie: %s\nTimeout: %s\nRetries: %d\nPageSize: %d\nReadOnly: %t\nDefaultCourse: %s",
+		r.Profile, r.BaseURL, tokenStr, cookieStr, r.Timeout, r.Retries, r.PageSize, r.ReadOnly, r.DefaultCourse,
 	)
 }
 
 // LoadConfig reads and parses a YAML config file. If configPath is empty it
 // uses ConfigPath(). If profileOverride is non-empty it overrides
-// CurrentProfile.
+// CurrentProfile. Rejects files with permissions more permissive than 0600
+// (Unix only; Windows permissions are not checked).
 func LoadConfig(configPath, profileOverride string) (*canvas.Config, error) {
 	if configPath == "" {
 		configPath = ConfigPath()
+	}
+
+	// Reject group/world-readable config files (security requirement).
+	// Skip on Windows where Unix file permissions don't apply.
+	if runtime.GOOS != "windows" {
+		if info, err := os.Stat(configPath); err == nil {
+			perm := info.Mode().Perm()
+			if perm&0o077 != 0 {
+				return nil, fmt.Errorf("config file %s has too-permissive permissions (%o); must be 0600 or stricter", configPath, perm)
+			}
+		}
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -94,7 +119,8 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		// Check if env vars or flags will provide base URL and token.
 		envBase := os.Getenv("CANVAS_BASE_URL")
 		envToken := os.Getenv("CANVAS_TOKEN")
-		if opts.BaseURL == "" && envBase == "" && opts.Token == "" && envToken == "" {
+		envCookie := os.Getenv("CANVAS_COOKIE")
+		if opts.BaseURL == "" && envBase == "" && opts.Token == "" && envToken == "" && opts.Cookie == "" && envCookie == "" {
 			return nil, fmt.Errorf("profile %q not found in config", profileName)
 		}
 		// Profile missing but env/flag credentials are available; proceed with zero-value profile.
@@ -118,8 +144,38 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		}
 		token = resolved
 	}
-	if token == "" {
-		return nil, fmt.Errorf("token is required (flag, CANVAS_TOKEN env, or config file)")
+
+	// --- Resolve Cookie (flag > env > file) ---
+	cookie := choose(opts.Cookie, os.Getenv("CANVAS_COOKIE"), prof.Cookie)
+	if strings.HasPrefix(cookie, "env:") {
+		envKey := strings.TrimPrefix(cookie, "env:")
+		resolved := os.Getenv(envKey)
+		if resolved == "" {
+			return nil, fmt.Errorf("cookie references env var %q which is not set", envKey)
+		}
+		cookie = resolved
+	}
+
+	// --- Resolve CSRF Token (env > file, same env: pattern) ---
+	csrfToken := prof.CSRFToken
+	if strings.HasPrefix(csrfToken, "env:") {
+		envKey := strings.TrimPrefix(csrfToken, "env:")
+		resolved := os.Getenv(envKey)
+		if resolved == "" {
+			return nil, fmt.Errorf("csrf_token references env var %q which is not set", envKey)
+		}
+		csrfToken = resolved
+	}
+
+	// --- Require at least one auth method ---
+	var warnings []string
+	if token == "" && cookie == "" {
+		return nil, fmt.Errorf("token or cookie required (cookie auth is experimental)")
+	}
+
+	// Warn when cookie is set without CSRF token (write commands will fail).
+	if cookie != "" && csrfToken == "" && token == "" {
+		warnings = append(warnings, "cookie auth without CSRF token: write commands will fail")
 	}
 
 	// --- Resolve optional settings (env > file) ---
@@ -156,6 +212,8 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 	return &ResolvedConfig{
 		BaseURL:          baseURL,
 		Token:            token,
+		Cookie:           cookie,
+		CSRFToken:        csrfToken,
 		Profile:          profileName,
 		Timeout:          timeout,
 		Retries:          retries,
@@ -166,6 +224,7 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		OutputNoColor:    noColor,
 		AuditEnabled:     cfg.Audit.Enabled,
 		AuditPath:        cfg.Audit.Path,
+		Warnings:         warnings,
 	}, nil
 }
 

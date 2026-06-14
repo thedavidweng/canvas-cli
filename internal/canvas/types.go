@@ -301,6 +301,8 @@ type Config struct {
 type Profile struct {
 	BaseURL       string `yaml:"base_url"`
 	Token         string `yaml:"token"`
+	Cookie        string `yaml:"cookie,omitempty"`
+	CSRFToken     string `yaml:"csrf_token,omitempty"`
 	Timeout       string `yaml:"timeout,omitempty"`
 	Retries       int    `yaml:"retries,omitempty"`
 	PageSize      int    `yaml:"page_size,omitempty"`

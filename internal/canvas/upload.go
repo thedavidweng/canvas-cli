@@ -34,23 +34,16 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 	}
 
 	// --- Step 1: Notify Canvas ---
+	// Use client.DoWithHeaders so CSRF, redirect classification, and
+	// cookie auth all go through the standard client path.
 	initBody := url.Values{}
 	initBody.Set("name", filename)
 	initBody.Set("size", fmt.Sprintf("%d", len(content)))
 	initBody.Set("content_type", contentType)
 
-	initReq, err := http.NewRequestWithContext(ctx, "POST",
-		client.baseURL+fmt.Sprintf("/api/v1/courses/%s/files", courseID),
-		strings.NewReader(initBody.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("initiate upload: %w", err)
-	}
-	initReq.Header.Set("Authorization", "Bearer "+client.token)
-	initReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	initReq.Header.Set("User-Agent", client.userAgent)
-	initReq.Header.Set("Accept", "application/json+canvas-string-ids")
-
-	initResp, err := client.httpClient.Do(initReq)
+	initPath := fmt.Sprintf("/api/v1/courses/%s/files", courseID)
+	initHeaders := http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
+	initResp, err := client.DoWithHeaders(ctx, "POST", initPath, nil, strings.NewReader(initBody.Encode()), initHeaders)
 	if err != nil {
 		return "", fmt.Errorf("initiate upload: %w", err)
 	}
@@ -90,54 +83,53 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 	}
 	writer.Close()
 
-	// Use a client that does not follow POST redirects automatically,
-	// so we can inspect 3xx responses and follow them ourselves.
-	uploadClient := *client
-	uploadClient.SetHTTPClient(&http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	})
-
 	// Parse the upload_url to determine whether it is a full URL or a path.
 	parsedURL, err := url.Parse(init.UploadURL)
 	if err != nil {
 		return "", fmt.Errorf("parse upload_url %s: %w", init.UploadURL, err)
 	}
 
-	var uploadPath string
-	var uploadQuery url.Values
 	if parsedURL.Scheme != "" && parsedURL.Host != "" {
-		// Full URL: may point to an external host (e.g. S3). Do NOT send
-		// Canvas auth token to external upload hosts.
-		req, reqErr := http.NewRequestWithContext(ctx, "POST", init.UploadURL, &buf)
-		if reqErr != nil {
-			return "", fmt.Errorf("create upload request: %w", reqErr)
-		}
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-
-		// Only send auth if the upload URL is on the same host as the Canvas API.
+		// Full URL: may point to an external host (e.g. S3).
+		// DoURL only sends auth headers to same-host URLs automatically.
+		// Use DoURL for same-host (handles CSRF, redirect classification);
+		// for external hosts, send a bare request with no Canvas credentials.
 		canvasHost := ""
 		if parsed, pErr := url.Parse(client.baseURL); pErr == nil {
 			canvasHost = parsed.Host
 		}
-		if parsedURL.Host == canvasHost {
-			req.Header.Set("Authorization", "Bearer "+client.token)
-		}
-		req.Header.Set("User-Agent", client.userAgent)
 
-		uploadResp, doErr := uploadClient.httpClient.Do(req)
-		if doErr != nil {
-			return "", fmt.Errorf("upload file: %w", doErr)
+		var uploadResp *http.Response
+		if parsedURL.Host == canvasHost {
+			// Same-host: use DoURLWithHeaders which handles auth, CSRF, and redirects.
+			uploadHeaders := http.Header{"Content-Type": {writer.FormDataContentType()}}
+			uploadResp, err = client.DoURLWithHeaders(ctx, "POST", init.UploadURL, &buf, uploadHeaders)
+			if err != nil {
+				return "", fmt.Errorf("upload file: %w", err)
+			}
+		} else {
+			// External host: send no Canvas credentials.
+			req, reqErr := http.NewRequestWithContext(ctx, "POST", init.UploadURL, &buf)
+			if reqErr != nil {
+				return "", fmt.Errorf("create upload request: %w", reqErr)
+			}
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			req.Header.Set("User-Agent", client.userAgent)
+			uploadResp, err = client.httpClient.Do(req)
+			if err != nil {
+				return "", fmt.Errorf("upload file: %w", err)
+			}
 		}
 		return handleUploadResponse(ctx, uploadResp, client)
 	}
 
 	// Relative URL: use client.Do with the path.
-	uploadPath = parsedURL.Path
-	uploadQuery = parsedURL.Query()
+	// client.Do handles CSRF, redirect classification, and cookie auth.
+	uploadPath := parsedURL.Path
+	uploadQuery := parsedURL.Query()
 
-	uploadResp, err := uploadClient.Do(ctx, "POST", uploadPath, uploadQuery, &buf)
+	uploadHeaders := http.Header{"Content-Type": {writer.FormDataContentType()}}
+	uploadResp, err := client.DoWithHeaders(ctx, "POST", uploadPath, uploadQuery, &buf, uploadHeaders)
 	if err != nil {
 		return "", fmt.Errorf("upload file: %w", err)
 	}

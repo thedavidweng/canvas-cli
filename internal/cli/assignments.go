@@ -74,7 +74,7 @@ func newAssignmentsListCmd() *cobra.Command {
 				query.Set("include[]", "submission")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			assignments, _, err := canvas.ListAssignments(cmd.Context(), client, courseID, query)
 			if err != nil {
 				if jsonMode {
@@ -160,7 +160,7 @@ func newAssignmentsGetCmd() *cobra.Command {
 			}
 			assignmentID := args[0]
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			assignment, err := canvas.GetAssignment(cmd.Context(), client, courseID, assignmentID)
 			if err != nil {
 				if jsonMode {
@@ -219,7 +219,7 @@ func newAssignmentGroupsListCmd() *cobra.Command {
 				return fmt.Errorf("--course is required")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			groups, err := canvas.ListAssignmentGroups(cmd.Context(), client, courseID)
 			if err != nil {
 				if jsonMode {
@@ -304,7 +304,7 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 				submissionType = "online_upload"
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			// Fetch assignment to validate submission type.
 			assignment, err := canvas.GetAssignment(cmd.Context(), client, courseID, assignmentID)
@@ -472,7 +472,7 @@ func newAssignmentsUpdateCmd() *cobra.Command {
 				"due_at": dueAt,
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			_, err := canvas.UpdateAssignment(cmd.Context(), client, courseID, assignmentID, updates)
 			if err != nil {
 				return err

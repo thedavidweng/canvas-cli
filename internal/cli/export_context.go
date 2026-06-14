@@ -725,7 +725,7 @@ error isolation — a failure in one section does not abort others.`,
 				include = strings.Split(includeStr, ",")
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			result, err := ExportContext(cmd.Context(), client, courseID, ExportContextOpts{
 				Include: include,
 				Since:   since,

@@ -78,7 +78,7 @@ func newGradeSetCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			sub, err := canvas.SetGrade(cmd.Context(), client, courseID, assignmentID, userID, score)
 			if err != nil {
 				if jsonMode {
@@ -166,7 +166,7 @@ func newGradeCommentCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			sub, err := canvas.AddComment(cmd.Context(), client, courseID, assignmentID, userID, comment)
 			if err != nil {
 				if jsonMode {
@@ -286,7 +286,7 @@ func newGradeImportCmd() *cobra.Command {
 				fmt.Fprintf(w, "warning: importing %d grades without prior --dry-run\n", len(gradeData))
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			subs, err := canvas.ImportGrades(cmd.Context(), client, courseID, assignmentID, gradeData)
 			if err != nil {
 				result.Failed = len(gradeData)
@@ -387,7 +387,7 @@ func newGradeRubricCmd() *cobra.Command {
 				return nil
 			}
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			sub, err := canvas.GradeRubric(cmd.Context(), client, courseID, assignmentID, userID, rubricAssessment)
 			if err != nil {
 				if jsonMode {

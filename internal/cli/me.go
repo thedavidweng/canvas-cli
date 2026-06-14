@@ -39,7 +39,7 @@ func newMeGetCmd() *cobra.Command {
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 			resp, err := client.Do(cmd.Context(), "GET", "/api/v1/users/self", nil, nil)
 			if err != nil {
 				if jsonMode {
@@ -55,7 +55,7 @@ func newMeGetCmd() *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode != 200 {
-				env := canvas.NormalizeError(resp, "me.get")
+				env := canvas.NormalizeError(resp, "me.get", cookieAuthBaseURL(cfg)...)
 				if jsonMode {
 					return output.WriteJSON(cmd.OutOrStdout(), env, false)
 				}
@@ -107,7 +107,7 @@ func newMeActivityCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			items, err := canvas.GetActivityStream(cmd.Context(), client)
 			if err != nil {
@@ -158,7 +158,7 @@ func newMeTodoCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			items, err := canvas.GetTodoItems(cmd.Context(), client)
 			if err != nil {
@@ -209,7 +209,7 @@ func newMeUpcomingCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
+			client := newClientFromCfg(cfg)
 
 			items, err := canvas.GetUpcomingEvents(cmd.Context(), client)
 			if err != nil {

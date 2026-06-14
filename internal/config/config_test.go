@@ -15,7 +15,7 @@ func writeTempConfig(t *testing.T, dir, name, content string) string {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path
@@ -479,10 +479,11 @@ profiles:
 
 	unsetEnv(t, "CANVAS_BASE_URL")
 	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
 
 	_, err := Resolve(Options{}, cfg)
 	if err == nil {
-		t.Fatal("expected error for missing token")
+		t.Fatal("expected error for missing token and cookie")
 	}
 }
 
@@ -598,6 +599,305 @@ profiles:
 
 func TestUserHomeDir_ReturnsHomeOrEmpty(t *testing.T) {
 	_ = userHomeDir()
+}
+
+// --- Session cookie auth tests (Step 1.2) ---
+
+func TestResolve_CookieWithCSRF_SucceedsWithoutToken(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    cookie: _csrf_token=abc123; _session=xyz
+    csrf_token: my-csrf-token
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Cookie != "_csrf_token=abc123; _session=xyz" {
+		t.Errorf("Cookie = %q, want from profile", resolved.Cookie)
+	}
+	if resolved.CSRFToken != "my-csrf-token" {
+		t.Errorf("CSRFToken = %q, want from profile", resolved.CSRFToken)
+	}
+	if resolved.Token != "" {
+		t.Errorf("Token should be empty when only cookie is set, got %q", resolved.Token)
+	}
+}
+
+func TestResolve_MissingTokenAndCookie_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
+
+	_, err := Resolve(Options{}, cfg)
+	if err == nil {
+		t.Fatal("expected error when neither token nor cookie is set")
+	}
+	if !strings.Contains(err.Error(), "token or cookie required") {
+		t.Errorf("error should mention 'token or cookie required', got: %v", err)
+	}
+}
+
+func TestResolve_TokenTakesPrecedenceOverCookie(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: my-token
+    cookie: my-cookie
+    csrf_token: my-csrf
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Token != "my-token" {
+		t.Errorf("Token = %q, want 'my-token' (should take precedence)", resolved.Token)
+	}
+	if resolved.Cookie != "my-cookie" {
+		t.Errorf("Cookie = %q, want 'my-cookie' (should still be set)", resolved.Cookie)
+	}
+}
+
+func TestResolve_CookieWithoutCSRF_Warns(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    cookie: my-cookie
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if len(resolved.Warnings) == 0 {
+		t.Fatal("expected warning when cookie is set without csrf_token")
+	}
+	found := false
+	for _, w := range resolved.Warnings {
+		if strings.Contains(w, "CSRF") || strings.Contains(w, "csrf") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected CSRF-related warning, got warnings: %v", resolved.Warnings)
+	}
+}
+
+func TestResolve_EnvVarCookieReference(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    cookie: env:MY_COOKIE_SECRET
+    csrf_token: env:MY_CSRF_SECRET
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	setEnv(t, "MY_COOKIE_SECRET", "resolved-cookie-value")
+	setEnv(t, "MY_CSRF_SECRET", "resolved-csrf-value")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
+	unsetEnv(t, "CANVAS_BASE_URL")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Cookie != "resolved-cookie-value" {
+		t.Errorf("Cookie = %q, want resolved env var value", resolved.Cookie)
+	}
+	if resolved.CSRFToken != "resolved-csrf-value" {
+		t.Errorf("CSRFToken = %q, want resolved env var value", resolved.CSRFToken)
+	}
+}
+
+func TestResolve_EnvVarCookieReference_MissingEnv(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    cookie: env:NONEXISTENT_COOKIE_VAR_12345
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "NONEXISTENT_COOKIE_VAR_12345")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
+	unsetEnv(t, "CANVAS_BASE_URL")
+
+	_, err := Resolve(Options{}, cfg)
+	if err == nil {
+		t.Fatal("expected error for missing env var in cookie reference")
+	}
+}
+
+func TestResolvedConfig_String_RedactsCookie(t *testing.T) {
+	rc := &ResolvedConfig{
+		BaseURL:  "https://school.instructure.com",
+		Token:    "super-secret-token",
+		Cookie:   "super-secret-cookie",
+		Profile:  "default",
+		Timeout:  "30s",
+		Retries:  3,
+		PageSize: 100,
+	}
+
+	s := rc.String()
+	if strings.Contains(s, "super-secret-cookie") {
+		t.Errorf("String() leaked cookie: %s", s)
+	}
+	if !strings.Contains(s, "***REDACTED***") {
+		t.Errorf("String() should contain ***REDACTED***, got: %s", s)
+	}
+}
+
+func TestResolve_CANVAS_COOKIE_EnvSupport(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_COOKIE", "env-cookie-value")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Cookie != "env-cookie-value" {
+		t.Errorf("Cookie = %q, want CANVAS_COOKIE env value", resolved.Cookie)
+	}
+}
+
+func TestResolve_CANVAS_COOKIE_EnvWithCSRF(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    csrf_token: file-csrf
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_COOKIE", "env-cookie-value")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Cookie != "env-cookie-value" {
+		t.Errorf("Cookie = %q, want CANVAS_COOKIE env value", resolved.Cookie)
+	}
+	if resolved.CSRFToken != "file-csrf" {
+		t.Errorf("CSRFToken = %q, want 'file-csrf' from profile", resolved.CSRFToken)
+	}
+}
+
+func TestResolve_CookieFlagTakesPrecedence(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    cookie: file-cookie
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_COOKIE", "env-cookie")
+
+	opts := Options{Cookie: "flag-cookie"}
+	resolved, err := Resolve(opts, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Cookie != "flag-cookie" {
+		t.Errorf("Cookie = %q, want flag value (highest priority)", resolved.Cookie)
+	}
+}
+
+func TestResolve_EnvVarCSRFTokenReference_MissingEnv(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    cookie: some-cookie
+    csrf_token: env:NONEXISTENT_CSRF_VAR_12345
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "NONEXISTENT_CSRF_VAR_12345")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_COOKIE")
+	unsetEnv(t, "CANVAS_BASE_URL")
+
+	_, err := Resolve(Options{}, cfg)
+	if err == nil {
+		t.Fatal("expected error for missing env var in csrf_token reference")
+	}
 }
 
 // Ensure the test file compiles on all platforms.

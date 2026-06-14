@@ -87,6 +87,19 @@ CANVAS_PROFILE=school2 canvas courses list
 canvas auth profiles
 ```
 
+### Session cookie auth (experimental)
+
+If your school disables access token generation, you can use session cookie auth as a fallback:
+
+```bash
+canvas auth login
+# Select "Session cookie (experimental)" when prompted
+```
+
+The CLI will extract your browser's Canvas login cookie. You can override the browser with `--browser firefox`. For scripting, use `--cookie-stdin`, `--cookie-env`, or `--cookie-file`.
+
+**Warning**: Session cookies expire when your browser session ends (typically 8-24 hours). This is experimental — use token auth when possible. See [docs/auth.md](docs/auth.md) for details.
+
 ### 3. Explore your courses
 
 ```bash
