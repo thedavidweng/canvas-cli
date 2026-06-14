@@ -82,6 +82,12 @@ Remove config if desired: `rm -rf ~/.config/canvas-cli`
 - [Architecture](docs/architecture.md) — codebase structure and design decisions
 - [Contributing](CONTRIBUTING.md) — development setup and guidelines
 
+
+## Infrastructure
+
+- **CI/CD:** [cli-workflow-template](https://github.com/thedavidweng/cli-workflow-template) — reusable GitHub Actions workflows
+- **Docs:** [site](https://github.com/thedavidweng/site) — landing page and documentation
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
