@@ -443,11 +443,11 @@ Supports multiple profiles for multiple institutions or users:
 func promptAuthMethod(ctx context.Context, w io.Writer, baseURL, browser string) (token, cookie, csrfToken string, err error) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  Authenticate via:")
-	fmt.Fprintln(w, "    Access token (recommended)")
-	fmt.Fprintln(w, "    Session cookie (experimental)")
-	choice := promptLine(w, "\n  Select method [token]: ")
+	fmt.Fprintln(w, "    1) Access token (recommended)")
+	fmt.Fprintln(w, "    2) Session cookie (experimental)")
+	choice := promptLine(w, "\n  Select method [1]: ")
 
-	if choice == "cookie" || choice == "session cookie" {
+	if isCookieChoice(choice) {
 		return promptCookieAuth(ctx, w, baseURL, browser)
 	}
 
@@ -784,6 +784,13 @@ func readSecretFile(path string) (string, error) {
 	}
 
 	return strings.TrimSpace(string(data)), nil
+}
+
+// isCookieChoice returns true if the user's input selects cookie auth.
+// Accepts: "2", "cookie", "session cookie" (case-insensitive, trimmed).
+func isCookieChoice(choice string) bool {
+	choice = strings.TrimSpace(strings.ToLower(choice))
+	return choice == "2" || choice == "cookie" || choice == "session cookie"
 }
 
 // extractHost parses a URL and returns just the hostname.

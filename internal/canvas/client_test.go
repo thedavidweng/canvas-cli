@@ -3,6 +3,7 @@ package canvas
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -482,7 +483,7 @@ func TestDo_CookieAuth_AuthRedirect_ReturnsSessionExpired(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for auth redirect")
 	}
-	if !isCookieSessionExpiredErr(err) {
+	if !func() bool { var e *CookieSessionExpiredError; return errors.As(err, &e) }() {
 		t.Errorf("expected CookieSessionExpiredError, got %T: %v", err, err)
 	}
 }
@@ -610,7 +611,7 @@ func TestDo_CookieAuth_AuthRedirect_SamlPath(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for SAML redirect")
 	}
-	if !isCookieSessionExpiredErr(err) {
+	if !func() bool { var e *CookieSessionExpiredError; return errors.As(err, &e) }() {
 		t.Errorf("expected CookieSessionExpiredError, got %T: %v", err, err)
 	}
 }
@@ -788,7 +789,7 @@ func TestIntegration_Redirect_LoginPath_SessionExpired(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected session expired error for redirect to /login")
 	}
-	if !isCookieSessionExpiredErr(err) {
+	if !func() bool { var e *CookieSessionExpiredError; return errors.As(err, &e) }() {
 		t.Errorf("expected CookieSessionExpiredError, got %T: %v", err, err)
 	}
 	if !strings.Contains(err.Error(), "session expired") {
@@ -873,7 +874,7 @@ func TestIntegration_Redirect_ShibbolethIdP_SessionExpired(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected session expired error for redirect to Shibboleth IdP")
 	}
-	if !isCookieSessionExpiredErr(err) {
+	if !func() bool { var e *CookieSessionExpiredError; return errors.As(err, &e) }() {
 		t.Errorf("expected CookieSessionExpiredError, got %T: %v", err, err)
 	}
 	if !strings.Contains(err.Error(), "session expired") {

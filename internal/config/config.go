@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -64,17 +65,21 @@ func (r *ResolvedConfig) String() string {
 
 // LoadConfig reads and parses a YAML config file. If configPath is empty it
 // uses ConfigPath(). If profileOverride is non-empty it overrides
-// CurrentProfile. Rejects files with permissions more permissive than 0600.
+// CurrentProfile. Rejects files with permissions more permissive than 0600
+// (Unix only; Windows permissions are not checked).
 func LoadConfig(configPath, profileOverride string) (*canvas.Config, error) {
 	if configPath == "" {
 		configPath = ConfigPath()
 	}
 
 	// Reject group/world-readable config files (security requirement).
-	if info, err := os.Stat(configPath); err == nil {
-		perm := info.Mode().Perm()
-		if perm&0o077 != 0 {
-			return nil, fmt.Errorf("config file %s has too-permissive permissions (%o); must be 0600 or stricter", configPath, perm)
+	// Skip on Windows where Unix file permissions don't apply.
+	if runtime.GOOS != "windows" {
+		if info, err := os.Stat(configPath); err == nil {
+			perm := info.Mode().Perm()
+			if perm&0o077 != 0 {
+				return nil, fmt.Errorf("config file %s has too-permissive permissions (%o); must be 0600 or stricter", configPath, perm)
+			}
 		}
 	}
 

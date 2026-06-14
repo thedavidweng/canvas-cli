@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -173,8 +174,10 @@ func TestIsCookieSessionExpiredErr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isCookieSessionExpiredErr(tt.err); got != tt.want {
-				t.Errorf("isCookieSessionExpiredErr() = %v, want %v", got, tt.want)
+			var e *CookieSessionExpiredError
+			got := errors.As(tt.err, &e)
+			if got != tt.want {
+				t.Errorf("errors.As(CookieSessionExpiredError) = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -390,19 +393,25 @@ func TestIsCookieSessionExpired(t *testing.T) {
 			body:   `{"message":"Not Found"}`,
 			want:   false,
 		},
-		// Body CSRF error (catch-all).
+		// Body CSRF error (scoped to 422).
+		{
+			name:   "422 with authenticity token in body",
+			status: 422,
+			body:   `{"message":"Invalid authenticity token"}`,
+			want:   true,
+		},
 		{
 			name:    "200 text with authenticity token in body",
 			status:  200,
 			body:    "<html> authenticity token mismatch</html>",
 			headers: map[string]string{"Content-Type": "text/plain"},
-			want:    true,
+			want:    false,
 		},
 		{
 			name:   "500 with csrf in body",
 			status: 500,
 			body:   "<html>CSRF token invalid</html>",
-			want:   true,
+			want:   false,
 		},
 		// Normal server error without CSRF.
 		{

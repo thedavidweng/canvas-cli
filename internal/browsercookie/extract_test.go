@@ -73,27 +73,6 @@ func TestExtractCookies_ExactHost(t *testing.T) {
 	}
 }
 
-func TestExtractCookies_ParentDomain(t *testing.T) {
-	mock := &MockCookieReader{
-		cookies: []*kooky.Cookie{
-			makeCookie("_instructure_session", "session789", "school.edu"),
-			makeCookie("_csrf_token", "csrf012", "school.edu"),
-		},
-	}
-	Reader = mock
-
-	session, csrf, err := ExtractCookies(context.Background(), "canvas.school.edu")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if session != "_instructure_session=session789" {
-		t.Errorf("expected session '_instructure_session=session789', got '%s'", session)
-	}
-	if csrf != "csrf012" {
-		t.Errorf("expected csrf 'csrf012', got '%s'", csrf)
-	}
-}
-
 func TestExtractCookies_CanvasSession(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
@@ -149,28 +128,6 @@ func TestExtractCookies_NoCSRFToken(t *testing.T) {
 	}
 }
 
-func TestExtractCookies_MultipleDomains(t *testing.T) {
-	// Test that we collect cookies from both exact host and parent domain.
-	mock := &MockCookieReader{
-		cookies: []*kooky.Cookie{
-			makeCookie("_instructure_session", "session123", "canvas.school.edu"),
-			makeCookie("_csrf_token", "csrf456", "school.edu"),
-		},
-	}
-	Reader = mock
-
-	session, csrf, err := ExtractCookies(context.Background(), "canvas.school.edu")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if session != "_instructure_session=session123" {
-		t.Errorf("expected session '_instructure_session=session123', got '%s'", session)
-	}
-	if csrf != "csrf456" {
-		t.Errorf("expected csrf 'csrf456', got '%s'", csrf)
-	}
-}
-
 func TestExtractCookies_UnknownSessionCookieIgnored(t *testing.T) {
 	// Unknown cookie names should be ignored.
 	mock := &MockCookieReader{
@@ -184,28 +141,6 @@ func TestExtractCookies_UnknownSessionCookieIgnored(t *testing.T) {
 	_, _, err := ExtractCookies(context.Background(), "canvas.school.edu")
 	if err != ErrNoSessionCookie {
 		t.Errorf("expected ErrNoSessionCookie, got %v", err)
-	}
-}
-
-func TestExtractCookies_ParentDomainExtraction(t *testing.T) {
-	tests := []struct {
-		host     string
-		expected string
-	}{
-		{"canvas.school.edu", "school.edu"},
-		{"school.edu", "school.edu"},
-		{"my.canvas.school.edu", "school.edu"},
-		{"localhost", "localhost"},
-		{"canvas.school.edu:8080", "school.edu"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.host, func(t *testing.T) {
-			result := extractParentDomain(tt.host)
-			if result != tt.expected {
-				t.Errorf("extractParentDomain(%q) = %q, want %q", tt.host, result, tt.expected)
-			}
-		})
 	}
 }
 

@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,15 +119,6 @@ func (e *CookieSessionExpiredError) Error() string {
 	return fmt.Sprintf("session expired (redirected to %s); please re-authenticate", e.Location)
 }
 
-// ErrCookieSessionExpired is a sentinel error for expired cookie sessions.
-var ErrCookieSessionExpired = errors.New("session expired. Re-authenticate: canvas auth login")
-
-// isCookieSessionExpiredErr returns true if err is a CookieSessionExpiredError.
-func isCookieSessionExpiredErr(err error) bool {
-	_, ok := err.(*CookieSessionExpiredError)
-	return ok
-}
-
 // IsCookieSessionExpired checks whether an HTTP response indicates that the
 // cookie session has expired and the user needs to re-authenticate.
 func IsCookieSessionExpired(resp *http.Response, bodyBytes []byte, baseURL string) bool {
@@ -186,9 +176,12 @@ func IsCookieSessionExpired(resp *http.Response, bodyBytes []byte, baseURL strin
 		}
 	}
 
-	// Body contains CSRF authenticity error string.
-	if strings.Contains(bodyLower, "authenticity token") || strings.Contains(bodyLower, "csrf") {
-		return true
+	// 422 with CSRF authenticity error string (Canvas returns this for
+	// invalid authenticity token on form submissions).
+	if resp.StatusCode == 422 {
+		if strings.Contains(bodyLower, "authenticity token") || strings.Contains(bodyLower, "csrf") {
+			return true
+		}
 	}
 
 	return false

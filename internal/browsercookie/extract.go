@@ -41,33 +41,14 @@ var Reader CookieReader = &DefaultReader{}
 // ExtractCookies reads browser cookies for the given host.
 // Returns sessionCookie in "name=value" format suitable for the HTTP Cookie header,
 // and csrfToken as the raw value.
-// Filters by exact host match AND parent domain.
-// For canvas.school.edu: matches canvas.school.edu and school.edu.
+// Filters by exact host match only (no parent domain matching to avoid
+// over-broad results with ccTLDs like *.ac.uk, *.edu.au, *.co.uk).
 func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken string, err error) {
-	// Derive parent domain for filtering.
-	parentDomain := extractParentDomain(host)
-
-	// Build filters: match either the exact host or the parent domain.
-	// We'll collect cookies matching either domain.
-	var cookies []*kooky.Cookie
-
-	// Try exact host first.
-	hostCookies, err := Reader.ReadCookies(ctx, kooky.Domain(host))
+	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host))
 	if err != nil {
 		return "", "", err
 	}
-	cookies = append(cookies, hostCookies...)
 
-	// If parent domain differs, also try parent domain.
-	if parentDomain != host {
-		parentCookies, err := Reader.ReadCookies(ctx, kooky.Domain(parentDomain))
-		if err != nil {
-			return "", "", err
-		}
-		cookies = append(cookies, parentCookies...)
-	}
-
-	// Extract session cookie and CSRF token.
 	for _, cookie := range cookies {
 		if cookie == nil {
 			continue
@@ -101,24 +82,6 @@ func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken 
 	return sessionCookie, csrfToken, nil
 }
 
-// extractParentDomain extracts the parent domain from a host.
-// For "canvas.school.edu" returns "school.edu".
-// For "school.edu" returns "school.edu" (same).
-func extractParentDomain(host string) string {
-	// Remove port if present.
-	if idx := strings.Index(host, ":"); idx != -1 {
-		host = host[:idx]
-	}
-
-	parts := strings.Split(host, ".")
-	if len(parts) <= 2 {
-		return host
-	}
-
-	// Take last two parts for parent domain.
-	return strings.Join(parts[len(parts)-2:], ".")
-}
-
 // IsSessionCookie checks if a cookie is a known session cookie.
 func IsSessionCookie(cookie *http.Cookie) bool {
 	if cookie == nil {
@@ -143,8 +106,6 @@ func IsCSRFCookie(cookie *http.Cookie) bool {
 // ExtractCookiesForBrowser reads browser cookies for the given host,
 // filtering to a specific browser by name (e.g. "chrome", "firefox", "safari").
 func ExtractCookiesForBrowser(ctx context.Context, host, browserName string) (sessionCookie, csrfToken string, err error) {
-	parentDomain := extractParentDomain(host)
-
 	browserFilter := kooky.FilterFunc(func(c *kooky.Cookie) bool {
 		if c.Browser == nil {
 			return false
@@ -152,20 +113,9 @@ func ExtractCookiesForBrowser(ctx context.Context, host, browserName string) (se
 		return strings.EqualFold(c.Browser.Browser(), browserName)
 	})
 
-	var cookies []*kooky.Cookie
-
-	hostCookies, err := Reader.ReadCookies(ctx, kooky.Domain(host), browserFilter)
+	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host), browserFilter)
 	if err != nil {
 		return "", "", err
-	}
-	cookies = append(cookies, hostCookies...)
-
-	if parentDomain != host {
-		parentCookies, err := Reader.ReadCookies(ctx, kooky.Domain(parentDomain), browserFilter)
-		if err != nil {
-			return "", "", err
-		}
-		cookies = append(cookies, parentCookies...)
 	}
 
 	for _, cookie := range cookies {

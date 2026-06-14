@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type Client struct {
 	cookie     string
 	csrfToken  string
 	csrfCached string
+	csrfMu     sync.Mutex // guards csrfCached
 	userAgent  string
 	version    string
 	retries    int
@@ -131,7 +133,9 @@ func (c *Client) doOnce(ctx context.Context, method, path string, query url.Valu
 	if c.cookie != "" && c.token == "" && isUnsafeMethod(method) {
 		csrf := c.csrfToken
 		if csrf == "" {
+			c.csrfMu.Lock()
 			csrf = c.csrfCached
+			c.csrfMu.Unlock()
 		}
 		if csrf == "" {
 			return nil, fmt.Errorf("CSRF token required for mutation with cookie auth")
@@ -178,7 +182,9 @@ func (c *Client) doOnce(ctx context.Context, method, path string, query url.Valu
 
 	// Cache X-CSRF-Token from response header.
 	if csrf := resp.Header.Get("X-CSRF-Token"); csrf != "" {
+		c.csrfMu.Lock()
 		c.csrfCached = csrf
+		c.csrfMu.Unlock()
 	}
 
 	return resp, nil
@@ -204,7 +210,9 @@ func (c *Client) DoURL(ctx context.Context, method, absoluteURL string, body io.
 		if c.cookie != "" && c.token == "" && isUnsafeMethod(method) {
 			csrf := c.csrfToken
 			if csrf == "" {
+				c.csrfMu.Lock()
 				csrf = c.csrfCached
+				c.csrfMu.Unlock()
 			}
 			if csrf == "" {
 				return nil, fmt.Errorf("CSRF token required for mutation with cookie auth")
@@ -246,7 +254,9 @@ func (c *Client) DoURL(ctx context.Context, method, absoluteURL string, body io.
 	}
 
 	if csrf := resp.Header.Get("X-CSRF-Token"); csrf != "" {
+		c.csrfMu.Lock()
 		c.csrfCached = csrf
+		c.csrfMu.Unlock()
 	}
 
 	return resp, nil
