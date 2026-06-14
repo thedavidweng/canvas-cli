@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-06-14
+
+### Added
+- Experimental session cookie authentication via `--cookie-stdin`, `--cookie-env`, `--cookie-file`, or browser auto-extraction.
+- Browser cookie extraction from Chrome using kooky (macOS/Linux/Windows).
+- Default browser detection on macOS for cookie extraction.
+- `canvas auth login --browser` flag for interactive browser cookie extraction.
+- Keyring access warning before browser cookie extraction.
+- `DoURLWithHeaders` for same-host multipart uploads with auth/CSRF headers.
+
+### Fixed
+- Register Chrome cookie store finder — previously `ExtractCookies` always returned 0 cookies.
+- Stop at first valid session cookie instead of reading all browser stores in parallel.
+- Skip permission-rejection tests on Windows.
+- Skip secret file permission check on Windows.
+
+## [0.2.0] - 2026-06-13
+
+### Added
+- Interactive login flow with token and cookie auth methods.
+- Multi-profile support with `canvas auth use`, `canvas auth profiles`.
+- Course export commands and expanded `export-context`.
+- OS-appropriate config and state directories.
+
+### Changed
+- Deep modules and architecture overhaul.
+
 ## [0.1.0] - 2026-06-12
 
 ### Added
