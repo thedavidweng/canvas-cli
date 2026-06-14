@@ -15,3 +15,9 @@ fmt:
 lint: fmt vet test
 
 check: lint build
+
+changelog:
+\tgit cliff -o CHANGELOG.md
+
+changelog-preview:
+\tgit cliff --latest
