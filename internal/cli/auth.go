@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -774,7 +775,8 @@ func readSecretFile(path string) (string, error) {
 
 	perm := info.Mode().Perm()
 	// Check that group and other have no permissions (mask 0077 must be zero).
-	if perm&0o077 != 0 {
+	// Skip on Windows where Unix file permissions don't apply.
+	if runtime.GOOS != "windows" && perm&0o077 != 0 {
 		return "", fmt.Errorf("file has too-permissive permissions (%o); must be 0600 or stricter", perm)
 	}
 
