@@ -5,167 +5,82 @@
 
 Agent-friendly CLI for Canvas LMS. Stable JSON output, predictable exit codes, safe mutation gates, raw API escape hatch.
 
-The repository is `canvas-cli`. The installed binary is `canvas`.
+## Quickstart
 
-## Install
+### Install
+
+Run the following on macOS or Linux:
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/thedavidweng/canvas-cli/main/install.sh | sh
+```
+
+Run the following on Windows:
+
+```shell
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/thedavidweng/canvas-cli/main/install.ps1 | iex"
+```
+
+The installer detects Homebrew automatically and uses it when available (recommended for easy upgrades). Otherwise it downloads the binary to `~/.local/bin`.
+
+<details>
+<summary>Other installation methods</summary>
 
 **Homebrew (macOS/Linux):**
 
-```bash
+```shell
 brew tap thedavidweng/tap
 brew install canvas
 ```
 
 **Go:**
 
-```bash
+```shell
 go install github.com/thedavidweng/canvas-cli/cmd/canvas@latest
 ```
 
-## Getting Started
+**Manual download:** grab the archive for your platform from the [latest GitHub Release](https://github.com/thedavidweng/canvas-cli/releases/latest), extract it, and place the `canvas` binary on your `PATH`.
 
-### 1. Get your Canvas access token
+</details>
 
-1. Open your Canvas instance in a browser (e.g. `https://school.instructure.com`)
-2. Click **Account** -> **Settings**
-3. Under **Approved Integrations**, click **+ New Access Token**
-4. Give it a name (e.g. `canvas-cli`) and click **Generate Token**
-5. Copy the token — you won't see it again
+### Set up
 
-### 2. Log in
-
-```bash
+```shell
 canvas auth login
 ```
 
-The CLI will walk you through it:
+The CLI walks you through selecting your Canvas instance and authenticating. You can use an access token (recommended) or a session cookie (experimental, for schools that disable tokens).
 
-```
-Profile name (default): school
-Canvas Instance URL (e.g. https://school.instructure.com): https://school.instructure.com
-Generate an access token at: https://school.instructure.com/profile/settings
-  Account -> Settings -> Approved Integrations -> New Access Token
+Then try it:
 
-Access Token: ********
-Verifying credentials...
-
-Authenticated as: Jane Doe (jane@school.edu)
-
-Credentials saved to profile "school" in ~/.config/canvas-cli/config.yaml
-```
-
-For scripting, use flags instead:
-
-```bash
-# From stdin (safe — no shell history leak)
-echo "YOUR_TOKEN" | canvas auth login --base-url https://school.instructure.com --token-stdin
-
-# From environment variable
-export CANVAS_TOKEN="YOUR_TOKEN"
-canvas auth login --base-url https://school.instructure.com --token-env CANVAS_TOKEN
-```
-
-### Multiple accounts
-
-Use `--profile` to manage multiple institutions or users:
-
-```bash
-# Set up two schools
-canvas auth login --profile school1 --base-url https://school1.instructure.com
-canvas auth login --profile school2 --base-url https://school2.instructure.com
-
-# Switch default profile
-canvas auth use school1
-
-# Or use a specific profile inline
-canvas --profile school2 courses list
-
-# Or via environment variable
-CANVAS_PROFILE=school2 canvas courses list
-
-# List all profiles
-canvas auth profiles
-```
-
-### Session cookie auth (experimental)
-
-If your school disables access token generation, you can use session cookie auth as a fallback:
-
-```bash
-canvas auth login
-# Select "Session cookie (experimental)" when prompted
-```
-
-The CLI will extract your browser's Canvas login cookie. You can override the browser with `--browser firefox`. For scripting, use `--cookie-stdin`, `--cookie-env`, or `--cookie-file`.
-
-**Warning**: Session cookies expire when your browser session ends (typically 8-24 hours). This is experimental — use token auth when possible. See [docs/auth.md](docs/auth.md) for details.
-
-### 3. Explore your courses
-
-```bash
+```shell
 canvas courses list
-canvas modules list --course 123
-canvas assignments list --course 123
-canvas files list --course 123
+canvas assignments list --course 123 --json
 ```
 
-### 4. Export course context for agents
+### Uninstall
 
-```bash
-canvas courses export-context --course 123 --out course-context.json
+```shell
+# Homebrew
+brew uninstall canvas
+
+# install.sh
+curl -fsSL https://raw.githubusercontent.com/thedavidweng/canvas-cli/main/install.sh | sh -s uninstall
+
+# Go
+rm "$(go env GOPATH)/bin/canvas"
 ```
 
-## Key Features
-
-### JSON output for automation
-
-All commands support `--json` for stable, machine-readable output:
-
-```bash
-canvas assignments list --course 123 --bucket unsubmitted --json
-```
-
-Output uses a [stable envelope schema](docs/json-contract.md):
-
-```json
-{
-  "ok": true,
-  "data": [],
-  "meta": {
-    "schema_version": "2026-06-12",
-    "command": "assignments.list"
-  }
-}
-```
-
-### Safe mutations
-
-Write operations support `--dry-run` and `--confirm` gates:
-
-```bash
-canvas assignments submit --course 123 456 --file paper.pdf --dry-run
-canvas assignments submit --course 123 456 --file paper.pdf --confirm
-```
-
-### Raw API passthrough
-
-Call any Canvas API endpoint directly:
-
-```bash
-canvas api get /api/v1/courses
-canvas api get /api/v1/courses/123/assignments --paginate --json
-```
+Remove config if desired: `rm -rf ~/.config/canvas-cli`
 
 ## Documentation
 
-| Document | Description |
-|---|---|
-| [COMMANDS.md](COMMANDS.md) | Full command inventory with examples |
-| [JSON_SCHEMA.md](JSON_SCHEMA.md) | JSON envelope contract and exit codes |
-| [SECURITY.md](SECURITY.md) | Security rules and audit logging |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor guidelines |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [docs/](docs/) | Architecture, auth, safety model, workflows, and more |
+- [Authentication & Configuration](docs/auth.md) — token, cookie, OAuth, profiles, env vars
+- [Command Reference](docs/command-spec.md) — full command inventory with examples
+- [JSON Contract](docs/json-contract.md) — envelope schema, exit codes, `--json` output
+- [Safety Model](docs/safety-model.md) — read-only mode, dry-run, confirm gates
+- [Architecture](docs/architecture.md) — codebase structure and design decisions
+- [Contributing](CONTRIBUTING.md) — development setup and guidelines
 
 ## License
 
