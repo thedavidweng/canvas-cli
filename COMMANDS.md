@@ -1,6 +1,6 @@
 # Commands
 
-This file is the target command inventory. Implementation status is marked for each command.
+Command reference for `canvas-cli`.
 
 For authentication, users should use one of the following methods (the `--token` flag is not supported to avoid tokens in shell history):
 
@@ -9,26 +9,21 @@ canvas auth login --base-url URL --token-stdin
 canvas auth login --base-url URL --token-env CANVAS_TOKEN
 ```
 
-All commands below are implemented.
-
 ## Foundation
 
-### version [done]
-
+### version
 ```bash
 canvas version
 ```
 
-### doctor [done]
-
+### doctor
 ```bash
 canvas doctor
 canvas doctor --json
 canvas doctor --timeout 5s
 ```
 
-### completion [done]
-
+### completion
 ```bash
 canvas completion bash
 canvas completion zsh
@@ -36,8 +31,7 @@ canvas completion fish
 canvas completion powershell
 ```
 
-### auth [done]
-
+### auth
 ```bash
 canvas auth status
 canvas auth status --json
@@ -51,29 +45,23 @@ canvas auth profiles --json
 canvas auth use PROFILE
 ```
 
-### me [done]
-
+### me
 ```bash
-# [done]
 canvas me get
 canvas me get --json
 
-# [done]
 canvas me activity
 canvas me todo
 canvas me upcoming
 ```
 
-### api [done]
-
+### api
 ```bash
-# [done]
 canvas api get /api/v1/courses
 canvas api get /api/v1/courses/123/assignments --paginate --json
 canvas api get /api/v1/courses --query "include[]=term" --raw
 canvas api get /api/v1/courses --paginate --limit 50 --page-size 25
 
-# [done]
 canvas api post /api/v1/... --data @payload.json --dry-run
 canvas api put /api/v1/... --data @payload.json --dry-run
 canvas api delete /api/v1/... --confirm
@@ -81,8 +69,7 @@ canvas api delete /api/v1/... --confirm
 
 ## Student read
 
-### courses [done]
-
+### courses
 ```bash
 canvas courses list
 canvas courses list --json
@@ -100,8 +87,7 @@ canvas courses export-context --course 123 --include "course,assignments,modules
 canvas courses export-context --course 123 --since "2026-01-01T00:00:00Z"
 ```
 
-### modules [done]
-
+### modules
 ```bash
 canvas modules list --course 123
 canvas modules list --course 123 --json
@@ -111,14 +97,12 @@ canvas modules items --course 123 --module 456
 canvas modules items --course 123 --module 456 --json
 ```
 
-### modules item [done]
-
+### modules item
 ```bash
 canvas modules item --course 123 --module 456 789
 ```
 
-### modules publish/unpublish [done]
-
+### modules publish/unpublish
 ```bash
 canvas modules publish --course 123 456 --dry-run
 canvas modules publish --course 123 456 --confirm
@@ -126,8 +110,7 @@ canvas modules unpublish --course 123 456 --dry-run
 canvas modules unpublish --course 123 456 --confirm
 ```
 
-### assignments [done]
-
+### assignments
 ```bash
 canvas assignments list --course 123
 canvas assignments list --course 123 --json
@@ -141,8 +124,7 @@ canvas assignments groups --course 123
 canvas assignments groups --course 123 --json
 ```
 
-### assignments submit [done]
-
+### assignments submit
 ```bash
 canvas assignments submit --course 123 456 --text "My answer"
 canvas assignments submit --course 123 456 --url "https://example.com/homework"
@@ -151,15 +133,13 @@ canvas assignments submit --course 123 456 --file paper.pdf --confirm
 canvas assignments submit --course 123 456 --file paper.pdf --confirm --json
 ```
 
-### assignments update [done]
-
+### assignments update
 ```bash
 canvas assignments update --course 123 456 --due-at "2026-07-15T23:59:00Z" --dry-run
 canvas assignments update --course 123 456 --due-at "2026-07-15T23:59:00Z" --confirm
 ```
 
-### announcements [done]
-
+### announcements
 ```bash
 canvas announcements list --course 123
 canvas announcements list --course 123 --json
@@ -167,14 +147,12 @@ canvas announcements create --course 123 --title "Midterm Review" --body-file re
 canvas announcements create --course 123 --title "Midterm Review" --body-file review.md --confirm
 ```
 
-### announcements get [done]
-
+### announcements get
 ```bash
 canvas announcements get 456
 ```
 
-### discussions [done]
-
+### discussions
 ```bash
 canvas discussions list --course 123
 canvas discussions list --course 123 --json
@@ -188,14 +166,12 @@ canvas discussions reply-entry --course 123 --did 456 --entry 789 --message "I a
 canvas discussions reply-entry --course 123 --did 456 --entry 789 --message "I agree" --confirm
 ```
 
-### discussions create [done]
-
+### discussions create
 ```bash
 canvas discussions create --course 123 --title "Week 1 Discussion" --body-file prompt.md --dry-run
 ```
 
-### files [done]
-
+### files
 ```bash
 canvas files list --course 123
 canvas files list --course 123 --json
@@ -203,26 +179,22 @@ canvas files download 789 --out syllabus.pdf
 canvas files download 789 --out syllabus.pdf --no-overwrite
 ```
 
-### files get [done]
-
+### files get
 ```bash
 canvas files get 789
 ```
 
-### files download-course [done]
-
+### files download-course
 ```bash
 canvas files download-course --course 123 --out ./course-files
 ```
 
-### files upload [done]
-
+### files upload
 ```bash
 canvas files upload --course 123 --file notes.pdf --folder 456 --dry-run
 ```
 
-### pages [done]
-
+### pages
 ```bash
 canvas pages list --course 123
 canvas pages list --course 123 --json
@@ -232,8 +204,7 @@ canvas pages update --course 123 syllabus --body-file new-body.md --dry-run
 canvas pages update --course 123 syllabus --body-file new-body.md --confirm
 ```
 
-### submissions [done]
-
+### submissions
 ```bash
 canvas submissions get --course 123 --assignment 456 --user 789
 canvas submissions get --course 123 --assignment 456 --user self --json
@@ -243,16 +214,14 @@ canvas submissions download --course 123 --assignment 456 --out ./submissions
 canvas submissions download --course 123 --assignment 456 --out ./submissions --no-overwrite --json
 ```
 
-### submissions comment [done]
-
+### submissions comment
 ```bash
 canvas submissions comment --course 123 --assignment 456 --user 789 --comment "Good work!" --dry-run
 ```
 
 ## Student actions
 
-### inbox [done]
-
+### inbox
 ```bash
 canvas inbox list
 canvas inbox list --json
@@ -268,30 +237,26 @@ canvas inbox archive 123 --confirm
 
 ## Teaching team read
 
-### enrollments [done]
-
+### enrollments
 ```bash
 canvas enrollments list --course 123
 canvas enrollments list --course 123 --json
 ```
 
-### sections [done]
-
+### sections
 ```bash
 canvas sections list --course 123
 canvas sections list --course 123 --json
 ```
 
-### users [done]
-
+### users
 ```bash
 canvas users list --course 123
 canvas users list --course 123 --json
 canvas users list --course 123 --enrollment-type teacher
 ```
 
-### rubrics [done]
-
+### rubrics
 ```bash
 canvas rubrics list --course 123
 canvas rubrics list --course 123 --json
@@ -299,23 +264,20 @@ canvas rubrics list --course 123 --json
 
 ## Teaching team actions
 
-### grade set [done]
-
+### grade set
 ```bash
 canvas grade set --course 123 --assignment 456 --user 789 --score 95 --dry-run
 canvas grade set --course 123 --assignment 456 --user 789 --score 95 --confirm
 canvas grade set --course 123 --assignment 456 --user 789 --score 95 --confirm --json
 ```
 
-### grade comment [done]
-
+### grade comment
 ```bash
 canvas grade comment --course 123 --assignment 456 --user 789 --comment "Excellent analysis" --dry-run
 canvas grade comment --course 123 --assignment 456 --user 789 --comment "Excellent analysis" --confirm
 ```
 
-### grade import [done]
-
+### grade import
 ```bash
 canvas grade import --course 123 --assignment 456 --csv grades.csv --dry-run
 canvas grade import --course 123 --assignment 456 --csv grades.csv --confirm
@@ -323,8 +285,7 @@ canvas grade import --course 123 --assignment 456 --csv grades.csv --confirm --j
 canvas grade import --course 123 --assignment 456 --csv grades.csv --confirm --continue-on-error
 ```
 
-### grade rubric [done]
-
+### grade rubric
 ```bash
 canvas grade rubric --course 123 --assignment 456 --user 789 --rubric-json rubric.json --dry-run
 canvas grade rubric --course 123 --assignment 456 --user 789 --rubric-json rubric.json --confirm
