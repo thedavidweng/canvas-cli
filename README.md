@@ -13,6 +13,7 @@
   <a href="https://github.com/thedavidweng/canvas-cli/releases"><img src="https://img.shields.io/github/v/release/thedavidweng/canvas-cli?style=flat-square" alt="Release"></a>
   <a href="https://github.com/thedavidweng/canvas-cli/blob/main/LICENSE"><img src="https://img.shields.io/github/license/thedavidweng/canvas-cli?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/go-%3E%3D1.26-blue?style=flat-square" alt="Go">
+  <a href="https://goreportcard.com/report/github.com/thedavidweng/canvas-cli"><img src="https://goreportcard.com/badge/github.com/thedavidweng/canvas-cli?style=flat-square" alt="Go Report"></a>
 </p>
 
 `canvas-cli` gives students, teachers, scripts, and agents a stable terminal interface for Canvas LMS: predictable commands, JSON output, safe mutation gates, and a raw API escape hatch when the typed command surface is not enough.
