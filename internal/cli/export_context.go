@@ -208,7 +208,7 @@ func classifyStatusCode(status int) error {
 	if status == 401 {
 		return &authError{msg: "API error: status 401"}
 	}
-	return fmt.Errorf("API error: status %d", status)
+	return fmt.Errorf("api error: status %d", status)
 }
 
 // classifyError inspects an error and returns an authError for 401s.

@@ -138,7 +138,7 @@ func (c *Client) doOnce(ctx context.Context, method, path string, query url.Valu
 			c.csrfMu.Unlock()
 		}
 		if csrf == "" {
-			return nil, fmt.Errorf("CSRF token required for mutation with cookie auth")
+			return nil, fmt.Errorf("csrf token required for mutation with cookie auth")
 		}
 		req.Header.Set("X-CSRF-Token", csrf)
 	}
@@ -220,7 +220,7 @@ func (c *Client) DoURLWithHeaders(ctx context.Context, method, absoluteURL strin
 				c.csrfMu.Unlock()
 			}
 			if csrf == "" {
-				return nil, fmt.Errorf("CSRF token required for mutation with cookie auth")
+				return nil, fmt.Errorf("csrf token required for mutation with cookie auth")
 			}
 			req.Header.Set("X-CSRF-Token", csrf)
 		}

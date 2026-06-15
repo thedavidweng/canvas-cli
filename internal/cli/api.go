@@ -110,7 +110,7 @@ func newApiGetCmd() *cobra.Command {
 				if jsonMode {
 					return output.WriteJSON(cmd.OutOrStdout(), env, false)
 				}
-				return fmt.Errorf("API error: %s (status %d)", errInfo.Message, resp.StatusCode)
+				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 			}
 
 			// Raw mode: output body only
@@ -298,7 +298,7 @@ func newApiPostCmd() *cobra.Command {
 				if jsonMode {
 					return output.WriteJSON(cmd.OutOrStdout(), env, false)
 				}
-				return fmt.Errorf("API error: %s (status %d)", errInfo.Message, resp.StatusCode)
+				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 			}
 
 			var dataOut any
@@ -404,7 +404,7 @@ func newApiPutCmd() *cobra.Command {
 				if jsonMode {
 					return output.WriteJSON(cmd.OutOrStdout(), env, false)
 				}
-				return fmt.Errorf("API error: %s (status %d)", errInfo.Message, resp.StatusCode)
+				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 			}
 
 			var dataOut any
@@ -498,7 +498,7 @@ func newApiDeleteCmd() *cobra.Command {
 				if jsonMode {
 					return output.WriteJSON(cmd.OutOrStdout(), env, false)
 				}
-				return fmt.Errorf("API error: %s (status %d)", errInfo.Message, resp.StatusCode)
+				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 			}
 
 			var dataOut any
