@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/icon.png" alt="canvas-cli" width="160" />
+  <img src="public/icon.webp" alt="canvas-cli" width="160" />
 </p>
 
 <h1 align="center">canvas-cli</h1>
