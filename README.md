@@ -9,8 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thedavidweng/canvas-cli/actions/workflows/ci.yml"><img src="https://github.com/thedavidweng/canvas-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+  <a href="https://github.com/thedavidweng/canvas-cli/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/thedavidweng/canvas-cli/ci.yml?branch=main&style=flat-square&label=ci" alt="CI"></a>
+  <a href="https://github.com/thedavidweng/canvas-cli/releases"><img src="https://img.shields.io/github/v/release/thedavidweng/canvas-cli?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/thedavidweng/canvas-cli/blob/main/LICENSE"><img src="https://img.shields.io/github/license/thedavidweng/canvas-cli?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/go-%3E%3D1.26-blue?style=flat-square" alt="Go">
 </p>
 
 `canvas-cli` gives students, teachers, scripts, and agents a stable terminal interface for Canvas LMS: predictable commands, JSON output, safe mutation gates, and a raw API escape hatch when the typed command surface is not enough.
