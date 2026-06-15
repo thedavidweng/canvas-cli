@@ -1,9 +1,23 @@
-# canvas-cli
+<p align="center">
+  <img src="public/icon.png" alt="canvas-cli" width="160" />
+</p>
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI](https://github.com/thedavidweng/canvas-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/thedavidweng/canvas-cli/actions/workflows/ci.yml)
+<h1 align="center">canvas-cli</h1>
 
-Agent-friendly CLI for Canvas LMS. Stable JSON output, predictable exit codes, safe mutation gates, raw API escape hatch.
+<p align="center">
+  Agent-friendly CLI for Canvas LMS.
+</p>
+
+<p align="center">
+  <a href="https://github.com/thedavidweng/canvas-cli/actions/workflows/ci.yml"><img src="https://github.com/thedavidweng/canvas-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+</p>
+
+`canvas-cli` gives students, teachers, scripts, and agents a stable terminal interface for Canvas LMS: predictable commands, JSON output, safe mutation gates, and a raw API escape hatch when the typed command surface is not enough.
+
+## Why
+
+Canvas automation often fails because browser flows, ad hoc exports, and one-off scripts are brittle. `canvas-cli` keeps the common LMS workflows small and scriptable while preserving enough structure for agents to reason about courses, assignments, submissions, files, and inbox state.
 
 ## Quickstart
 
@@ -26,11 +40,11 @@ The installer detects Homebrew automatically and uses it when available (recomme
 <details>
 <summary>Other installation methods</summary>
 
-**Homebrew (macOS/Linux):**
+**Homebrew Cask (macOS/Linux):**
 
 ```shell
 brew tap thedavidweng/tap
-brew install canvas
+brew install --cask canvas
 ```
 
 **Go:**
@@ -61,8 +75,8 @@ canvas assignments list --course 123 --json
 ### Uninstall
 
 ```shell
-# Homebrew
-brew uninstall canvas
+# Homebrew Cask
+brew uninstall --cask canvas
 
 # install.sh
 curl -fsSL https://raw.githubusercontent.com/thedavidweng/canvas-cli/main/install.sh | sh -s uninstall
