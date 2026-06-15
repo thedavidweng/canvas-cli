@@ -6,7 +6,7 @@ set -eu
 
 REPO="thedavidweng/canvas-cli"
 BINARY="canvas"
-TAP="thedavidweng/tap"
+CASK="canvas"
 
 step()  { printf '==> %s\n' "$1"; }
 die()   { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
@@ -58,9 +58,9 @@ has_brew() {
 }
 
 install_via_brew() {
-  step "Installing via Homebrew (thedavidweng/tap)"
-  brew tap "$TAP" 2>/dev/null || true
-  brew install "$BINARY"
+  step "Installing via Homebrew Cask (thedavidweng/tap)"
+  brew tap "thedavidweng/tap" 2>/dev/null || true
+  brew install --cask "$CASK"
 }
 
 install_binary() {
@@ -95,20 +95,20 @@ install_binary() {
         *)             shell_profile="$HOME/.profile" ;;
       esac
 
-      printf '\n# >>> canvas-cli >>>\nexport PATH="%s:$PATH"\n# <<< canvas-cli <<<\n' "$bin_dir" >> "$shell_profile"
+      printf "\n# >>> canvas-cli >>>\nexport PATH=\"%s:\$PATH\"\n# <<< canvas-cli <<<\n" "$bin_dir" >> "$shell_profile"
       step "Added $bin_dir to PATH in $shell_profile"
       step "Run: export PATH=\"$bin_dir:\$PATH\" to use in current terminal"
       ;;
   esac
 
-  step "Installed $($bin_dir/$BINARY --version 2>/dev/null || echo "$version")"
+  step "Installed $("${bin_dir}/${BINARY}" --version 2>/dev/null || echo "$version")"
 }
 
 # --- Uninstall helper ---
 uninstall_brew() {
   step "Uninstalling Homebrew-managed canvas-cli"
-  brew uninstall "$BINARY" 2>/dev/null || true
-  brew untap "$TAP" 2>/dev/null || true
+  brew uninstall --cask "$CASK" 2>/dev/null || true
+  brew untap "thedavidweng/tap" 2>/dev/null || true
 }
 
 uninstall_binary() {
@@ -122,8 +122,11 @@ uninstall_binary() {
 # --- Main ---
 case "${1:-}" in
   uninstall)
-    if has_brew && brew list "$BINARY" >/dev/null 2>&1; then
+    if has_brew && brew list --cask "$CASK" >/dev/null 2>&1; then
       uninstall_brew
+    elif has_brew && brew list --formula "$BINARY" >/dev/null 2>&1; then
+      step "Uninstalling legacy Homebrew formula for canvas-cli"
+      brew uninstall --formula "$BINARY"
     else
       uninstall_binary
     fi
@@ -134,8 +137,8 @@ case "${1:-}" in
     cat <<EOF
 Usage: install.sh [uninstall]
 
-Installs canvas-cli. Prefers Homebrew if available, otherwise downloads
-the binary to ~/.local/bin.
+Installs canvas-cli. Prefers Homebrew Cask if available, otherwise
+downloads the binary to ~/.local/bin.
 
 Environment:
   CANVAS_INSTALL_DIR  Directory for binary (default: ~/.local/bin)
