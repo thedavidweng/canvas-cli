@@ -71,7 +71,7 @@ func TestListModulesWithQuery(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	opts := url.Values{"include[]": {"items"}}
-	ListModules(context.Background(), c, "1", opts)
+	ListModules(context.Background(), c, "1", opts) //nolint:errcheck
 
 	parsed, _ := url.ParseQuery(gotQuery)
 	if parsed.Get("include[]") != "items" {

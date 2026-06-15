@@ -175,7 +175,7 @@ func TestDoSendsBody(t *testing.T) {
 	var gotBody string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b := make([]byte, r.ContentLength)
-		r.Body.Read(b)
+		r.Body.Read(b) //nolint:errcheck
 		gotBody = string(b)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -768,8 +768,8 @@ func TestIntegration_CSRF_Missing_ReturnsErrorBeforeServer(t *testing.T) {
 	if serverHit {
 		t.Error("server should not be hit when CSRF token is missing")
 	}
-	if !strings.Contains(err.Error(), "CSRF") {
-		t.Errorf("error = %q, want it to contain 'CSRF'", err.Error())
+	if !strings.Contains(err.Error(), "csrf") {
+		t.Errorf("error = %q, want it to contain 'csrf'", err.Error())
 	}
 }
 

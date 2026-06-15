@@ -386,7 +386,7 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 			if cfg.AuditEnabled {
 				auditBody, _ := json.Marshal(sub)
 				auditor := audit.NewAuditor(cfg.AuditPath, true)
-				auditor.WriteEvent(canvas.AuditEvent{
+				_ = auditor.WriteEvent(canvas.AuditEvent{
 					Time:           time.Now().UTC().Format(time.RFC3339),
 					SchemaVersion:  output.SchemaVersion,
 					Command:        "assignments.submit",

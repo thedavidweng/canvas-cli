@@ -127,7 +127,7 @@ func writeAudit(cfg *config.ResolvedConfig, command, method, path, body string, 
 		return
 	}
 	auditor := audit.NewAuditor(cfg.AuditPath, cfg.AuditEnabled)
-	auditor.WriteEvent(canvas.AuditEvent{
+	_ = auditor.WriteEvent(canvas.AuditEvent{
 		Time:           time.Now().UTC().Format(time.RFC3339),
 		SchemaVersion:  output.SchemaVersion,
 		Command:        command,
