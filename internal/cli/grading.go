@@ -255,7 +255,7 @@ func newGradeImportCmd() *cobra.Command {
 				return fmt.Errorf("parse CSV: %w", err)
 			}
 			if len(gradeData) == 0 {
-				return fmt.Errorf("CSV file contains no grade data")
+				return fmt.Errorf("csv file contains no grade data")
 			}
 
 			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
@@ -443,7 +443,7 @@ func parseGradeCSV(path string) (map[string]string, error) {
 	}
 
 	if len(records) < 2 {
-		return nil, fmt.Errorf("CSV must have a header row and at least one data row")
+		return nil, fmt.Errorf("csv must have a header row and at least one data row")
 	}
 
 	// Find column indices from header
@@ -459,10 +459,10 @@ func parseGradeCSV(path string) (map[string]string, error) {
 		}
 	}
 	if userIDIdx == -1 {
-		return nil, fmt.Errorf("CSV missing 'user_id' column")
+		return nil, fmt.Errorf("csv missing 'user_id' column")
 	}
 	if scoreIdx == -1 {
-		return nil, fmt.Errorf("CSV missing 'score' column")
+		return nil, fmt.Errorf("csv missing 'score' column")
 	}
 
 	gradeData := make(map[string]string)

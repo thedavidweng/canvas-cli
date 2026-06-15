@@ -1195,8 +1195,8 @@ func TestAuthTest_CookieAuth_EndToEnd_CSRF_Missing(t *testing.T) {
 	if serverHit {
 		t.Error("server should not be hit when CSRF token is missing")
 	}
-	if !strings.Contains(err.Error(), "CSRF") {
-		t.Errorf("error = %q, want it to contain 'CSRF'", err.Error())
+	if !strings.Contains(err.Error(), "csrf") {
+		t.Errorf("error = %q, want it to contain 'csrf'", err.Error())
 	}
 }
 

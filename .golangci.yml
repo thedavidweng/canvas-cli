@@ -1,8 +1,6 @@
 version: "2"
 
 linters:
-  disable:
-    - errcheck
   enable:
     - govet
     - ineffassign
@@ -12,6 +10,27 @@ linters:
     - misspell
     - unconvert
     - prealloc
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (net/http.ResponseWriter).Write
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - encoding/json.Unmarshal
+        - encoding/json.NewEncoder.Encode
+        - encoding/json.NewDecoder.Decode
+        - (*os.File).Close
+        - os.Unsetenv
+        - os.Setenv
+        - os.WriteFile
+        - os.MkdirAll
+        - net/http.Get
+        - (*net/http.Client).Do
+        - (*encoding/json.Encoder).Encode
+        - (*encoding/json.Decoder).Decode
+        - (*io.ReadCloser).Read
 
 formatters:
   enable:

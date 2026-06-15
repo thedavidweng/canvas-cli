@@ -20,7 +20,7 @@ func Request(ctx context.Context, client *Client, opts RequestOptions) (*Respons
 	if opts.Paginate {
 		// Use pagination for list endpoints
 		if opts.DecodeInto == nil {
-			return meta, fmt.Errorf("DecodeInto must be set when Paginate is true")
+			return meta, fmt.Errorf("decodeInto required when paginate is true")
 		}
 
 		limit := opts.Limit
@@ -67,7 +67,7 @@ func Request(ctx context.Context, client *Client, opts RequestOptions) (*Respons
 	// Check for errors
 	if resp.StatusCode >= 400 {
 		env := NormalizeError(resp, opts.Method)
-		return meta, fmt.Errorf("API error: %s (status %d)", env.Error.Message, env.Error.Status)
+		return meta, fmt.Errorf("api error: %s (status %d)", env.Error.Message, env.Error.Status)
 	}
 
 	// Decode response if target is provided

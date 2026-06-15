@@ -183,7 +183,7 @@ func newVersionCmd(version string) *cobra.Command {
 					},
 					Meta: canvas.Meta{SchemaVersion: output.SchemaVersion, Command: "version"},
 				}
-				output.WriteJSON(cmd.OutOrStdout(), env, false)
+				_ = output.WriteJSON(cmd.OutOrStdout(), env, false)
 				return
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "canvas %s (commit: %s, built: %s)\n", version, Commit, Date)

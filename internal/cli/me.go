@@ -59,7 +59,7 @@ func newMeGetCmd() *cobra.Command {
 				if jsonMode {
 					return output.WriteJSON(cmd.OutOrStdout(), env, false)
 				}
-				return fmt.Errorf("API error: %s (status %d)", env.Error.Message, resp.StatusCode)
+				return fmt.Errorf("api error: %s (status %d)", env.Error.Message, resp.StatusCode)
 			}
 
 			var user canvas.User

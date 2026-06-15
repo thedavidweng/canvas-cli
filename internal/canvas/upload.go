@@ -81,7 +81,9 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 	if _, err := part.Write(content); err != nil {
 		return "", fmt.Errorf("write file content: %w", err)
 	}
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("close multipart writer: %w", err)
+	}
 
 	// Parse the upload_url to determine whether it is a full URL or a path.
 	parsedURL, err := url.Parse(init.UploadURL)

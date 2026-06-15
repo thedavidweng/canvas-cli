@@ -111,7 +111,7 @@ func Paginate[T any](ctx context.Context, client *Client, path string, query url
 			}
 			env := NormalizeError(resp, "GET", baseURL)
 			resp.Body.Close()
-			return allItems, meta, fmt.Errorf("API error (status %d): %s", env.Error.Status, env.Error.Message)
+			return allItems, meta, fmt.Errorf("api error (status %d): %s", env.Error.Status, env.Error.Message)
 		}
 
 		var pageItems []T

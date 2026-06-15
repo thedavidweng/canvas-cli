@@ -71,7 +71,7 @@ func TestListAssignmentsWithQuery(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	opts := url.Values{"order_by": {"due_at"}}
-	ListAssignments(context.Background(), c, "1", opts)
+	ListAssignments(context.Background(), c, "1", opts) //nolint:errcheck
 
 	parsed, _ := url.ParseQuery(gotQuery)
 	if parsed.Get("order_by") != "due_at" {
