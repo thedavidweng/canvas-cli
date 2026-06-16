@@ -416,9 +416,11 @@ func TestExportContext_Section401(t *testing.T) {
 }
 
 func TestExportContext_NetworkError(t *testing.T) {
-	// Use a non-existent server URL to simulate network errors
+	// Use a closed server to simulate network errors
+	closed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	closed.Close()
 	cfg := &config.ResolvedConfig{
-		BaseURL: "http://127.0.0.1:1", // port 1 should refuse connections
+		BaseURL: closed.URL,
 		Token:   "test-token",
 		Profile: "default",
 	}
@@ -2681,7 +2683,9 @@ func TestFetchListRaw_PaginationWithQuery(t *testing.T) {
 // --- fetchSingleRaw network error ---
 
 func TestFetchSingleRaw_NetworkError(t *testing.T) {
-	client := canvas.NewClient("http://127.0.0.1:1", "tok", "dev", 0, 0)
+	closed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	closed.Close()
+	client := canvas.NewClient(closed.URL, "tok", "dev", 0, 0)
 	_, reqCount, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
 	if err == nil {
 		t.Fatal("expected network error, got nil")

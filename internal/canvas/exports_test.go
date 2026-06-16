@@ -642,10 +642,8 @@ func TestWaitForExportContextCancelled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	// Cancel after a very short time so the poll loop hits ctx.Done()
-	go func() {
-		time.Sleep(15 * time.Millisecond)
-		cancel()
-	}()
+	timer := time.AfterFunc(15*time.Millisecond, cancel)
+	defer timer.Stop()
 
 	progressURL := srv.URL + "/api/v1/progress/1"
 	err := WaitForExport(ctx, c, progressURL, 10*time.Millisecond)

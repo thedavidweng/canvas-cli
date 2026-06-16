@@ -464,7 +464,7 @@ func TestGolden_ExitCode_RateLimitExhausted(t *testing.T) {
 func TestGolden_ExitCode_NetworkError(t *testing.T) {
 	// Use a URL that will fail to connect.
 	cfg := &config.ResolvedConfig{
-		BaseURL: "http://127.0.0.1:1",
+		BaseURL: "http://localhost:0",
 		Token:   "test-token",
 		Profile: "default",
 	}
