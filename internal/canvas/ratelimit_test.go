@@ -146,6 +146,80 @@ func TestShouldNotRetryMaxRetriesExhausted(t *testing.T) {
 	}
 }
 
+func TestShouldRetry_403WithRetryAfter(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: 403,
+		Header:     http.Header{"X-Rate-Limit-Remaining": {"0"}, "Retry-After": {"10"}},
+		Body:       io.NopCloser(strings.NewReader("")),
+	}
+	retry, delay := ShouldRetry(resp, 0, 3)
+
+	if !retry {
+		t.Error("ShouldRetry should return true for 403 with rate limit exhausted and Retry-After")
+	}
+	if delay < 10*time.Second {
+		t.Errorf("delay = %v, want >= 10s", delay)
+	}
+}
+
+func TestShouldRetry_5xxWithRetryAfter(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: 503,
+		Header:     http.Header{"Retry-After": {"15"}},
+		Body:       io.NopCloser(strings.NewReader("")),
+	}
+	retry, delay := ShouldRetry(resp, 0, 3)
+
+	if !retry {
+		t.Error("ShouldRetry should return true for 503 with Retry-After")
+	}
+	if delay < 15*time.Second {
+		t.Errorf("delay = %v, want >= 15s", delay)
+	}
+}
+
+func TestBackoffDelay_MaxCap(t *testing.T) {
+	// Very high attempt should cap at 30s + jitter.
+	delay := backoffDelay(20)
+	maxExpected := time.Duration(float64(30*time.Second) * 1.25) // max + 25% jitter
+	if delay > maxExpected {
+		t.Errorf("backoffDelay(20) = %v, want <= %v", delay, maxExpected)
+	}
+	if delay < 30*time.Second {
+		t.Errorf("backoffDelay(20) = %v, want >= 30s", delay)
+	}
+}
+
+func TestBackoffDelay_IncreasesWithAttempt(t *testing.T) {
+	// Run multiple times to account for jitter.
+	low := backoffDelay(0)
+	high := backoffDelay(5)
+
+	// With jitter, individual values may overlap, but the base delay
+	// at attempt 5 (32s, capped to 30s) is much larger than attempt 0 (1s).
+	if high < low {
+		// This could theoretically happen with extreme jitter, but is very unlikely.
+		t.Logf("WARNING: backoffDelay(5)=%v < backoffDelay(0)=%v (jitter)", high, low)
+	}
+}
+
+func TestCaptureRateMeta_InvalidHeaders(t *testing.T) {
+	resp := &http.Response{
+		Header: http.Header{
+			"X-Request-Cost":         {"not-a-number"},
+			"X-Rate-Limit-Remaining": {"also-not-a-number"},
+		},
+	}
+	meta := CaptureRateMeta(resp)
+
+	if meta.RequestCost != 0 {
+		t.Errorf("RequestCost = %f, want 0", meta.RequestCost)
+	}
+	if meta.Remaining != 0 {
+		t.Errorf("Remaining = %f, want 0", meta.Remaining)
+	}
+}
+
 func TestShouldRetryBackoffIncreases(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: 429,

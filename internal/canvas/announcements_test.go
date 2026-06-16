@@ -221,6 +221,38 @@ func TestCreateAnnouncement(t *testing.T) {
 	}
 }
 
+func TestListAnnouncementsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, _, err := ListAnnouncements(context.Background(), c, "42", url.Values{})
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}
+
+func TestCreateAnnouncementError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := CreateAnnouncement(context.Background(), c, "42", "Title", "Message")
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}
+
 func strPtr(s string) *string {
 	return &s
 }

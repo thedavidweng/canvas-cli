@@ -13,8 +13,8 @@ coverage:
   range: "60...100"
 
   ignore:
-    - internal/testutil/**    # test infrastructure, not application code
-    - internal/browsercookie/** # platform-specific OS keychain code, untestable in CI
+    - internal/testutil/**    # test infrastructure
+    - internal/browsercookie/** # OS keychain, tested via mock Reader interface
     - cmd/**                  # cobra entrypoint glue
 
 component_management:

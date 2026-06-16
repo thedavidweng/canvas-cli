@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
@@ -72,6 +73,102 @@ func TestSectionsList_JSON(t *testing.T) {
 	last := mock.LastRequest()
 	if last.Path != "/api/v1/courses/1/sections" {
 		t.Errorf("expected request to /api/v1/courses/1/sections, got %s", last.Path)
+	}
+}
+
+func TestSectionsList_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/sections", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newSectionsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestSectionsList_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/sections", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newSectionsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
+func TestSectionsList_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	total := 30
+	mock.On("GET", "/api/v1/courses/1/sections", 200, []map[string]any{
+		{"id": "10", "name": "Section A", "course_id": "1", "total_students": total},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newSectionsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("sections list failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Section A") {
+		t.Errorf("expected 'Section A' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "30") {
+		t.Errorf("expected '30' (total students) in output, got: %s", output)
 	}
 }
 

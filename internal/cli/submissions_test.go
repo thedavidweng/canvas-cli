@@ -501,3 +501,284 @@ func TestPartialFailureError_ExitCode(t *testing.T) {
 		t.Errorf("expected exit code 8, got %d", err.ExitCode())
 	}
 }
+
+// --- submissions list human mode ---
+
+func TestSubmissionsList_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments/10/submissions", 200, []map[string]any{
+		{
+			"id": "500", "user_id": "42", "assignment_id": "10",
+			"workflow_state": "submitted",
+			"user":           map[string]any{"id": "42", "name": "Alice Smith", "sortable_name": "Smith, Alice"},
+			"submitted_at":   "2026-01-15T12:00:00Z",
+		},
+		{
+			"id": "501", "user_id": "43", "assignment_id": "10",
+			"workflow_state": "graded",
+			"user":           map[string]any{"id": "43", "name": "Bob Jones", "sortable_name": "Jones, Bob"},
+			"score":          85.5,
+		},
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newSubmissionsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("submissions list failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Alice Smith") {
+		t.Errorf("expected 'Alice Smith' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Bob Jones") {
+		t.Errorf("expected 'Bob Jones' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "submitted") {
+		t.Errorf("expected 'submitted' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "85.5") {
+		t.Errorf("expected score '85.5' in output, got: %s", output)
+	}
+}
+
+// --- submissions comment ---
+
+func TestSubmissionsComment_DryRunShowsPreview(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newSubmissionsCommentCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("comment", "Good work!")
+	_ = cmd.Flags().Set("dry-run", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("submissions comment --dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "PUT") {
+		t.Errorf("expected 'PUT' in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "/api/v1/courses/1/assignments/10/submissions/42") {
+		t.Errorf("expected endpoint path in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "Good work!") {
+		t.Errorf("expected comment text in dry-run output, got: %s", output)
+	}
+	if mock.RequestCount() != 0 {
+		t.Errorf("dry-run should not make HTTP requests, got %d", mock.RequestCount())
+	}
+}
+
+func TestSubmissionsComment_ConfirmSendsPUT(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("PUT", "/api/v1/courses/1/assignments/10/submissions/42", 200, map[string]any{
+		"id":             "500",
+		"user_id":        "42",
+		"assignment_id":  "10",
+		"workflow_state": "submitted",
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    filepath.Join(t.TempDir(), "audit.jsonl"),
+	}
+
+	var buf bytes.Buffer
+	cmd := newSubmissionsCommentCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("comment", "Good work!")
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("submissions comment --confirm failed: %v", err)
+	}
+
+	last := mock.LastRequest()
+	if last.Method != "PUT" {
+		t.Errorf("expected PUT method, got %s", last.Method)
+	}
+	if last.Path != "/api/v1/courses/1/assignments/10/submissions/42" {
+		t.Errorf("expected path /api/v1/courses/1/assignments/10/submissions/42, got %s", last.Path)
+	}
+	if !strings.Contains(last.Body, "Good work!") {
+		t.Errorf("expected comment in request body, got: %s", last.Body)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Comment added") {
+		t.Errorf("expected success message in output, got: %s", output)
+	}
+}
+
+func TestSubmissionsComment_JSONMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("PUT", "/api/v1/courses/1/assignments/10/submissions/42", 200, map[string]any{
+		"id":             "500",
+		"user_id":        "42",
+		"assignment_id":  "10",
+		"workflow_state": "submitted",
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    filepath.Join(t.TempDir(), "audit.jsonl"),
+	}
+
+	var buf bytes.Buffer
+	cmd := newSubmissionsCommentCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("comment", "Good work!")
+	_ = cmd.Flags().Set("confirm", "true")
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("submissions comment --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true")
+	}
+}
+
+// --- submissions download (CLI command level) ---
+
+func TestSubmissionsDownloadCmd_JSONMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments/10/submissions", 200, []map[string]any{
+		{
+			"id": "500", "user_id": "42", "assignment_id": "10",
+			"workflow_state": "submitted",
+			"user":           map[string]any{"id": "42", "name": "Alice Smith", "sortable_name": "Smith, Alice"},
+			"attachments": []map[string]any{
+				{"id": "101", "filename": "essay.pdf", "url": mock.URL() + "/files/101/download", "size": 11},
+			},
+		},
+	})
+	mock.On("GET", "/files/101/download", 200, []byte("essay content"))
+
+	outDir := t.TempDir()
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newSubmissionsDownloadCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("out", outDir)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("submissions download --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true")
+	}
+}
+
+func TestSubmissionsDownloadCmd_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments/10/submissions", 200, []map[string]any{
+		{
+			"id": "500", "user_id": "42", "assignment_id": "10",
+			"workflow_state": "submitted",
+			"user":           map[string]any{"id": "42", "name": "Alice Smith", "sortable_name": "Smith, Alice"},
+			"attachments": []map[string]any{
+				{"id": "101", "filename": "essay.pdf", "url": mock.URL() + "/files/101/download", "size": 11},
+			},
+		},
+	})
+	mock.On("GET", "/files/101/download", 200, []byte("essay content"))
+
+	outDir := t.TempDir()
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newSubmissionsDownloadCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("out", outDir)
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("submissions download failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Downloaded 1/1") {
+		t.Errorf("expected 'Downloaded 1/1' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Manifest:") {
+		t.Errorf("expected 'Manifest:' in output, got: %s", output)
+	}
+}

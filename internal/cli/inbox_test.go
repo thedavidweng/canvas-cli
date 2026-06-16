@@ -512,6 +512,197 @@ func TestInboxCommands_WriteAuditLog(t *testing.T) {
 
 // --- inbox reply uncovered paths ---
 
+func TestInboxList_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/conversations", 200, []map[string]any{
+		{"id": "1001", "subject": "Homework question", "workflow_state": "unread", "message_count": 2},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("inbox list failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Homework question") {
+		t.Errorf("expected 'Homework question' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "1001") {
+		t.Errorf("expected conversation ID in output, got: %s", output)
+	}
+}
+
+func TestInboxList_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/conversations", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestInboxList_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/conversations", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
+func TestInboxGet_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/conversations/1001", 200, map[string]any{
+		"id":             "1001",
+		"subject":        "Homework question",
+		"workflow_state": "read",
+		"last_message":   "Thanks for the help!",
+		"message_count":  3,
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{"1001"})
+	if err != nil {
+		t.Fatalf("inbox get failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Homework question") {
+		t.Errorf("expected subject in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Thanks for the help!") {
+		t.Errorf("expected last message in output, got: %s", output)
+	}
+	if !strings.Contains(output, "3") {
+		t.Errorf("expected message count in output, got: %s", output)
+	}
+}
+
+func TestInboxGet_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/conversations/1001", 500, map[string]any{
+		"errors": []map[string]any{{"message": "not found"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, []string{"1001"})
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestInboxGet_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/conversations/1001", 500, map[string]any{
+		"errors": []map[string]any{{"message": "not found"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{"1001"})
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
 func TestInboxReply_MissingBody(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()

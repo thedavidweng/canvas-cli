@@ -3,11 +3,13 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 )
 
@@ -198,6 +200,129 @@ func TestCommandPath(t *testing.T) {
 				t.Errorf("commandPath(%q) = %q, want %q", tt.cmd.Name(), got, tt.want)
 			}
 		})
+	}
+}
+
+func TestVersionCmd_JSONMode(t *testing.T) {
+	cmd := NewRootCmd("3.0.0")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"version", "--json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("version --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true")
+	}
+
+	dataJSON, _ := json.Marshal(env.Data)
+	var info map[string]string
+	if err := json.Unmarshal(dataJSON, &info); err != nil {
+		t.Fatalf("data is not map: %v", err)
+	}
+	if info["version"] != "3.0.0" {
+		t.Errorf("expected version '3.0.0', got %q", info["version"])
+	}
+}
+
+func TestCompletionCmd_Bash(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "bash"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion bash failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty bash completion output")
+	}
+	if !strings.Contains(output, "bash") && !strings.Contains(output, "complete") {
+		// Bash completions typically contain completion-related keywords
+		t.Logf("bash completion output (first 200 chars): %s", output[:min(200, len(output))])
+	}
+}
+
+func TestCompletionCmd_Zsh(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "zsh"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion zsh failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty zsh completion output")
+	}
+}
+
+func TestCompletionCmd_Fish(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "fish"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion fish failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty fish completion output")
+	}
+}
+
+func TestCompletionCmd_Powershell(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "powershell"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion powershell failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty powershell completion output")
+	}
+}
+
+func TestCompletionCmd_InvalidShell(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "tcsh"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid shell")
+	}
+}
+
+func TestExecute_Success(t *testing.T) {
+	t.Setenv("CANVAS_BASE_URL", "https://test.instructure.com")
+	t.Setenv("CANVAS_TOKEN", "test-token-123")
+
+	code := Execute("1.0.0")
+	if code != 0 {
+		t.Errorf("expected exit code 0, got %d", code)
 	}
 }
 

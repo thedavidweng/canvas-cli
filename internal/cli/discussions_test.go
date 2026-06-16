@@ -493,6 +493,496 @@ func TestDiscussionsReply_WritesAuditLog(t *testing.T) {
 	}
 }
 
+func TestDiscussionsList_CourseRequired(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestDiscussionsList_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestDiscussionsList_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
+func TestDiscussionsGet_CourseRequired(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{"200"})
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestDiscussionsGet_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/200", 500, map[string]any{
+		"errors": []map[string]any{{"message": "not found"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"200"})
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestDiscussionsGet_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/200", 500, map[string]any{
+		"errors": []map[string]any{{"message": "not found"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"200"})
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
+func TestDiscussionsEntries_CourseRequired(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsEntriesCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{"200"})
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestDiscussionsEntries_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/200/entries", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsEntriesCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"200"})
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestDiscussionsEntries_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/200/entries", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsEntriesCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"200"})
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
+func TestDiscussionsEntries_HumanMode_EmptyUserName(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/200/entries", 200, []map[string]any{
+		{"id": "300", "user_id": "42", "message": "Hello!"},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsEntriesCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"200"})
+	if err != nil {
+		t.Fatalf("discussions entries failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "42") {
+		t.Errorf("expected user_id '42' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Hello!") {
+		t.Errorf("expected 'Hello!' in output, got: %s", output)
+	}
+}
+
+func TestDiscussionsReplyEntry_DryRunShowsPreview(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsReplyEntryCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("did", "200")
+	_ = cmd.Flags().Set("entry", "300")
+	_ = cmd.Flags().Set("message", "I agree!")
+	_ = cmd.Flags().Set("dry-run", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("discussions reply-entry --dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "POST") {
+		t.Errorf("expected 'POST' in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "/api/v1/courses/1/discussion_topics/200/entries/300/replies") {
+		t.Errorf("expected endpoint path in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "I agree!") {
+		t.Errorf("expected message in dry-run output, got: %s", output)
+	}
+	if mock.RequestCount() != 0 {
+		t.Errorf("dry-run should not make HTTP requests, got %d", mock.RequestCount())
+	}
+}
+
+func TestDiscussionsReplyEntry_ReadOnlyReturnsExit7(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:  mock.URL(),
+		Token:    "test-token",
+		Profile:  "default",
+		ReadOnly: true,
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsReplyEntryCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("did", "200")
+	_ = cmd.Flags().Set("entry", "300")
+	_ = cmd.Flags().Set("message", "test")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in read-only mode")
+	}
+	exitErr, ok := err.(interface{ ExitCode() int })
+	if !ok {
+		t.Fatalf("expected exit error with ExitCode(), got %T: %v", err, err)
+	}
+	if exitErr.ExitCode() != 7 {
+		t.Errorf("expected exit code 7, got %d", exitErr.ExitCode())
+	}
+}
+
+func TestDiscussionsReplyEntry_WritesAuditLog(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/courses/1/discussion_topics/200/entries/300/replies", 200, map[string]any{
+		"id":      "902",
+		"user_id": "1",
+		"message": "I agree!",
+	})
+
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsReplyEntryCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("did", "200")
+	_ = cmd.Flags().Set("entry", "300")
+	_ = cmd.Flags().Set("message", "I agree!")
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("discussions reply-entry --confirm failed: %v", err)
+	}
+
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit log: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("audit log is empty")
+	}
+	if !strings.Contains(string(data), "discussions.reply-entry") {
+		t.Errorf("expected 'discussions.reply-entry' in audit log, got: %s", string(data))
+	}
+}
+
+func TestDiscussionsReplyEntry_MissingCourse(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsReplyEntryCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestDiscussionsReplyEntry_MissingDid(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsReplyEntryCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --did is missing")
+	}
+	if !strings.Contains(err.Error(), "--did") {
+		t.Errorf("expected error about --did, got: %v", err)
+	}
+}
+
+func TestDiscussionsReplyEntry_MissingEntry(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsReplyEntryCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("did", "200")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --entry is missing")
+	}
+	if !strings.Contains(err.Error(), "--entry") {
+		t.Errorf("expected error about --entry, got: %v", err)
+	}
+}
+
+func TestDiscussionsReplyEntry_MissingMessage(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsReplyEntryCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("did", "200")
+	_ = cmd.Flags().Set("entry", "300")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --message is missing")
+	}
+	if !strings.Contains(err.Error(), "--message") {
+		t.Errorf("expected error about --message, got: %v", err)
+	}
+}
+
 func TestDiscussionsReplyEntry_Works(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -545,5 +1035,143 @@ func TestDiscussionsReplyEntry_Works(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "Reply posted") {
 		t.Errorf("expected success message in output, got: %s", output)
+	}
+}
+
+// --- discussions create ---
+
+func TestDiscussionsCreate_ConfirmSendsPOST(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/courses/1/discussion_topics", 200, map[string]any{
+		"id":      "300",
+		"title":   "New Discussion",
+		"message": "Discuss the readings.",
+	})
+
+	bodyFile := filepath.Join(t.TempDir(), "body.md")
+	os.WriteFile(bodyFile, []byte("Discuss the readings."), 0644)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    filepath.Join(t.TempDir(), "audit.jsonl"),
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsCreateCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("title", "New Discussion")
+	_ = cmd.Flags().Set("body-file", bodyFile)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("discussions create --confirm failed: %v", err)
+	}
+
+	last := mock.LastRequest()
+	if last.Method != "POST" {
+		t.Errorf("expected POST method, got %s", last.Method)
+	}
+	if last.Path != "/api/v1/courses/1/discussion_topics" {
+		t.Errorf("expected path /api/v1/courses/1/discussion_topics, got %s", last.Path)
+	}
+	if !strings.Contains(last.Body, "New Discussion") {
+		t.Errorf("expected title in request body, got: %s", last.Body)
+	}
+	if !strings.Contains(last.Body, "Discuss the readings.") {
+		t.Errorf("expected message in request body, got: %s", last.Body)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "created") {
+		t.Errorf("expected success message in output, got: %s", output)
+	}
+	if !strings.Contains(output, "300") {
+		t.Errorf("expected discussion ID '300' in output, got: %s", output)
+	}
+}
+
+func TestDiscussionsCreate_DryRunShowsPreview(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	bodyFile := filepath.Join(t.TempDir(), "body.md")
+	os.WriteFile(bodyFile, []byte("Discuss the readings."), 0644)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsCreateCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("title", "New Discussion")
+	_ = cmd.Flags().Set("body-file", bodyFile)
+	_ = cmd.Flags().Set("dry-run", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("discussions create --dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "POST") {
+		t.Errorf("expected 'POST' in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "/api/v1/courses/1/discussion_topics") {
+		t.Errorf("expected endpoint path in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "New Discussion") {
+		t.Errorf("expected title in dry-run output, got: %s", output)
+	}
+	if mock.RequestCount() != 0 {
+		t.Errorf("dry-run should not make HTTP requests, got %d", mock.RequestCount())
+	}
+}
+
+func TestDiscussionsCreate_ReadOnlyReturnsExit7(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	bodyFile := filepath.Join(t.TempDir(), "body.md")
+	os.WriteFile(bodyFile, []byte("Discuss the readings."), 0644)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:  mock.URL(),
+		Token:    "test-token",
+		Profile:  "default",
+		ReadOnly: true,
+	}
+
+	var buf bytes.Buffer
+	cmd := newDiscussionsCreateCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("title", "New Discussion")
+	_ = cmd.Flags().Set("body-file", bodyFile)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in read-only mode")
+	}
+	exitErr, ok := err.(interface{ ExitCode() int })
+	if !ok {
+		t.Fatalf("expected exit error with ExitCode(), got %T: %v", err, err)
+	}
+	if exitErr.ExitCode() != 7 {
+		t.Errorf("expected exit code 7, got %d", exitErr.ExitCode())
 	}
 }

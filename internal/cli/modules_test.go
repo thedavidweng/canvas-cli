@@ -350,3 +350,164 @@ func TestModulesUnpublish_ConfirmSendsPUT(t *testing.T) {
 		t.Errorf("expected success message in output, got: %s", output)
 	}
 }
+
+// --- modules list human mode ---
+
+func TestModulesList_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/modules", 200, []map[string]any{
+		{"id": "10", "name": "Week 1", "position": 1, "published": true, "items_count": 3, "workflow_state": "active"},
+		{"id": "11", "name": "Week 2", "position": 2, "published": false, "items_count": 5, "workflow_state": "active"},
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newModulesListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("modules list failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Week 1") {
+		t.Errorf("expected 'Week 1' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Week 2") {
+		t.Errorf("expected 'Week 2' in output, got: %s", output)
+	}
+}
+
+// --- modules get human mode ---
+
+func TestModulesGet_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/modules/10", 200, map[string]any{
+		"id": "10", "name": "Week 1", "position": 1, "published": true, "items_count": 3, "workflow_state": "active",
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newModulesGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"10"})
+	if err != nil {
+		t.Fatalf("modules get failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Week 1") {
+		t.Errorf("expected 'Week 1' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "3") {
+		t.Errorf("expected items count '3' in output, got: %s", output)
+	}
+}
+
+// --- modules item ---
+
+func TestModulesItem_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/modules/10/items/100", 200, map[string]any{
+		"id":         "100",
+		"module_id":  "10",
+		"title":      "Introduction",
+		"type":       "Page",
+		"position":   1,
+		"content_id": "50",
+		"html_url":   "/courses/1/pages/introduction",
+		"published":  true,
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newModulesItemCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("module", "10")
+
+	err := cmd.RunE(cmd, []string{"100"})
+	if err != nil {
+		t.Fatalf("modules item --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true")
+	}
+
+	dataJSON, _ := json.Marshal(env.Data)
+	var item canvas.ModuleItem
+	if err := json.Unmarshal(dataJSON, &item); err != nil {
+		t.Fatalf("data is not ModuleItem: %v", err)
+	}
+	if item.ID != "100" {
+		t.Errorf("expected item ID '100', got %q", item.ID)
+	}
+	if item.Title != "Introduction" {
+		t.Errorf("expected title 'Introduction', got %q", item.Title)
+	}
+
+	last := mock.LastRequest()
+	if last.Path != "/api/v1/courses/1/modules/10/items/100" {
+		t.Errorf("expected request to /api/v1/courses/1/modules/10/items/100, got %s", last.Path)
+	}
+}
+
+func TestModulesItem_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	published := true
+	mock.On("GET", "/api/v1/courses/1/modules/10/items/100", 200, map[string]any{
+		"id":         "100",
+		"module_id":  "10",
+		"title":      "Introduction",
+		"type":       "Page",
+		"position":   1,
+		"content_id": "50",
+		"html_url":   "/courses/1/pages/introduction",
+		"published":  published,
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newModulesItemCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("module", "10")
+
+	err := cmd.RunE(cmd, []string{"100"})
+	if err != nil {
+		t.Fatalf("modules item failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Introduction") {
+		t.Errorf("expected 'Introduction' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Page") {
+		t.Errorf("expected type 'Page' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "yes") {
+		t.Errorf("expected 'yes' for published in output, got: %s", output)
+	}
+}

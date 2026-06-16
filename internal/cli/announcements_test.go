@@ -349,3 +349,135 @@ func TestAnnouncementsCreate_WritesAuditLog(t *testing.T) {
 		t.Errorf("expected 'announcements.create' in audit log, got: %s", string(data))
 	}
 }
+
+// --- announcements get ---
+
+func TestAnnouncementsGet_JSONMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	postedAt := "2026-01-15T12:00:00Z"
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/100", 200, map[string]any{
+		"id":              "100",
+		"title":           "Welcome to CS101",
+		"message":         "Welcome everyone!",
+		"is_announcement": true,
+		"published":       true,
+		"posted_at":       postedAt,
+		"user_name":       "Prof. Smith",
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newAnnouncementsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"100"})
+	if err != nil {
+		t.Fatalf("announcements get --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true")
+	}
+
+	dataJSON, _ := json.Marshal(env.Data)
+	var topic canvas.DiscussionTopic
+	if err := json.Unmarshal(dataJSON, &topic); err != nil {
+		t.Fatalf("data is not DiscussionTopic: %v", err)
+	}
+	if topic.ID != "100" {
+		t.Errorf("expected topic ID '100', got %q", topic.ID)
+	}
+	if topic.Title != "Welcome to CS101" {
+		t.Errorf("expected title 'Welcome to CS101', got %q", topic.Title)
+	}
+
+	last := mock.LastRequest()
+	if last.Path != "/api/v1/courses/1/discussion_topics/100" {
+		t.Errorf("expected request to /api/v1/courses/1/discussion_topics/100, got %s", last.Path)
+	}
+}
+
+func TestAnnouncementsGet_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	postedAt := "2026-01-15T12:00:00Z"
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/100", 200, map[string]any{
+		"id":              "100",
+		"title":           "Welcome to CS101",
+		"message":         "Welcome everyone!",
+		"is_announcement": true,
+		"published":       true,
+		"posted_at":       postedAt,
+		"user_name":       "Prof. Smith",
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newAnnouncementsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"100"})
+	if err != nil {
+		t.Fatalf("announcements get failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Welcome to CS101") {
+		t.Errorf("expected 'Welcome to CS101' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Welcome everyone!") {
+		t.Errorf("expected message in output, got: %s", output)
+	}
+	if !strings.Contains(output, "2026-01-15T12:00:00Z") {
+		t.Errorf("expected posted_at in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Prof. Smith") {
+		t.Errorf("expected user name in output, got: %s", output)
+	}
+}
+
+func TestAnnouncementsGet_HumanModeNoPostedAt(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/discussion_topics/101", 200, map[string]any{
+		"id":              "101",
+		"title":           "Midterm Info",
+		"message":         "Midterm is next week.",
+		"is_announcement": true,
+		"published":       true,
+		"user_name":       "Prof. Smith",
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	var buf bytes.Buffer
+	cmd := newAnnouncementsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"101"})
+	if err != nil {
+		t.Fatalf("announcements get failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Midterm Info") {
+		t.Errorf("expected 'Midterm Info' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "n/a") {
+		t.Errorf("expected 'n/a' for missing posted_at, got: %s", output)
+	}
+}

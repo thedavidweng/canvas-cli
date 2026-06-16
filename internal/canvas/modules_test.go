@@ -323,3 +323,18 @@ func TestListModuleItemsNotFound(t *testing.T) {
 		t.Fatal("expected error for 404, got nil")
 	}
 }
+
+func TestListModulesError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	_, _, err := ListModules(context.Background(), c, "1", nil)
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}

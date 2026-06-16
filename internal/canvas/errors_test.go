@@ -575,6 +575,125 @@ func TestIsCookieSessionExpired(t *testing.T) {
 	}
 }
 
+func TestNormalizeError_EmptyBody(t *testing.T) {
+	resp := newResponse(400, "", nil)
+	env := NormalizeError(resp, "api.get")
+
+	if env.Error.Message != "Bad Request" {
+		t.Errorf("Message = %q, want %q (fallback to StatusText)", env.Error.Message, "Bad Request")
+	}
+	if env.Error.Code != "CANVAS_API_ERROR" {
+		t.Errorf("Code = %q, want %q", env.Error.Code, "CANVAS_API_ERROR")
+	}
+}
+
+func TestNormalizeError_NoMessageField(t *testing.T) {
+	resp := newResponse(400, `{"errors":[{"message":"some error"}]}`, nil)
+	env := NormalizeError(resp, "api.get")
+
+	// Body has no top-level "message" field, so should fall back to StatusText.
+	if env.Error.Message != "Bad Request" {
+		t.Errorf("Message = %q, want %q (fallback to StatusText)", env.Error.Message, "Bad Request")
+	}
+}
+
+func TestNormalizeError_SessionExpired(t *testing.T) {
+	// 401 with cookie auth baseURL triggers session expired detection.
+	resp := newResponse(401, `{"message":"Unauthorized"}`, nil)
+	env := NormalizeError(resp, "courses.list", "https://school.instructure.com")
+
+	if env.Error.Code != "CANVAS_SESSION_EXPIRED" {
+		t.Errorf("Code = %q, want %q", env.Error.Code, "CANVAS_SESSION_EXPIRED")
+	}
+	if env.Error.Category != "auth" {
+		t.Errorf("Category = %q, want %q", env.Error.Category, "auth")
+	}
+	if !strings.Contains(env.Error.Message, "session expired") {
+		t.Errorf("Message = %q, want it to contain 'session expired'", env.Error.Message)
+	}
+}
+
+func TestNormalizeError_SessionExpired_EmptyBaseURL(t *testing.T) {
+	// Empty baseURL should NOT trigger session expired.
+	resp := newResponse(401, `{"message":"Unauthorized"}`, nil)
+	env := NormalizeError(resp, "courses.list", "")
+
+	if env.Error.Code == "CANVAS_SESSION_EXPIRED" {
+		t.Error("should not detect session expired with empty baseURL")
+	}
+}
+
+func TestNormalizeError_SessionExpired_NoBaseURL(t *testing.T) {
+	// No baseURL variadic arg should NOT trigger session expired.
+	resp := newResponse(401, `{"message":"Unauthorized"}`, nil)
+	env := NormalizeError(resp, "courses.list")
+
+	if env.Error.Code == "CANVAS_SESSION_EXPIRED" {
+		t.Error("should not detect session expired without baseURL")
+	}
+}
+
+func TestNormalizeErrorFromBody_EmptyBody(t *testing.T) {
+	resp := newResponse(500, "", nil)
+	errInfo := NormalizeErrorFromBody(resp, []byte(""))
+
+	if errInfo.Message != "Internal Server Error" {
+		t.Errorf("Message = %q, want %q", errInfo.Message, "Internal Server Error")
+	}
+	if errInfo.Code != "CANVAS_SERVER_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_SERVER_ERROR")
+	}
+}
+
+func TestHasAuthPathPrefix_AllPrefixes(t *testing.T) {
+	tests := []struct {
+		location string
+		want     bool
+	}{
+		{"https://school.edu/login", true},
+		{"https://school.edu/auth/sso", true},
+		{"https://school.edu/sso/saml", true},
+		{"https://school.edu/cas/login", true},
+		{"https://school.edu/saml/sso", true},
+		{"https://school.edu/idp/SSO", true},
+		{"https://school.edu/shibboleth/sso", true},
+		{"https://school.edu/signin", true},
+		{"https://school.edu/sign-in", true},
+		{"https://school.edu/Login", true}, // case insensitive
+		{"https://school.edu/api/v1", false},
+		{"https://school.edu/dashboard", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.location, func(t *testing.T) {
+			got := hasAuthPathPrefix(tt.location)
+			if got != tt.want {
+				t.Errorf("hasAuthPathPrefix(%q) = %v, want %v", tt.location, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsAuthRedirect_HostPatterns(t *testing.T) {
+	tests := []struct {
+		location string
+		want     bool
+	}{
+		{"https://shibboleth.university.edu/sso", true},
+		{"https://idp.shibboleth.university.edu/sso", true},
+		{"https://cas.university.edu/login", true},
+		{"https://auth.cas.university.edu/login", true},
+		{"https://regular.school.edu/dashboard", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.location, func(t *testing.T) {
+			got := isAuthRedirect(tt.location)
+			if got != tt.want {
+				t.Errorf("isAuthRedirect(%q) = %v, want %v", tt.location, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestHostMatches(t *testing.T) {
 	tests := []struct {
 		name     string

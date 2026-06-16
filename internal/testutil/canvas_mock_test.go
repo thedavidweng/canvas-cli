@@ -2,8 +2,11 @@ package testutil
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -319,6 +322,251 @@ func TestURL(t *testing.T) {
 	}
 	if !contains(u, "http") {
 		t.Errorf("URL() = %q, does not start with http", u)
+	}
+}
+
+func TestOnUploadInit(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	m.OnUploadInit("POST", "/api/v1/courses/1/files", "/uploads/abc", map[string]string{
+		"token": "upload-token",
+	})
+
+	resp, err := http.Post(m.URL()+"/api/v1/courses/1/files", "application/x-www-form-urlencoded", nil)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	var result map[string]any
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("JSON decode failed: %v", err)
+	}
+
+	uploadURL, ok := result["upload_url"].(string)
+	if !ok {
+		t.Fatal("upload_url not found in response")
+	}
+	if !contains(uploadURL, "/uploads/abc") {
+		t.Errorf("upload_url = %q, want it to contain '/uploads/abc'", uploadURL)
+	}
+
+	params, ok := result["upload_params"].(map[string]any)
+	if !ok {
+		t.Fatal("upload_params not found in response")
+	}
+	if params["token"] != "upload-token" {
+		t.Errorf("upload_params.token = %v, want 'upload-token'", params["token"])
+	}
+}
+
+func TestOnUploadRedirect(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	finalSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"id":"999","display_name":"uploaded.txt"}`)
+	}))
+	defer finalSrv.Close()
+
+	m.OnUploadRedirect("POST", "/api/v1/uploads", "/api/v1/files/999")
+
+	// Use a client that doesn't follow redirects to verify the 302.
+	noRedirectClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	req, _ := http.NewRequest("POST", m.URL()+"/api/v1/uploads", nil)
+	resp, err := noRedirectClient.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusFound)
+	}
+
+	location := resp.Header.Get("Location")
+	if !contains(location, "/api/v1/files/999") {
+		t.Errorf("Location = %q, want it to contain '/api/v1/files/999'", location)
+	}
+}
+
+func TestReset_WithPagination(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	m.SetPagination("/api/v1/items", [][]map[string]any{
+		{{"id": "1"}},
+		{{"id": "2"}},
+	})
+
+	// Request page 1 (advances pagination index).
+	http.Get(m.URL() + "/api/v1/items")
+
+	if m.RequestCount() != 1 {
+		t.Fatalf("before reset: RequestCount() = %d, want 1", m.RequestCount())
+	}
+
+	m.Reset()
+
+	if m.RequestCount() != 0 {
+		t.Errorf("after reset: RequestCount() = %d, want 0", m.RequestCount())
+	}
+
+	// After reset, page 1 should be served again (pagination index reset).
+	resp, err := http.Get(m.URL() + "/api/v1/items")
+	if err != nil {
+		t.Fatalf("request after reset failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	linkHeader := resp.Header.Get("Link")
+	if linkHeader == "" {
+		t.Error("after reset: page 1 should have Link header (pagination restarted)")
+	}
+}
+
+func TestHandler_StringBody(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	m.On("GET", "/api/v1/test-string", http.StatusOK, "plain text body")
+
+	resp, err := http.Get(m.URL() + "/api/v1/test-string")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "plain text body" {
+		t.Errorf("body = %q, want %q", string(body), "plain text body")
+	}
+}
+
+func TestHandler_ByteBody(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	m.On("GET", "/api/v1/test-bytes", http.StatusOK, []byte("binary content"))
+
+	resp, err := http.Get(m.URL() + "/api/v1/test-bytes")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "binary content" {
+		t.Errorf("body = %q, want %q", string(body), "binary content")
+	}
+}
+
+func TestRequestLog(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	http.Get(m.URL() + "/api/v1/users/self")
+	http.Get(m.URL() + "/api/v1/courses")
+	http.Get(m.URL() + "/api/v1/courses/1")
+
+	log := m.RequestLog()
+	if len(log) != 3 {
+		t.Fatalf("RequestLog() returned %d entries, want 3", len(log))
+	}
+
+	// Verify order and paths.
+	if log[0].Path != "/api/v1/users/self" {
+		t.Errorf("log[0].Path = %q, want /api/v1/users/self", log[0].Path)
+	}
+	if log[1].Path != "/api/v1/courses" {
+		t.Errorf("log[1].Path = %q, want /api/v1/courses", log[1].Path)
+	}
+	if log[2].Path != "/api/v1/courses/1" {
+		t.Errorf("log[2].Path = %q, want /api/v1/courses/1", log[2].Path)
+	}
+
+	// Verify methods.
+	for i, entry := range log {
+		if entry.Method != "GET" {
+			t.Errorf("log[%d].Method = %q, want GET", i, entry.Method)
+		}
+	}
+}
+
+func TestRequestLog_ReturnsCopy(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	http.Get(m.URL() + "/api/v1/users/self")
+
+	log1 := m.RequestLog()
+	log2 := m.RequestLog()
+
+	// Modifying log1 should not affect log2.
+	log1[0].Path = "modified"
+	if log2[0].Path == "modified" {
+		t.Error("RequestLog should return a copy, not a reference")
+	}
+}
+
+func TestLastRequest_NoRequests(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	if m.LastRequest() != nil {
+		t.Error("LastRequest() should return nil before any requests")
+	}
+}
+
+func TestRecordedRequest_Query(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	http.Get(m.URL() + "/api/v1/test?foo=bar&baz=1")
+
+	last := m.LastRequest()
+	if last == nil {
+		t.Fatal("LastRequest() returned nil")
+	}
+
+	if last.Query.Get("foo") != "bar" {
+		t.Errorf("Query.Get(foo) = %q, want %q", last.Query.Get("foo"), "bar")
+	}
+	if last.Query.Get("baz") != "1" {
+		t.Errorf("Query.Get(baz) = %q, want %q", last.Query.Get("baz"), "1")
+	}
+}
+
+func TestRecordedRequest_Body(t *testing.T) {
+	m := NewMockCanvas()
+	defer m.Close()
+
+	m.On("POST", "/api/v1/test", http.StatusOK, map[string]any{"ok": true})
+
+	req, _ := http.NewRequest("POST", m.URL()+"/api/v1/test", strings.NewReader(`{"name":"test"}`))
+	req.Header.Set("Content-Type", "application/json")
+	http.DefaultClient.Do(req)
+
+	last := m.LastRequest()
+	if last == nil {
+		t.Fatal("LastRequest() returned nil")
+	}
+
+	if last.Body != `{"name":"test"}` {
+		t.Errorf("Body = %q, want %q", last.Body, `{"name":"test"}`)
 	}
 }
 

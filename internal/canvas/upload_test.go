@@ -377,6 +377,160 @@ func TestExtractFileID_InvalidJSON(t *testing.T) {
 	}
 }
 
+// TestUploadFile_ExternalHost tests the upload flow when step 1 returns a
+// full URL pointing to an external host (e.g. S3).
+func TestUploadFile_ExternalHost(t *testing.T) {
+	// External upload server (different host from canvas).
+	uploadSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(File{ID: "ext-123", DisplayName: "test.txt"})
+	}))
+	defer uploadSrv.Close()
+
+	// Canvas server returns a full external URL.
+	canvasSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(uploadInitResponse{
+			UploadURL: uploadSrv.URL + "/upload",
+			UploadParams: map[string]string{
+				"token": "ext-token",
+			},
+		})
+	}))
+	defer canvasSrv.Close()
+
+	c := NewClient(canvasSrv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	fileID, err := UploadFile(context.Background(), c, "1", "/tmp/test.txt", []byte("hello"))
+	if err != nil {
+		t.Fatalf("UploadFile() error: %v", err)
+	}
+	if fileID != "ext-123" {
+		t.Errorf("fileID = %q, want %q", fileID, "ext-123")
+	}
+}
+
+// TestUploadFile_UnknownContentType tests that UploadFile falls back to
+// application/octet-stream for unknown file extensions.
+func TestUploadFile_UnknownContentType(t *testing.T) {
+	var gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/courses/1/files" {
+			// Step 1: check content_type in form body.
+			_ = r.ParseForm()
+			gotContentType = r.FormValue("content_type")
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(uploadInitResponse{
+				UploadURL:    "/uploads/999",
+				UploadParams: map[string]string{"token": "tok"},
+			})
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(File{ID: "999"})
+		}
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	_, err := UploadFile(context.Background(), c, "1", "/tmp/file.unknownext", []byte("data"))
+	if err != nil {
+		t.Fatalf("UploadFile() error: %v", err)
+	}
+
+	if gotContentType != "application/octet-stream" {
+		t.Errorf("content_type = %q, want %q", gotContentType, "application/octet-stream")
+	}
+}
+
+// TestUploadFile_InitDecodeError tests that UploadFile returns an error when
+// step 1 returns invalid JSON.
+func TestUploadFile_InitDecodeError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`not valid json`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	_, err := UploadFile(context.Background(), c, "1", "/tmp/test.txt", []byte("data"))
+	if err == nil {
+		t.Fatal("expected error for invalid JSON in step 1")
+	}
+	if !strings.Contains(err.Error(), "decode upload init response") {
+		t.Errorf("error = %q, want it to contain 'decode upload init response'", err.Error())
+	}
+}
+
+// TestHandleUploadResponse_RedirectFollowFailure tests that handleUploadResponse
+// returns an error when following a redirect returns a 4xx status.
+func TestHandleUploadResponse_RedirectFollowFailure(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/files/bad" {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte(`{"message":"Forbidden"}`))
+			return
+		}
+		w.Header().Set("Location", srv.URL+"/api/v1/files/bad")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	noRedirectClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := noRedirectClient.Get(srv.URL + "/some/redirect")
+	if err != nil {
+		t.Fatalf("GET error: %v", err)
+	}
+
+	_, err = handleUploadResponse(context.Background(), resp, c)
+	if err == nil {
+		t.Fatal("expected error for redirect follow failure")
+	}
+	if !strings.Contains(err.Error(), "redirect follow failed") {
+		t.Errorf("error = %q, want it to contain 'redirect follow failed'", err.Error())
+	}
+}
+
+// TestHandleUploadResponse_RedirectFollowError tests that handleUploadResponse
+// falls back to extractFileIDFromLocation when DoURL returns an error.
+func TestHandleUploadResponse_RedirectFollowError(t *testing.T) {
+	// Server that returns a 302 but the redirect target doesn't exist.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "http://invalid-host-does-not-exist.example.com/api/v1/files/12345")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	// Use a client without redirect following.
+	noRedirectClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := noRedirectClient.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("GET error: %v", err)
+	}
+
+	c := NewClient("https://canvas.example.com", "tok", "0.1.0", 5*time.Second, 0)
+	fileID, err := handleUploadResponse(context.Background(), resp, c)
+	// Should fallback to extracting from Location URL.
+	if err != nil {
+		t.Fatalf("handleUploadResponse() error: %v", err)
+	}
+	if fileID != "12345" {
+		t.Errorf("fileID = %q, want %q", fileID, "12345")
+	}
+}
+
 // TestExtractFileIDFromLocation tests all variants of Location header URLs that
 // the extractFileIDFromLocation function must parse.
 func TestExtractFileIDFromLocation(t *testing.T) {

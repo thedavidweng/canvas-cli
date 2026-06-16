@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -182,6 +183,94 @@ func TestRequestNoDecodeInto(t *testing.T) {
 	}
 	if meta == nil {
 		t.Fatal("meta should not be nil")
+	}
+}
+
+func TestRequest_PaginateWithoutDecodeInto(t *testing.T) {
+	c := NewClient("https://example.com", "tok", "0.1.0", 5*time.Second, 0)
+	_, err := Request(context.Background(), c, RequestOptions{
+		Method:    "GET",
+		PathOrURL: "/api/v1/items",
+		Paginate:  true,
+		PageSize:  100,
+		// DecodeInto is nil
+	})
+	if err == nil {
+		t.Fatal("expected error when Paginate=true and DecodeInto=nil")
+	}
+	if !strings.Contains(err.Error(), "decodeInto required") {
+		t.Errorf("error = %q, want it to contain 'decodeInto required'", err.Error())
+	}
+}
+
+func TestRequest_PaginateDefaultPageSize(t *testing.T) {
+	type item struct {
+		ID string `json:"id"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]item{{ID: "1"}})
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	var items []item
+	_, err := Request(context.Background(), c, RequestOptions{
+		Method:     "GET",
+		PathOrURL:  "/api/v1/items",
+		Paginate:   true,
+		PageSize:   0, // should default to 100
+		DecodeInto: &items,
+	})
+	if err != nil {
+		t.Fatalf("Request() error: %v", err)
+	}
+}
+
+func TestRequest_APIErrorStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"not found"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	var result map[string]string
+	_, err := Request(context.Background(), c, RequestOptions{
+		Method:     "GET",
+		PathOrURL:  "/api/v1/courses/999",
+		DecodeInto: &result,
+	})
+	if err == nil {
+		t.Fatal("expected error for 404 status")
+	}
+	if !strings.Contains(err.Error(), "api error") {
+		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
+	}
+}
+
+func TestRequest_DecodeError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`not valid json`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	var result map[string]string
+	_, err := Request(context.Background(), c, RequestOptions{
+		Method:     "GET",
+		PathOrURL:  "/api/v1/test",
+		DecodeInto: &result,
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+	if !strings.Contains(err.Error(), "failed to decode response") {
+		t.Errorf("error = %q, want it to contain 'failed to decode response'", err.Error())
 	}
 }
 

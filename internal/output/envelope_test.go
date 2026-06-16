@@ -142,6 +142,36 @@ func TestNewError_AppliesMetaOverrides(t *testing.T) {
 	}
 }
 
+func TestNewSuccess_LimitOverride(t *testing.T) {
+	limit := 25
+	overrides := canvas.Meta{
+		Limit: &limit,
+	}
+
+	env := NewSuccess([]int{1}, "courses.list", overrides)
+
+	if env.Meta.Limit == nil {
+		t.Fatal("expected limit to be set")
+	}
+	if *env.Meta.Limit != 25 {
+		t.Errorf("limit = %d, want 25", *env.Meta.Limit)
+	}
+}
+
+func TestNewSuccess_NoOverrides(t *testing.T) {
+	env := NewSuccess("data", "test.cmd")
+
+	if env.Meta.SchemaVersion != SchemaVersion {
+		t.Errorf("schema_version = %q, want %q", env.Meta.SchemaVersion, SchemaVersion)
+	}
+	if env.Meta.Command != "test.cmd" {
+		t.Errorf("command = %q, want %q", env.Meta.Command, "test.cmd")
+	}
+	if env.Meta.Limit != nil {
+		t.Error("limit should be nil when not overridden")
+	}
+}
+
 func TestNewError_IncludesCanvasRequestID(t *testing.T) {
 	errInfo := canvas.ErrorInfo{
 		Code:            "CANVAS_API_ERROR",
