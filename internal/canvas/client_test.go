@@ -217,6 +217,47 @@ func TestDoMethodIsPassedThrough(t *testing.T) {
 	}
 }
 
+func TestSetHTTPClient(t *testing.T) {
+	var gotViaCustom bool
+
+	customClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			gotViaCustom = true
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+			}, nil
+		}),
+	}
+
+	c := NewClient("https://canvas.example.com", "tok", "0.1.0", 5*time.Second, 0)
+	c.SetHTTPClient(customClient)
+
+	if c.httpClient != customClient {
+		t.Error("httpClient should be the custom client after SetHTTPClient")
+	}
+
+	// Verify the custom client is actually used
+	resp, err := c.Do(context.Background(), http.MethodGet, "/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("Do() error: %v", err)
+	}
+	resp.Body.Close()
+
+	if !gotViaCustom {
+		t.Error("expected request to go through custom HTTP client")
+	}
+}
+
+// roundTripFunc adapts a function to http.RoundTripper for testing.
+type roundTripFunc func(req *http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
 // --- Session cookie auth tests (Steps 1.3-1.7) ---
 
 func TestDo_CookieAuth_SendsCookieHeader(t *testing.T) {

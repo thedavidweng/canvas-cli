@@ -104,6 +104,125 @@ func TestNormalizeErrorCanvasRequestID(t *testing.T) {
 	}
 }
 
+func TestNormalizeErrorFromBody401(t *testing.T) {
+	body := []byte(`{"message":"Unauthorized"}`)
+	resp := newResponse(401, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Status != 401 {
+		t.Errorf("Status = %d, want 401", errInfo.Status)
+	}
+	if errInfo.Code != "CANVAS_AUTH_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_AUTH_ERROR")
+	}
+	if errInfo.Category != "auth" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "auth")
+	}
+	if errInfo.Message != "Unauthorized" {
+		t.Errorf("Message = %q, want %q", errInfo.Message, "Unauthorized")
+	}
+	if errInfo.Retryable {
+		t.Error("Retryable should be false for auth errors")
+	}
+}
+
+func TestNormalizeErrorFromBody404(t *testing.T) {
+	body := []byte(`{"message":"Not Found"}`)
+	resp := newResponse(404, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_NOT_FOUND" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_NOT_FOUND")
+	}
+	if errInfo.Category != "not_found" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "not_found")
+	}
+}
+
+func TestNormalizeErrorFromBody429(t *testing.T) {
+	body := []byte(`{"message":"Too Many Requests"}`)
+	resp := newResponse(429, string(body), map[string]string{
+		"X-Rate-Limit-Remaining": "0",
+	})
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_RATE_LIMIT" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_RATE_LIMIT")
+	}
+	if errInfo.Category != "rate_limit" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "rate_limit")
+	}
+	if !errInfo.Retryable {
+		t.Error("Retryable should be true for rate limit errors")
+	}
+}
+
+func TestNormalizeErrorFromBody500(t *testing.T) {
+	body := []byte(`{"message":"Internal Server Error"}`)
+	resp := newResponse(500, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_SERVER_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_SERVER_ERROR")
+	}
+	if errInfo.Category != "server" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "server")
+	}
+	if !errInfo.Retryable {
+		t.Error("Retryable should be true for 5xx errors")
+	}
+}
+
+func TestNormalizeErrorFromBody422(t *testing.T) {
+	body := []byte(`{"message":"Unprocessable Entity"}`)
+	resp := newResponse(422, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_VALIDATION_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_VALIDATION_ERROR")
+	}
+	if errInfo.Category != "validation" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "validation")
+	}
+}
+
+func TestNormalizeErrorFromBody403RateLimit(t *testing.T) {
+	body := []byte(`{"message":"Rate Limit Exceeded"}`)
+	resp := newResponse(403, string(body), map[string]string{
+		"X-Rate-Limit-Remaining": "0",
+	})
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_RATE_LIMIT" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_RATE_LIMIT")
+	}
+	if errInfo.Category != "rate_limit" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "rate_limit")
+	}
+	if !errInfo.Retryable {
+		t.Error("Retryable should be true for rate limit errors")
+	}
+}
+
+func TestNormalizeErrorFromBodyWithRequestID(t *testing.T) {
+	body := []byte(`{"message":"Bad Request"}`)
+	resp := newResponse(400, string(body), map[string]string{
+		"X-Request-Id": "req-xyz-789",
+	})
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.CanvasRequestID != "req-xyz-789" {
+		t.Errorf("CanvasRequestID = %q, want %q", errInfo.CanvasRequestID, "req-xyz-789")
+	}
+}
+
 func TestNormalizeErrorBodyPreserved(t *testing.T) {
 	body := `{"message":"Bad Request","errors":[{"message":"invalid field"}]}`
 	resp := newResponse(400, body, nil)

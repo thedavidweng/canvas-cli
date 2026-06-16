@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
@@ -561,5 +562,401 @@ func TestExportContext_SinceFilter(t *testing.T) {
 	// Pages: only "Schedule" has updated_at=2026-06-01 >= 2026-04-01
 	if len(result.Pages) != 1 {
 		t.Errorf("expected 1 page after --since filter, got %d", len(result.Pages))
+	}
+}
+
+// --- fetchPagesFromModules ---
+
+func TestFetchPagesFromModules_ExtractsPageURLs(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	// Mock individual page fetches
+	mock.On("GET", "/api/v1/courses/1/pages/syllabus", 200, map[string]any{
+		"url": "syllabus", "title": "Syllabus", "body": "<p>Full syllabus</p>",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-10T00:00:00Z",
+	})
+	mock.On("GET", "/api/v1/courses/1/pages/schedule", 200, map[string]any{
+		"url": "schedule", "title": "Schedule", "body": "<p>Weekly schedule</p>",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-06-01T00:00:00Z",
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "syllabus",
+						"title":    "Syllabus",
+					},
+					map[string]any{
+						"type":     "Page",
+						"page_url": "schedule",
+						"title":    "Schedule",
+					},
+				},
+			},
+		},
+	}
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	if reqCount != 2 {
+		t.Errorf("expected 2 requests, got %d", reqCount)
+	}
+	if result.Pages == nil {
+		t.Fatal("expected pages to be populated")
+	}
+	if len(result.Pages) != 2 {
+		t.Errorf("expected 2 pages, got %d", len(result.Pages))
+	}
+}
+
+func TestFetchPagesFromModules_SkipsNonPageItems(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages/syllabus", 200, map[string]any{
+		"url": "syllabus", "title": "Syllabus", "body": "<p>Full syllabus</p>",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-10T00:00:00Z",
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "syllabus",
+						"title":    "Syllabus",
+					},
+					map[string]any{
+						"type":  "Assignment",
+						"title": "Essay 1",
+					},
+					map[string]any{
+						"type":  "Quiz",
+						"title": "Quiz 1",
+					},
+				},
+			},
+		},
+	}
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	// Only the Page item should be fetched
+	if reqCount != 1 {
+		t.Errorf("expected 1 request (only Page items), got %d", reqCount)
+	}
+	if len(result.Pages) != 1 {
+		t.Errorf("expected 1 page, got %d", len(result.Pages))
+	}
+}
+
+func TestFetchPagesFromModules_DeduplicatesPageURLs(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages/syllabus", 200, map[string]any{
+		"url": "syllabus", "title": "Syllabus", "body": "<p>Full syllabus</p>",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-10T00:00:00Z",
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "syllabus",
+						"title":    "Syllabus",
+					},
+				},
+			},
+			map[string]any{
+				"id":   "11",
+				"name": "Week 2",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "syllabus", // duplicate
+						"title":    "Syllabus Again",
+					},
+				},
+			},
+		},
+	}
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	// Only 1 request because the second URL is a duplicate
+	if reqCount != 1 {
+		t.Errorf("expected 1 request (duplicate skipped), got %d", reqCount)
+	}
+}
+
+func TestFetchPagesFromModules_FetchErrorIncludesStub(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	// Page fetch returns 403
+	mock.On("GET", "/api/v1/courses/1/pages/forbidden", 403, map[string]any{
+		"errors": []map[string]any{{"message": "forbidden"}},
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "forbidden",
+						"title":    "Forbidden Page",
+					},
+				},
+			},
+		},
+	}
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules should not return error on fetch failure: %v", err)
+	}
+	if reqCount != 1 {
+		t.Errorf("expected 1 request, got %d", reqCount)
+	}
+	// Should include the stub (the original module item)
+	if result.Pages == nil {
+		t.Fatal("expected pages to include stub on error")
+	}
+	if len(result.Pages) != 1 {
+		t.Errorf("expected 1 page (stub), got %d", len(result.Pages))
+	}
+}
+
+func TestFetchPagesFromModules_EmptyModules(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{},
+	}
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	if reqCount != 0 {
+		t.Errorf("expected 0 requests, got %d", reqCount)
+	}
+	if result.Pages != nil {
+		t.Errorf("expected pages to be nil for empty modules, got %v", result.Pages)
+	}
+}
+
+func TestFetchPagesFromModules_SkipsEmptyPageURL(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "", // empty page_url
+						"title":    "Empty URL Page",
+					},
+				},
+			},
+		},
+	}
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	if reqCount != 0 {
+		t.Errorf("expected 0 requests (empty page_url skipped), got %d", reqCount)
+	}
+}
+
+func TestFetchPagesFromModules_InvalidModuleType(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			"not a map", // invalid type
+			42,          // invalid type
+			map[string]any{ // valid module but no items
+				"id":   "10",
+				"name": "Empty Module",
+			},
+			map[string]any{ // valid module but items is not an array
+				"id":    "11",
+				"name":  "Bad Items",
+				"items": "not an array",
+			},
+		},
+	}
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	if reqCount != 0 {
+		t.Errorf("expected 0 requests (invalid modules skipped), got %d", reqCount)
+	}
+}
+
+func TestFetchPagesFromModules_InvalidItemType(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					"not a map", // invalid item type
+					42,          // invalid item type
+					map[string]any{
+						"type":     "Page",
+						"page_url": "valid-page",
+						"title":    "Valid Page",
+					},
+				},
+			},
+		},
+	}
+
+	mock.On("GET", "/api/v1/courses/1/pages/valid-page", 200, map[string]any{
+		"url": "valid-page", "title": "Valid Page", "body": "<p>Content</p>",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-10T00:00:00Z",
+	})
+
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	if reqCount != 1 {
+		t.Errorf("expected 1 request (invalid items skipped), got %d", reqCount)
+	}
+	if len(result.Pages) != 1 {
+		t.Errorf("expected 1 page, got %d", len(result.Pages))
+	}
+}
+
+func TestFetchPagesFromModules_SinceFilter(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages/old-page", 200, map[string]any{
+		"url": "old-page", "title": "Old Page", "body": "<p>Old</p>",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-10T00:00:00Z",
+	})
+	mock.On("GET", "/api/v1/courses/1/pages/new-page", 200, map[string]any{
+		"url": "new-page", "title": "New Page", "body": "<p>New</p>",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-06-01T00:00:00Z",
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "old-page",
+						"title":    "Old Page",
+					},
+					map[string]any{
+						"type":     "Page",
+						"page_url": "new-page",
+						"title":    "New Page",
+					},
+				},
+			},
+		},
+	}
+
+	since, _ := time.Parse(time.RFC3339, "2026-04-01T00:00:00Z")
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", since, result, 0)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	if reqCount != 2 {
+		t.Errorf("expected 2 requests (both fetched), got %d", reqCount)
+	}
+	// Only the new page should pass the since filter
+	if len(result.Pages) != 1 {
+		t.Errorf("expected 1 page after since filter, got %d", len(result.Pages))
+	}
+}
+
+func TestFetchPagesFromModules_BaseReqCount(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages/page1", 200, map[string]any{
+		"url": "page1", "title": "Page 1",
+		"published": true, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-10T00:00:00Z",
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	result := &ExportResult{
+		Modules: []any{
+			map[string]any{
+				"id":   "10",
+				"name": "Week 1",
+				"items": []any{
+					map[string]any{
+						"type":     "Page",
+						"page_url": "page1",
+						"title":    "Page 1",
+					},
+				},
+			},
+		},
+	}
+
+	// Start with a base request count of 5
+	reqCount, err := fetchPagesFromModules(context.Background(), client, "1", time.Time{}, result, 5)
+	if err != nil {
+		t.Fatalf("fetchPagesFromModules failed: %v", err)
+	}
+	// 5 base + 1 page fetch = 6
+	if reqCount != 6 {
+		t.Errorf("expected 6 requests (5 base + 1 page), got %d", reqCount)
 	}
 }

@@ -102,6 +102,69 @@ func TestListAnnouncementsIncludesContextCodes(t *testing.T) {
 	}
 }
 
+func TestGetAnnouncement(t *testing.T) {
+	var gotPath string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		postedAt := "2026-06-01T10:00:00Z"
+		json.NewEncoder(w).Encode(DiscussionTopic{
+			ID:             "10",
+			Title:          "Exam moved to Friday",
+			Message:        "The midterm has been rescheduled.",
+			PostedAt:       &postedAt,
+			IsAnnouncement: true,
+			Published:      true,
+		})
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	topic, err := GetAnnouncement(context.Background(), c, "42", "10")
+	if err != nil {
+		t.Fatalf("GetAnnouncement() error: %v", err)
+	}
+
+	wantPath := "/api/v1/courses/42/discussion_topics/10"
+	if gotPath != wantPath {
+		t.Errorf("path = %q, want %q", gotPath, wantPath)
+	}
+
+	if topic.ID != "10" {
+		t.Errorf("topic.ID = %q, want %q", topic.ID, "10")
+	}
+	if topic.Title != "Exam moved to Friday" {
+		t.Errorf("topic.Title = %q, want %q", topic.Title, "Exam moved to Friday")
+	}
+	if topic.Message != "The midterm has been rescheduled." {
+		t.Errorf("topic.Message = %q, want %q", topic.Message, "The midterm has been rescheduled.")
+	}
+	if !topic.IsAnnouncement {
+		t.Error("topic.IsAnnouncement should be true")
+	}
+	if !topic.Published {
+		t.Error("topic.Published should be true")
+	}
+}
+
+func TestGetAnnouncementError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"Not Found"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := GetAnnouncement(context.Background(), c, "42", "999")
+	if err == nil {
+		t.Fatal("expected error for 404, got nil")
+	}
+}
+
 func TestCreateAnnouncement(t *testing.T) {
 	var (
 		gotMethod string

@@ -201,3 +201,34 @@ func TestCheckHighRiskSafety_DryRun(t *testing.T) {
 		t.Fatalf("dry run should be allowed, got: %v", err)
 	}
 }
+
+func TestExitError_Error(t *testing.T) {
+	e := &exitError{msg: "something broke", exitCode: 42}
+	if e.Error() != "something broke" {
+		t.Errorf("Error() = %q, want %q", e.Error(), "something broke")
+	}
+}
+
+func TestExitError_ExitCode(t *testing.T) {
+	e := &exitError{msg: "blocked", exitCode: 1}
+	if e.ExitCode() != 1 {
+		t.Errorf("ExitCode() = %d, want 1", e.ExitCode())
+	}
+
+	e2 := &exitError{msg: "ok", exitCode: 0}
+	if e2.ExitCode() != 0 {
+		t.Errorf("ExitCode() = %d, want 0", e2.ExitCode())
+	}
+
+	e3 := &exitError{msg: "fatal", exitCode: 255}
+	if e3.ExitCode() != 255 {
+		t.Errorf("ExitCode() = %d, want 255", e3.ExitCode())
+	}
+}
+
+func TestExitError_ExitCodePartialFailure(t *testing.T) {
+	err := &exitError{msg: "partial failure", exitCode: 8}
+	if err.ExitCode() != 8 {
+		t.Errorf("expected exit code 8, got %d", err.ExitCode())
+	}
+}

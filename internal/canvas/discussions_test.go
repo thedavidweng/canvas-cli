@@ -141,6 +141,153 @@ func TestGetDiscussion(t *testing.T) {
 	}
 }
 
+func TestListDiscussionEntries(t *testing.T) {
+	var gotPath string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		parentID := "901"
+		json.NewEncoder(w).Encode([]DiscussionEntry{
+			{
+				ID:        "901",
+				UserID:    "789",
+				Message:   "Great topic!",
+				CreatedAt: "2026-06-11T16:00:00Z",
+			},
+			{
+				ID:        "902",
+				UserID:    "790",
+				Message:   "I agree!",
+				CreatedAt: "2026-06-11T16:30:00Z",
+				ParentID:  &parentID,
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	entries, meta, err := ListDiscussionEntries(context.Background(), c, "42", "201", nil)
+	if err != nil {
+		t.Fatalf("ListDiscussionEntries() error: %v", err)
+	}
+
+	wantPath := "/api/v1/courses/42/discussion_topics/201/entries"
+	if gotPath != wantPath {
+		t.Errorf("path = %q, want %q", gotPath, wantPath)
+	}
+
+	if len(entries) != 2 {
+		t.Fatalf("len(entries) = %d, want 2", len(entries))
+	}
+	if entries[0].ID != "901" {
+		t.Errorf("entries[0].ID = %q, want %q", entries[0].ID, "901")
+	}
+	if entries[0].Message != "Great topic!" {
+		t.Errorf("entries[0].Message = %q, want %q", entries[0].Message, "Great topic!")
+	}
+	if entries[1].ParentID == nil || *entries[1].ParentID != "901" {
+		t.Errorf("entries[1].ParentID = %v, want %q", entries[1].ParentID, "901")
+	}
+
+	if meta.TotalItems != 2 {
+		t.Errorf("meta.TotalItems = %d, want 2", meta.TotalItems)
+	}
+}
+
+func TestListDiscussionEntriesError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, _, err := ListDiscussionEntries(context.Background(), c, "42", "201", nil)
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}
+
+func TestCreateDiscussion(t *testing.T) {
+	var (
+		gotMethod string
+		gotPath   string
+		gotBody   map[string]any
+	)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		json.NewDecoder(r.Body).Decode(&gotBody)
+
+		postedAt := "2026-06-15T10:00:00Z"
+		json.NewEncoder(w).Encode(DiscussionTopic{
+			ID:             "301",
+			Title:          "Week 3 discussion",
+			Message:        "Discuss the reading.",
+			PostedAt:       &postedAt,
+			DiscussionType: "threaded",
+			Published:      true,
+		})
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	topic, err := CreateDiscussion(context.Background(), c, "42", "Week 3 discussion", "Discuss the reading.")
+	if err != nil {
+		t.Fatalf("CreateDiscussion() error: %v", err)
+	}
+
+	if gotMethod != "POST" {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	wantPath := "/api/v1/courses/42/discussion_topics"
+	if gotPath != wantPath {
+		t.Errorf("path = %q, want %q", gotPath, wantPath)
+	}
+	if gotBody["title"] != "Week 3 discussion" {
+		t.Errorf("title = %v, want %q", gotBody["title"], "Week 3 discussion")
+	}
+	if gotBody["message"] != "Discuss the reading." {
+		t.Errorf("message = %v, want %q", gotBody["message"], "Discuss the reading.")
+	}
+
+	if topic.ID != "301" {
+		t.Errorf("topic.ID = %q, want %q", topic.ID, "301")
+	}
+	if topic.Title != "Week 3 discussion" {
+		t.Errorf("topic.Title = %q, want %q", topic.Title, "Week 3 discussion")
+	}
+	if topic.DiscussionType != "threaded" {
+		t.Errorf("topic.DiscussionType = %q, want %q", topic.DiscussionType, "threaded")
+	}
+	if !topic.Published {
+		t.Error("topic.Published should be true")
+	}
+}
+
+func TestCreateDiscussionError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"message":"Forbidden"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := CreateDiscussion(context.Background(), c, "42", "Test", "Test message")
+	if err == nil {
+		t.Fatal("expected error for 403, got nil")
+	}
+}
+
 func TestReplyToDiscussion(t *testing.T) {
 	var (
 		gotMethod string

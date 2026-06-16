@@ -854,3 +854,19 @@ func TestGradeMutations_AllWriteAuditLog(t *testing.T) {
 		})
 	}
 }
+
+// --- gradeImportPartialFailureError ---
+
+func TestGradeImportPartialFailureError_Error(t *testing.T) {
+	err := &gradeImportPartialFailureError{msg: "3 of 10 grade imports failed"}
+	if err.Error() != "3 of 10 grade imports failed" {
+		t.Errorf("expected '3 of 10 grade imports failed', got %q", err.Error())
+	}
+}
+
+func TestGradeImportPartialFailureError_ExitCode(t *testing.T) {
+	err := &gradeImportPartialFailureError{msg: "partial failure"}
+	if err.ExitCode() != 8 {
+		t.Errorf("expected exit code 8, got %d", err.ExitCode())
+	}
+}

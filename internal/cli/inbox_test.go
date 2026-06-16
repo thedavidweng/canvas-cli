@@ -509,3 +509,73 @@ func TestInboxCommands_WriteAuditLog(t *testing.T) {
 		})
 	}
 }
+
+// --- inbox reply uncovered paths ---
+
+func TestInboxReply_MissingBody(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxReplyCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	// body not set (empty by default)
+
+	err := cmd.RunE(cmd, []string{"1001"})
+	if err == nil {
+		t.Fatal("expected error when --body is missing, got nil")
+	}
+	if !strings.Contains(err.Error(), "--body is required") {
+		t.Errorf("expected '--body is required' in error, got: %v", err)
+	}
+}
+
+func TestInboxReply_NilConfig(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := newInboxReplyCmd()
+	cmd.SetContext(context.Background()) // no config
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("body", "test")
+
+	err := cmd.RunE(cmd, []string{"1001"})
+	if err == nil {
+		t.Fatal("expected error when config is nil, got nil")
+	}
+	if !strings.Contains(err.Error(), "no config loaded") {
+		t.Errorf("expected 'no config loaded' in error, got: %v", err)
+	}
+}
+
+func TestInboxReply_APIError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/conversations/1001/add_message", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newInboxReplyCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("body", "Hello!")
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, []string{"1001"})
+	if err == nil {
+		t.Fatal("expected error on API failure, got nil")
+	}
+}

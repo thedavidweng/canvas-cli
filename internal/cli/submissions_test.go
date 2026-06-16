@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -476,5 +477,27 @@ func TestSubmissionsDownload_PartialFailure(t *testing.T) {
 	}
 	if errCount != 1 {
 		t.Errorf("manifest error entries = %d, want 1", errCount)
+	}
+}
+
+// --- PartialFailureError.Error() ---
+
+func TestPartialFailureError_Error(t *testing.T) {
+	err := &PartialFailureError{
+		Result: &DownloadResult{Total: 5, Failed: 2},
+		Errors: []error{fmt.Errorf("download 1 failed"), fmt.Errorf("download 2 failed")},
+	}
+	expected := "2 of 5 downloads failed"
+	if err.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestPartialFailureError_ExitCode(t *testing.T) {
+	err := &PartialFailureError{
+		Result: &DownloadResult{Total: 3, Failed: 1},
+	}
+	if err.ExitCode() != 8 {
+		t.Errorf("expected exit code 8, got %d", err.ExitCode())
 	}
 }

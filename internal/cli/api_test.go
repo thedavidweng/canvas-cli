@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -244,5 +246,40 @@ func TestApiGet_RequiresPath(t *testing.T) {
 	err := cmd.RunE(cmd, []string{})
 	if err == nil {
 		t.Fatal("expected error when no path provided")
+	}
+}
+
+func TestResolveData_LiteralString(t *testing.T) {
+	data := `{"key":"value"}`
+	got, err := resolveData(data)
+	if err != nil {
+		t.Fatalf("resolveData(%q) returned error: %v", data, err)
+	}
+	if string(got) != data {
+		t.Errorf("resolveData(%q) = %q, want %q", data, got, data)
+	}
+}
+
+func TestResolveData_FilePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "data.json")
+	content := `{"hello":"world"}`
+	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	got, err := resolveData("@" + filePath)
+	if err != nil {
+		t.Fatalf("resolveData(@%s) returned error: %v", filePath, err)
+	}
+	if string(got) != content {
+		t.Errorf("resolveData(@%s) = %q, want %q", filePath, got, content)
+	}
+}
+
+func TestResolveData_NonexistentFile(t *testing.T) {
+	_, err := resolveData("@/nonexistent/path/file.json")
+	if err == nil {
+		t.Fatal("expected error for nonexistent file, got nil")
 	}
 }

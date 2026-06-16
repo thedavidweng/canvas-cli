@@ -174,3 +174,78 @@ func TestGetConfig_NilWhenMissing(t *testing.T) {
 		t.Errorf("expected nil config from empty context, got %+v", got)
 	}
 }
+
+func TestCommandPath(t *testing.T) {
+	root := &cobra.Command{Use: "canvas"}
+	auth := &cobra.Command{Use: "auth"}
+	login := &cobra.Command{Use: "login"}
+	auth.AddCommand(login)
+	root.AddCommand(auth)
+
+	tests := []struct {
+		name string
+		cmd  *cobra.Command
+		want string
+	}{
+		{"leaf command", login, "canvas auth login"},
+		{"middle command", auth, "canvas auth"},
+		{"root command", root, "canvas"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := commandPath(tt.cmd)
+			if got != tt.want {
+				t.Errorf("commandPath(%q) = %q, want %q", tt.cmd.Name(), got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCommandSkipsFullConfig(t *testing.T) {
+	// Build a command hierarchy matching the real CLI structure.
+	root := &cobra.Command{Use: "canvas"}
+	auth := &cobra.Command{Use: "auth"}
+	login := &cobra.Command{Use: "login"}
+	logout := &cobra.Command{Use: "logout"}
+	status := &cobra.Command{Use: "status"}
+	profiles := &cobra.Command{Use: "profiles"}
+	use := &cobra.Command{Use: "use"}
+	auth.AddCommand(login, logout, status, profiles, use)
+	root.AddCommand(auth)
+
+	versionCmd := &cobra.Command{Use: "version"}
+	completionCmd := &cobra.Command{Use: "completion"}
+	doctorCmd := &cobra.Command{Use: "doctor"}
+	root.AddCommand(versionCmd, completionCmd, doctorCmd)
+
+	courses := &cobra.Command{Use: "courses"}
+	coursesList := &cobra.Command{Use: "list"}
+	courses.AddCommand(coursesList)
+	root.AddCommand(courses)
+
+	tests := []struct {
+		name string
+		cmd  *cobra.Command
+		want bool
+	}{
+		{"canvas version", versionCmd, true},
+		{"canvas completion", completionCmd, true},
+		{"canvas auth login", login, true},
+		{"canvas auth logout", logout, true},
+		{"canvas auth status", status, true},
+		{"canvas auth profiles", profiles, true},
+		{"canvas auth use", use, true},
+		{"canvas doctor", doctorCmd, true},
+		{"canvas courses list", coursesList, false},
+		{"canvas auth", auth, false},
+		{"canvas", root, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := commandSkipsFullConfig(tt.cmd)
+			if got != tt.want {
+				t.Errorf("commandSkipsFullConfig(%q) = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}

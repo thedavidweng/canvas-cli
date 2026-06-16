@@ -1271,3 +1271,33 @@ func TestAuthTest_TokenAndCookie_EndToEnd_TokenPrecedence(t *testing.T) {
 		t.Errorf("Cookie = %q, want empty (token takes precedence)", gotCookie)
 	}
 }
+
+func TestIsCookieChoice(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"number 2", "2", true},
+		{"lowercase cookie", "cookie", true},
+		{"session cookie", "session cookie", true},
+		{"uppercase", "COOKIE", true},
+		{"mixed case", "Session Cookie", true},
+		{"with spaces", "  cookie  ", true},
+		{"number 2 with spaces", " 2 ", true},
+		{"number 1", "1", false},
+		{"empty", "", false},
+		{"token", "token", false},
+		{"random string", "foobar", false},
+		{"partial match", "cook", false},
+		{"session", "session", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isCookieChoice(tt.input)
+			if got != tt.want {
+				t.Errorf("isCookieChoice(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}

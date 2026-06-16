@@ -199,3 +199,38 @@ func TestCoursesTabs_JSON(t *testing.T) {
 		t.Errorf("expected request to /api/v1/courses/1/tabs, got %s", last.Path)
 	}
 }
+
+func TestSplitCSV(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{"basic", "a,b,c", []string{"a", "b", "c"}},
+		{"trimmed", " a , b ", []string{"a", "b"}},
+		{"empty", "", nil},
+		{"double comma", "a,,b", []string{"a", "b"}},
+		{"single", "single", []string{"single"}},
+		{"only spaces", "  ,  ,  ", nil},
+		{"leading trailing comma", ",a,b,", []string{"a", "b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitCSV(tt.input)
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("splitCSV(%q) = %v, want nil", tt.input, got)
+				}
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("splitCSV(%q) = %v (len %d), want %v (len %d)", tt.input, got, len(got), tt.want, len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("splitCSV(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
