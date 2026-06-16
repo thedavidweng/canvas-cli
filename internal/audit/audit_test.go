@@ -282,6 +282,9 @@ func TestWriteEvent_OpenFileError(t *testing.T) {
 }
 
 func TestStateDir_XDGStateHome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("XDG_STATE_HOME not used on Windows")
+	}
 	dir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", dir)
 	got := stateDir()
