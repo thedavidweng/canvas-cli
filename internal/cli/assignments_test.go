@@ -396,6 +396,416 @@ func TestAssignmentsUpdate_ReadOnlyReturnsExit7(t *testing.T) {
 	}
 }
 
+func TestAssignmentsList_MissingCourse(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestAssignmentsList_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestAssignmentsList_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
+func TestAssignmentsList_PublishedFilter(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments", 200, []map[string]any{
+		{"id": "100", "name": "Published Essay", "course_id": "1", "published": true},
+		{"id": "101", "name": "Draft Essay", "course_id": "1", "published": false},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("published", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("assignments list --published true --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+
+	dataJSON, _ := json.Marshal(env.Data)
+	var assignments []canvas.Assignment
+	if err := json.Unmarshal(dataJSON, &assignments); err != nil {
+		t.Fatalf("data is not []Assignment: %v", err)
+	}
+	if len(assignments) != 1 {
+		t.Errorf("expected 1 published assignment, got %d", len(assignments))
+	}
+	if len(assignments) > 0 && assignments[0].Name != "Published Essay" {
+		t.Errorf("expected 'Published Essay', got %q", assignments[0].Name)
+	}
+}
+
+func TestAssignmentsList_SearchFlag(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments", 200, []map[string]any{
+		{"id": "100", "name": "Essay 1", "course_id": "1", "published": true},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("search", "Essay")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("assignments list --search Essay --json failed: %v", err)
+	}
+
+	last := mock.LastRequest()
+	if last.Query.Get("search") != "Essay" {
+		t.Errorf("expected query param search=Essay, got: %v", last.Query)
+	}
+}
+
+func TestAssignmentsList_DueFlags(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments", 200, []map[string]any{
+		{"id": "100", "name": "Essay 1", "course_id": "1", "published": true},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("due-before", "2026-12-31")
+	_ = cmd.Flags().Set("due-after", "2026-01-01")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("assignments list with due flags failed: %v", err)
+	}
+
+	last := mock.LastRequest()
+	if last.Query.Get("due_before") != "2026-12-31" {
+		t.Errorf("expected query param due_before=2026-12-31, got: %v", last.Query)
+	}
+	if last.Query.Get("due_after") != "2026-01-01" {
+		t.Errorf("expected query param due_after=2026-01-01, got: %v", last.Query)
+	}
+}
+
+func TestAssignmentsList_IncludeSubmission(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments", 200, []map[string]any{
+		{"id": "100", "name": "Essay 1", "course_id": "1", "published": true},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("include-submission", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("assignments list --include-submission failed: %v", err)
+	}
+
+	last := mock.LastRequest()
+	if last.Query.Get("include[]") != "submission" {
+		t.Errorf("expected query param include[]=submission, got: %v", last.Query)
+	}
+}
+
+func TestAssignmentsGet_MissingCourse(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{"100"})
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestAssignmentsGet_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	dueAt := "2026-07-01T23:59:00Z"
+	mock.On("GET", "/api/v1/courses/1/assignments/100", 200, map[string]any{
+		"id": "100", "name": "Essay 1", "course_id": "1", "published": true, "points_possible": 100,
+		"due_at": dueAt, "submission_types": []string{"online_text_entry"},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"100"})
+	if err != nil {
+		t.Fatalf("assignments get failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Essay 1") {
+		t.Errorf("expected 'Essay 1' in output, got: %s", output)
+	}
+	if !strings.Contains(output, dueAt) {
+		t.Errorf("expected due_at in output, got: %s", output)
+	}
+	if !strings.Contains(output, "online_text_entry") {
+		t.Errorf("expected submission type in output, got: %s", output)
+	}
+}
+
+func TestAssignmentsGet_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments/999", 500, map[string]any{
+		"errors": []map[string]any{{"message": "not found"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"999"})
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestAssignmentGroupsList_MissingCourse(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentGroupsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+}
+
+func TestAssignmentGroupsList_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignment_groups", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentGroupsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestAssignmentGroupsList_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignment_groups", 200, []map[string]any{
+		{"id": "10", "name": "Homework", "position": 1, "group_weight": 40},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentGroupsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("assignment groups list failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Homework") {
+		t.Errorf("expected 'Homework' in output, got: %s", output)
+	}
+}
+
 func TestAssignmentsUpdate_WritesAuditLog(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()

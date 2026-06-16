@@ -257,6 +257,13 @@ func TestErrNeedsConfirmDelete_IsSafetyError(t *testing.T) {
 
 // --- NewPolicy ---
 
+func TestSafetyLevel_String_Unknown(t *testing.T) {
+	unknown := SafetyLevel(99)
+	if got := unknown.String(); got != "Unknown" {
+		t.Errorf("SafetyLevel(99).String() = %q, want %q", got, "Unknown")
+	}
+}
+
 func TestNewPolicy_Fields(t *testing.T) {
 	p := NewPolicy(true, true, true, true)
 	if !p.ReadOnly {

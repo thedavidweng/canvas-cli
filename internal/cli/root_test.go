@@ -3,11 +3,13 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 )
 
@@ -172,5 +174,203 @@ func TestGetConfig_NilWhenMissing(t *testing.T) {
 	got := GetConfig(context.Background())
 	if got != nil {
 		t.Errorf("expected nil config from empty context, got %+v", got)
+	}
+}
+
+func TestCommandPath(t *testing.T) {
+	root := &cobra.Command{Use: "canvas"}
+	auth := &cobra.Command{Use: "auth"}
+	login := &cobra.Command{Use: "login"}
+	auth.AddCommand(login)
+	root.AddCommand(auth)
+
+	tests := []struct {
+		name string
+		cmd  *cobra.Command
+		want string
+	}{
+		{"leaf command", login, "canvas auth login"},
+		{"middle command", auth, "canvas auth"},
+		{"root command", root, "canvas"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := commandPath(tt.cmd)
+			if got != tt.want {
+				t.Errorf("commandPath(%q) = %q, want %q", tt.cmd.Name(), got, tt.want)
+			}
+		})
+	}
+}
+
+func TestVersionCmd_JSONMode(t *testing.T) {
+	cmd := NewRootCmd("3.0.0")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"version", "--json"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("version --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true")
+	}
+
+	dataJSON, _ := json.Marshal(env.Data)
+	var info map[string]string
+	if err := json.Unmarshal(dataJSON, &info); err != nil {
+		t.Fatalf("data is not map: %v", err)
+	}
+	if info["version"] != "3.0.0" {
+		t.Errorf("expected version '3.0.0', got %q", info["version"])
+	}
+}
+
+func TestCompletionCmd_Bash(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "bash"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion bash failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty bash completion output")
+	}
+	if !strings.Contains(output, "bash") && !strings.Contains(output, "complete") {
+		// Bash completions typically contain completion-related keywords
+		t.Logf("bash completion output (first 200 chars): %s", output[:min(200, len(output))])
+	}
+}
+
+func TestCompletionCmd_Zsh(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "zsh"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion zsh failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty zsh completion output")
+	}
+}
+
+func TestCompletionCmd_Fish(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "fish"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion fish failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty fish completion output")
+	}
+}
+
+func TestCompletionCmd_Powershell(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "powershell"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("completion powershell failed: %v", err)
+	}
+
+	output := buf.String()
+	if len(output) == 0 {
+		t.Fatal("expected non-empty powershell completion output")
+	}
+}
+
+func TestCompletionCmd_InvalidShell(t *testing.T) {
+	cmd := NewRootCmd("dev")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"completion", "tcsh"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid shell")
+	}
+}
+
+func TestExecute_Success(t *testing.T) {
+	t.Setenv("CANVAS_BASE_URL", "https://test.instructure.com")
+	t.Setenv("CANVAS_TOKEN", "test-token-123")
+
+	code := Execute("1.0.0")
+	if code != 0 {
+		t.Errorf("expected exit code 0, got %d", code)
+	}
+}
+
+func TestCommandSkipsFullConfig(t *testing.T) {
+	// Build a command hierarchy matching the real CLI structure.
+	root := &cobra.Command{Use: "canvas"}
+	auth := &cobra.Command{Use: "auth"}
+	login := &cobra.Command{Use: "login"}
+	logout := &cobra.Command{Use: "logout"}
+	status := &cobra.Command{Use: "status"}
+	profiles := &cobra.Command{Use: "profiles"}
+	use := &cobra.Command{Use: "use"}
+	auth.AddCommand(login, logout, status, profiles, use)
+	root.AddCommand(auth)
+
+	versionCmd := &cobra.Command{Use: "version"}
+	completionCmd := &cobra.Command{Use: "completion"}
+	doctorCmd := &cobra.Command{Use: "doctor"}
+	root.AddCommand(versionCmd, completionCmd, doctorCmd)
+
+	courses := &cobra.Command{Use: "courses"}
+	coursesList := &cobra.Command{Use: "list"}
+	courses.AddCommand(coursesList)
+	root.AddCommand(courses)
+
+	tests := []struct {
+		name string
+		cmd  *cobra.Command
+		want bool
+	}{
+		{"canvas version", versionCmd, true},
+		{"canvas completion", completionCmd, true},
+		{"canvas auth login", login, true},
+		{"canvas auth logout", logout, true},
+		{"canvas auth status", status, true},
+		{"canvas auth profiles", profiles, true},
+		{"canvas auth use", use, true},
+		{"canvas doctor", doctorCmd, true},
+		{"canvas courses list", coursesList, false},
+		{"canvas auth", auth, false},
+		{"canvas", root, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := commandSkipsFullConfig(tt.cmd)
+			if got != tt.want {
+				t.Errorf("commandSkipsFullConfig(%q) = %v, want %v", tt.name, got, tt.want)
+			}
+		})
 	}
 }

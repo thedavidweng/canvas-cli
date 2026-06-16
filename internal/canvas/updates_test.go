@@ -211,3 +211,51 @@ func TestUnpublishModule(t *testing.T) {
 		t.Error("mod.Published should be false")
 	}
 }
+
+func TestUpdateAssignmentError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := UpdateAssignment(context.Background(), c, "42", "301", map[string]any{"due_at": "2026-06-30T23:59:00Z"})
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}
+
+func TestUpdatePageError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := UpdatePage(context.Background(), c, "42", "syllabus", map[string]any{"body": "updated"})
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}
+
+func TestPublishModuleError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := PublishModule(context.Background(), c, "42", "10", true)
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}

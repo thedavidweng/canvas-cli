@@ -129,6 +129,46 @@ func TestTable_SeparatorLine(t *testing.T) {
 	}
 }
 
+func TestTable_RowFewerCellsThanHeaders(t *testing.T) {
+	table := Table{
+		Headers: []string{"ID", "Name", "Email"},
+		Rows: [][]string{
+			{"1", "Alice"}, // missing Email cell
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := table.Render(&buf, true); err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Alice") {
+		t.Error("output missing Alice")
+	}
+	// Should still render without panic even though row has fewer cells.
+	lines := strings.Split(strings.TrimRight(output, "\n"), "\n")
+	if len(lines) < 3 {
+		t.Fatalf("expected at least 3 lines (header + separator + row), got %d", len(lines))
+	}
+}
+
+func TestTable_EmptyHeaders(t *testing.T) {
+	table := Table{
+		Headers: []string{},
+		Rows:    [][]string{{"data"}},
+	}
+
+	var buf bytes.Buffer
+	if err := table.Render(&buf, true); err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	// Empty headers should produce no output.
+	if buf.Len() != 0 {
+		t.Errorf("expected empty output for empty headers, got %q", buf.String())
+	}
+}
+
 func TestTable_UnicodeContent(t *testing.T) {
 	table := Table{
 		Headers: []string{"Name"},

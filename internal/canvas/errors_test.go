@@ -104,6 +104,125 @@ func TestNormalizeErrorCanvasRequestID(t *testing.T) {
 	}
 }
 
+func TestNormalizeErrorFromBody401(t *testing.T) {
+	body := []byte(`{"message":"Unauthorized"}`)
+	resp := newResponse(401, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Status != 401 {
+		t.Errorf("Status = %d, want 401", errInfo.Status)
+	}
+	if errInfo.Code != "CANVAS_AUTH_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_AUTH_ERROR")
+	}
+	if errInfo.Category != "auth" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "auth")
+	}
+	if errInfo.Message != "Unauthorized" {
+		t.Errorf("Message = %q, want %q", errInfo.Message, "Unauthorized")
+	}
+	if errInfo.Retryable {
+		t.Error("Retryable should be false for auth errors")
+	}
+}
+
+func TestNormalizeErrorFromBody404(t *testing.T) {
+	body := []byte(`{"message":"Not Found"}`)
+	resp := newResponse(404, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_NOT_FOUND" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_NOT_FOUND")
+	}
+	if errInfo.Category != "not_found" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "not_found")
+	}
+}
+
+func TestNormalizeErrorFromBody429(t *testing.T) {
+	body := []byte(`{"message":"Too Many Requests"}`)
+	resp := newResponse(429, string(body), map[string]string{
+		"X-Rate-Limit-Remaining": "0",
+	})
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_RATE_LIMIT" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_RATE_LIMIT")
+	}
+	if errInfo.Category != "rate_limit" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "rate_limit")
+	}
+	if !errInfo.Retryable {
+		t.Error("Retryable should be true for rate limit errors")
+	}
+}
+
+func TestNormalizeErrorFromBody500(t *testing.T) {
+	body := []byte(`{"message":"Internal Server Error"}`)
+	resp := newResponse(500, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_SERVER_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_SERVER_ERROR")
+	}
+	if errInfo.Category != "server" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "server")
+	}
+	if !errInfo.Retryable {
+		t.Error("Retryable should be true for 5xx errors")
+	}
+}
+
+func TestNormalizeErrorFromBody422(t *testing.T) {
+	body := []byte(`{"message":"Unprocessable Entity"}`)
+	resp := newResponse(422, string(body), nil)
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_VALIDATION_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_VALIDATION_ERROR")
+	}
+	if errInfo.Category != "validation" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "validation")
+	}
+}
+
+func TestNormalizeErrorFromBody403RateLimit(t *testing.T) {
+	body := []byte(`{"message":"Rate Limit Exceeded"}`)
+	resp := newResponse(403, string(body), map[string]string{
+		"X-Rate-Limit-Remaining": "0",
+	})
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.Code != "CANVAS_RATE_LIMIT" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_RATE_LIMIT")
+	}
+	if errInfo.Category != "rate_limit" {
+		t.Errorf("Category = %q, want %q", errInfo.Category, "rate_limit")
+	}
+	if !errInfo.Retryable {
+		t.Error("Retryable should be true for rate limit errors")
+	}
+}
+
+func TestNormalizeErrorFromBodyWithRequestID(t *testing.T) {
+	body := []byte(`{"message":"Bad Request"}`)
+	resp := newResponse(400, string(body), map[string]string{
+		"X-Request-Id": "req-xyz-789",
+	})
+
+	errInfo := NormalizeErrorFromBody(resp, body)
+
+	if errInfo.CanvasRequestID != "req-xyz-789" {
+		t.Errorf("CanvasRequestID = %q, want %q", errInfo.CanvasRequestID, "req-xyz-789")
+	}
+}
+
 func TestNormalizeErrorBodyPreserved(t *testing.T) {
 	body := `{"message":"Bad Request","errors":[{"message":"invalid field"}]}`
 	resp := newResponse(400, body, nil)
@@ -451,6 +570,125 @@ func TestIsCookieSessionExpired(t *testing.T) {
 			got := IsCookieSessionExpired(resp, []byte(tt.body), tt.baseURL)
 			if got != tt.want {
 				t.Errorf("IsCookieSessionExpired() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeError_EmptyBody(t *testing.T) {
+	resp := newResponse(400, "", nil)
+	env := NormalizeError(resp, "api.get")
+
+	if env.Error.Message != "Bad Request" {
+		t.Errorf("Message = %q, want %q (fallback to StatusText)", env.Error.Message, "Bad Request")
+	}
+	if env.Error.Code != "CANVAS_API_ERROR" {
+		t.Errorf("Code = %q, want %q", env.Error.Code, "CANVAS_API_ERROR")
+	}
+}
+
+func TestNormalizeError_NoMessageField(t *testing.T) {
+	resp := newResponse(400, `{"errors":[{"message":"some error"}]}`, nil)
+	env := NormalizeError(resp, "api.get")
+
+	// Body has no top-level "message" field, so should fall back to StatusText.
+	if env.Error.Message != "Bad Request" {
+		t.Errorf("Message = %q, want %q (fallback to StatusText)", env.Error.Message, "Bad Request")
+	}
+}
+
+func TestNormalizeError_SessionExpired(t *testing.T) {
+	// 401 with cookie auth baseURL triggers session expired detection.
+	resp := newResponse(401, `{"message":"Unauthorized"}`, nil)
+	env := NormalizeError(resp, "courses.list", "https://school.instructure.com")
+
+	if env.Error.Code != "CANVAS_SESSION_EXPIRED" {
+		t.Errorf("Code = %q, want %q", env.Error.Code, "CANVAS_SESSION_EXPIRED")
+	}
+	if env.Error.Category != "auth" {
+		t.Errorf("Category = %q, want %q", env.Error.Category, "auth")
+	}
+	if !strings.Contains(env.Error.Message, "session expired") {
+		t.Errorf("Message = %q, want it to contain 'session expired'", env.Error.Message)
+	}
+}
+
+func TestNormalizeError_SessionExpired_EmptyBaseURL(t *testing.T) {
+	// Empty baseURL should NOT trigger session expired.
+	resp := newResponse(401, `{"message":"Unauthorized"}`, nil)
+	env := NormalizeError(resp, "courses.list", "")
+
+	if env.Error.Code == "CANVAS_SESSION_EXPIRED" {
+		t.Error("should not detect session expired with empty baseURL")
+	}
+}
+
+func TestNormalizeError_SessionExpired_NoBaseURL(t *testing.T) {
+	// No baseURL variadic arg should NOT trigger session expired.
+	resp := newResponse(401, `{"message":"Unauthorized"}`, nil)
+	env := NormalizeError(resp, "courses.list")
+
+	if env.Error.Code == "CANVAS_SESSION_EXPIRED" {
+		t.Error("should not detect session expired without baseURL")
+	}
+}
+
+func TestNormalizeErrorFromBody_EmptyBody(t *testing.T) {
+	resp := newResponse(500, "", nil)
+	errInfo := NormalizeErrorFromBody(resp, []byte(""))
+
+	if errInfo.Message != "Internal Server Error" {
+		t.Errorf("Message = %q, want %q", errInfo.Message, "Internal Server Error")
+	}
+	if errInfo.Code != "CANVAS_SERVER_ERROR" {
+		t.Errorf("Code = %q, want %q", errInfo.Code, "CANVAS_SERVER_ERROR")
+	}
+}
+
+func TestHasAuthPathPrefix_AllPrefixes(t *testing.T) {
+	tests := []struct {
+		location string
+		want     bool
+	}{
+		{"https://school.edu/login", true},
+		{"https://school.edu/auth/sso", true},
+		{"https://school.edu/sso/saml", true},
+		{"https://school.edu/cas/login", true},
+		{"https://school.edu/saml/sso", true},
+		{"https://school.edu/idp/SSO", true},
+		{"https://school.edu/shibboleth/sso", true},
+		{"https://school.edu/signin", true},
+		{"https://school.edu/sign-in", true},
+		{"https://school.edu/Login", true}, // case insensitive
+		{"https://school.edu/api/v1", false},
+		{"https://school.edu/dashboard", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.location, func(t *testing.T) {
+			got := hasAuthPathPrefix(tt.location)
+			if got != tt.want {
+				t.Errorf("hasAuthPathPrefix(%q) = %v, want %v", tt.location, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsAuthRedirect_HostPatterns(t *testing.T) {
+	tests := []struct {
+		location string
+		want     bool
+	}{
+		{"https://shibboleth.university.edu/sso", true},
+		{"https://idp.shibboleth.university.edu/sso", true},
+		{"https://cas.university.edu/login", true},
+		{"https://auth.cas.university.edu/login", true},
+		{"https://regular.school.edu/dashboard", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.location, func(t *testing.T) {
+			got := isAuthRedirect(tt.location)
+			if got != tt.want {
+				t.Errorf("isAuthRedirect(%q) = %v, want %v", tt.location, got, tt.want)
 			}
 		})
 	}

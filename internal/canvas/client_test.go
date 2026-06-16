@@ -13,6 +13,300 @@ import (
 	"time"
 )
 
+func TestNewClient_NegativeRetriesClamped(t *testing.T) {
+	c := NewClient("https://canvas.example.com", "tok", "0.1.0", 5*time.Second, -3)
+	if c.retries != 0 {
+		t.Errorf("retries = %d, want 0 (negative value clamped)", c.retries)
+	}
+}
+
+func TestDoWithRetry_ContextCancelledDuringDelay(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Retry-After", "60")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 10*time.Second, 3)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := c.Do(ctx, http.MethodGet, "/api/v1/test", nil, nil)
+	if err == nil {
+		t.Fatal("expected error from cancelled context during retry delay")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got %v", err)
+	}
+}
+
+func TestDoWithRetry_ExhaustsRetries(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 10*time.Second, 2)
+
+	resp, err := c.Do(context.Background(), http.MethodGet, "/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("Do() error: %v", err)
+	}
+	resp.Body.Close()
+
+	// Should have made 3 attempts (initial + 2 retries).
+	if callCount != 3 {
+		t.Errorf("callCount = %d, want 3", callCount)
+	}
+}
+
+func TestDoURLWithHeaders_SameHost_SendsAuth(t *testing.T) {
+	var gotCookie string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCookie = r.Header.Get("Cookie")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("my-cookie", "")
+
+	resp, err := c.DoURLWithHeaders(context.Background(), http.MethodGet, srv.URL+"/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("DoURLWithHeaders() error: %v", err)
+	}
+	resp.Body.Close()
+
+	if gotCookie != "my-cookie" {
+		t.Errorf("Cookie = %q, want %q", gotCookie, "my-cookie")
+	}
+}
+
+func TestDoURLWithHeaders_DifferentHost_NoAuth(t *testing.T) {
+	var gotCookie, gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCookie = r.Header.Get("Cookie")
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := NewClient("https://canvas.example.com", "", "0.1.0", 5*time.Second, 0).WithCookie("my-cookie", "")
+
+	resp, err := c.DoURLWithHeaders(context.Background(), http.MethodGet, srv.URL+"/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("DoURLWithHeaders() error: %v", err)
+	}
+	resp.Body.Close()
+
+	if gotCookie != "" {
+		t.Errorf("Cookie = %q, want empty (different host)", gotCookie)
+	}
+	if gotAuth != "" {
+		t.Errorf("Authorization = %q, want empty (different host)", gotAuth)
+	}
+}
+
+func TestDoURLWithHeaders_CookieAuth_CSRFUnsafeMethods(t *testing.T) {
+	var gotCSRF string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCSRF = r.Header.Get("X-CSRF-Token")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("cookie", "my-csrf")
+
+	resp, err := c.DoURLWithHeaders(context.Background(), http.MethodPost, srv.URL+"/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("DoURLWithHeaders() error: %v", err)
+	}
+	resp.Body.Close()
+
+	if gotCSRF != "my-csrf" {
+		t.Errorf("X-CSRF-Token = %q, want %q", gotCSRF, "my-csrf")
+	}
+}
+
+func TestDoURLWithHeaders_CookieAuth_MissingCSRF_ReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("cookie", "")
+
+	_, err := c.DoURLWithHeaders(context.Background(), http.MethodPost, srv.URL+"/api/v1/test", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for missing CSRF token")
+	}
+	if !strings.Contains(err.Error(), "csrf") {
+		t.Errorf("error = %q, want it to contain 'csrf'", err.Error())
+	}
+}
+
+func TestDoURLWithHeaders_CookieAuth_CachesCSRF(t *testing.T) {
+	var postCSRF string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("X-CSRF-Token", "cached-csrf")
+			w.WriteHeader(http.StatusOK)
+		} else {
+			postCSRF = r.Header.Get("X-CSRF-Token")
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("cookie", "")
+
+	// GET caches the CSRF.
+	getResp, err := c.DoURLWithHeaders(context.Background(), http.MethodGet, srv.URL+"/api/v1/courses", nil, nil)
+	if err != nil {
+		t.Fatalf("GET error: %v", err)
+	}
+	getResp.Body.Close()
+
+	// POST uses cached CSRF.
+	postResp, err := c.DoURLWithHeaders(context.Background(), http.MethodPost, srv.URL+"/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("POST error: %v", err)
+	}
+	postResp.Body.Close()
+
+	if postCSRF != "cached-csrf" {
+		t.Errorf("POST X-CSRF-Token = %q, want %q", postCSRF, "cached-csrf")
+	}
+}
+
+func TestDoURLWithHeaders_CookieAuth_AuthRedirect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "https://school.instructure.com/login")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("cookie", "")
+
+	_, err := c.DoURLWithHeaders(context.Background(), http.MethodGet, srv.URL+"/api/v1/test", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for auth redirect")
+	}
+	if !func() bool { var e *CookieSessionExpiredError; return errors.As(err, &e) }() {
+		t.Errorf("expected CookieSessionExpiredError, got %T: %v", err, err)
+	}
+}
+
+func TestDoURLWithHeaders_CookieAuth_UnsafeRedirect_NoFollow(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "https://other.example.com/api/v1/submit")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("cookie", "csrf")
+
+	resp, err := c.DoURLWithHeaders(context.Background(), http.MethodPost, srv.URL+"/api/v1/submit", nil, nil)
+	if err != nil {
+		t.Fatalf("DoURLWithHeaders() error: %v", err)
+	}
+	resp.Body.Close()
+
+	// For unsafe methods, should NOT follow cross-origin redirect.
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusFound)
+	}
+}
+
+func TestDoURLWithHeaders_CookieAuth_StripHeadersOnFollow(t *testing.T) {
+	var gotCookie, gotAuth, gotCSRF string
+	finalSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCookie = r.Header.Get("Cookie")
+		gotAuth = r.Header.Get("Authorization")
+		gotCSRF = r.Header.Get("X-CSRF-Token")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer finalSrv.Close()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", finalSrv.URL+"/api/v1/test")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("cookie", "csrf")
+
+	resp, err := c.DoURLWithHeaders(context.Background(), http.MethodGet, srv.URL+"/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("DoURLWithHeaders() error: %v", err)
+	}
+	resp.Body.Close()
+
+	if gotCookie != "" {
+		t.Errorf("Cookie on follow = %q, want empty", gotCookie)
+	}
+	if gotAuth != "" {
+		t.Errorf("Authorization on follow = %q, want empty", gotAuth)
+	}
+	if gotCSRF != "" {
+		t.Errorf("X-CSRF-Token on follow = %q, want empty", gotCSRF)
+	}
+}
+
+func TestDoURL_TokenPrecedenceOverCookie_SameHost(t *testing.T) {
+	var gotAuth, gotCookie string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotCookie = r.Header.Get("Cookie")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "my-token", "0.1.0", 5*time.Second, 0).WithCookie("my-cookie", "csrf")
+
+	resp, err := c.DoURLWithHeaders(context.Background(), http.MethodPost, srv.URL+"/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("DoURLWithHeaders() error: %v", err)
+	}
+	resp.Body.Close()
+
+	if gotAuth != "Bearer my-token" {
+		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer my-token")
+	}
+	if gotCookie != "" {
+		t.Errorf("Cookie = %q, want empty (token takes precedence)", gotCookie)
+	}
+}
+
+func TestUrlHostMatches_Matches(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want bool
+	}{
+		{"https://canvas.example.com", "https://canvas.example.com/api/v1", true},
+		{"https://canvas.example.com", "https://other.example.com/api/v1", false},
+		{"https://Canvas.Example.COM", "https://canvas.example.com/path", true},
+		{"https://canvas.example.com:8080", "https://canvas.example.com:8080/path", true},
+		// Hostname() strips ports, so different ports with same host still match.
+		{"https://canvas.example.com:8080", "https://canvas.example.com:9090/path", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.a+" vs "+tt.b, func(t *testing.T) {
+			got := urlHostMatches(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("urlHostMatches(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNewClientSetsFields(t *testing.T) {
 	c := NewClient("https://canvas.example.com", "tok123", "0.1.0", 10*time.Second, 0)
 
@@ -215,6 +509,47 @@ func TestDoMethodIsPassedThrough(t *testing.T) {
 			t.Errorf("method = %q, want %q", gotMethod, m)
 		}
 	}
+}
+
+func TestSetHTTPClient(t *testing.T) {
+	var gotViaCustom bool
+
+	customClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			gotViaCustom = true
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+			}, nil
+		}),
+	}
+
+	c := NewClient("https://canvas.example.com", "tok", "0.1.0", 5*time.Second, 0)
+	c.SetHTTPClient(customClient)
+
+	if c.httpClient != customClient {
+		t.Error("httpClient should be the custom client after SetHTTPClient")
+	}
+
+	// Verify the custom client is actually used
+	resp, err := c.Do(context.Background(), http.MethodGet, "/api/v1/test", nil, nil)
+	if err != nil {
+		t.Fatalf("Do() error: %v", err)
+	}
+	resp.Body.Close()
+
+	if !gotViaCustom {
+		t.Error("expected request to go through custom HTTP client")
+	}
+}
+
+// roundTripFunc adapts a function to http.RoundTripper for testing.
+type roundTripFunc func(req *http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 // --- Session cookie auth tests (Steps 1.3-1.7) ---

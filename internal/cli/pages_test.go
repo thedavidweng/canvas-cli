@@ -21,6 +21,170 @@ func TestPagesCmd_Exists(t *testing.T) {
 	}
 }
 
+func TestPagesList_CourseRequired(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newPagesListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestPagesList_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newPagesListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestPagesList_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newPagesListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
+func TestPagesGet_CourseRequired(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newPagesGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{"front-page"})
+	if err == nil {
+		t.Fatal("expected error when --course is missing")
+	}
+	if !strings.Contains(err.Error(), "--course") {
+		t.Errorf("expected error about --course, got: %v", err)
+	}
+}
+
+func TestPagesGet_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages/front-page", 500, map[string]any{
+		"errors": []map[string]any{{"message": "not found"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newPagesGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"front-page"})
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestPagesGet_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/pages/front-page", 500, map[string]any{
+		"errors": []map[string]any{{"message": "not found"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newPagesGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, []string{"front-page"})
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
 func TestPagesCmd_HasSubcommands(t *testing.T) {
 	cmd := NewPagesCmd()
 	subs := map[string]bool{}

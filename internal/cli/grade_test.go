@@ -854,3 +854,261 @@ func TestGradeMutations_AllWriteAuditLog(t *testing.T) {
 		})
 	}
 }
+
+// --- gradeImportPartialFailureError ---
+
+func TestGradeImportPartialFailureError_Error(t *testing.T) {
+	err := &gradeImportPartialFailureError{msg: "3 of 10 grade imports failed"}
+	if err.Error() != "3 of 10 grade imports failed" {
+		t.Errorf("expected '3 of 10 grade imports failed', got %q", err.Error())
+	}
+}
+
+func TestGradeImportPartialFailureError_ExitCode(t *testing.T) {
+	err := &gradeImportPartialFailureError{msg: "partial failure"}
+	if err.ExitCode() != 8 {
+		t.Errorf("expected exit code 8, got %d", err.ExitCode())
+	}
+}
+
+// --- grade rubric ---
+
+func TestGradeRubric_DryRunShowsPreview(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
+	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10,"comments":"good"}}`), 0644)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newGradeRubricCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("rubric-json", rubricFile)
+	_ = cmd.Flags().Set("dry-run", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("grade rubric --dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "PUT") {
+		t.Errorf("expected 'PUT' in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "/api/v1/courses/1/assignments/10/submissions/42") {
+		t.Errorf("expected endpoint path in dry-run output, got: %s", output)
+	}
+	if !strings.Contains(output, "rubric") {
+		t.Errorf("expected 'rubric' in dry-run output, got: %s", output)
+	}
+	if mock.RequestCount() != 0 {
+		t.Errorf("dry-run should not make HTTP requests, got %d", mock.RequestCount())
+	}
+}
+
+func TestGradeRubric_ConfirmSendsPUT(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("PUT", "/api/v1/courses/1/assignments/10/submissions/42", 200, map[string]any{
+		"id":             "500",
+		"user_id":        "42",
+		"assignment_id":  "10",
+		"workflow_state": "graded",
+	})
+
+	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
+	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10,"comments":"good"}}`), 0644)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    filepath.Join(t.TempDir(), "audit.jsonl"),
+	}
+
+	var buf bytes.Buffer
+	cmd := newGradeRubricCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("rubric-json", rubricFile)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("grade rubric --confirm failed: %v", err)
+	}
+
+	last := mock.LastRequest()
+	if last.Method != "PUT" {
+		t.Errorf("expected PUT method, got %s", last.Method)
+	}
+	if last.Path != "/api/v1/courses/1/assignments/10/submissions/42" {
+		t.Errorf("expected path /api/v1/courses/1/assignments/10/submissions/42, got %s", last.Path)
+	}
+	if !strings.Contains(last.Body, "rubric_assessment") {
+		t.Errorf("expected rubric_assessment in request body, got: %s", last.Body)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Rubric assessment submitted") {
+		t.Errorf("expected success message in output, got: %s", output)
+	}
+}
+
+func TestGradeRubric_JSONMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("PUT", "/api/v1/courses/1/assignments/10/submissions/42", 200, map[string]any{
+		"id":             "500",
+		"user_id":        "42",
+		"assignment_id":  "10",
+		"workflow_state": "graded",
+	})
+
+	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
+	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0644)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    filepath.Join(t.TempDir(), "audit.jsonl"),
+	}
+
+	var buf bytes.Buffer
+	cmd := newGradeRubricCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("rubric-json", rubricFile)
+	_ = cmd.Flags().Set("confirm", "true")
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("grade rubric --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true")
+	}
+
+	dataJSON, _ := json.Marshal(env.Data)
+	var sub canvas.Submission
+	if err := json.Unmarshal(dataJSON, &sub); err != nil {
+		t.Fatalf("data is not Submission: %v", err)
+	}
+	if sub.ID != "500" {
+		t.Errorf("expected submission ID '500', got %q", sub.ID)
+	}
+}
+
+func TestGradeRubric_ReadOnlyReturnsExit7(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
+	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0644)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL:  mock.URL(),
+		Token:    "test-token",
+		Profile:  "default",
+		ReadOnly: true,
+	}
+
+	var buf bytes.Buffer
+	cmd := newGradeRubricCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("rubric-json", rubricFile)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in read-only mode")
+	}
+	if exitErr, ok := err.(interface{ ExitCode() int }); ok {
+		if exitErr.ExitCode() != 7 {
+			t.Errorf("expected exit code 7, got %d", exitErr.ExitCode())
+		}
+	} else {
+		t.Errorf("expected exit error with ExitCode(), got %T", err)
+	}
+}
+
+func TestGradeRubric_WritesAuditLog(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("PUT", "/api/v1/courses/1/assignments/10/submissions/42", 200, map[string]any{
+		"id":             "500",
+		"user_id":        "42",
+		"assignment_id":  "10",
+		"workflow_state": "graded",
+	})
+
+	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
+	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0644)
+
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	var buf bytes.Buffer
+	cmd := newGradeRubricCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("assignment", "10")
+	_ = cmd.Flags().Set("user", "42")
+	_ = cmd.Flags().Set("rubric-json", rubricFile)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("grade rubric --confirm failed: %v", err)
+	}
+
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit log: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("audit log is empty")
+	}
+	if !strings.Contains(string(data), "grade.rubric") {
+		t.Errorf("expected 'grade.rubric' in audit log, got: %s", string(data))
+	}
+}

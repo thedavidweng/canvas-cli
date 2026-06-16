@@ -60,6 +60,119 @@ func TestListModules(t *testing.T) {
 	}
 }
 
+func TestGetModule(t *testing.T) {
+	var gotPath string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Module{
+			ID:         "1",
+			Name:       "Week 1",
+			Position:   1,
+			Published:  true,
+			ItemsCount: 5,
+		})
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	mod, err := GetModule(context.Background(), c, "42", "1")
+	if err != nil {
+		t.Fatalf("GetModule() error: %v", err)
+	}
+
+	wantPath := "/api/v1/courses/42/modules/1"
+	if gotPath != wantPath {
+		t.Errorf("path = %q, want %q", gotPath, wantPath)
+	}
+
+	if mod.ID != "1" {
+		t.Errorf("mod.ID = %q, want %q", mod.ID, "1")
+	}
+	if mod.Name != "Week 1" {
+		t.Errorf("mod.Name = %q, want %q", mod.Name, "Week 1")
+	}
+	if !mod.Published {
+		t.Error("mod.Published should be true")
+	}
+	if mod.ItemsCount != 5 {
+		t.Errorf("mod.ItemsCount = %d, want 5", mod.ItemsCount)
+	}
+}
+
+func TestGetModuleError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"Not Found"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := GetModule(context.Background(), c, "42", "999")
+	if err == nil {
+		t.Fatal("expected error for 404, got nil")
+	}
+}
+
+func TestGetModuleItem(t *testing.T) {
+	var gotPath string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ModuleItem{
+			ID:       "10",
+			ModuleID: "1",
+			Title:    "Read Chapter 1",
+			Type:     "Page",
+			Position: 1,
+		})
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	item, err := GetModuleItem(context.Background(), c, "42", "1", "10")
+	if err != nil {
+		t.Fatalf("GetModuleItem() error: %v", err)
+	}
+
+	wantPath := "/api/v1/courses/42/modules/1/items/10"
+	if gotPath != wantPath {
+		t.Errorf("path = %q, want %q", gotPath, wantPath)
+	}
+
+	if item.ID != "10" {
+		t.Errorf("item.ID = %q, want %q", item.ID, "10")
+	}
+	if item.Title != "Read Chapter 1" {
+		t.Errorf("item.Title = %q, want %q", item.Title, "Read Chapter 1")
+	}
+	if item.Type != "Page" {
+		t.Errorf("item.Type = %q, want %q", item.Type, "Page")
+	}
+}
+
+func TestGetModuleItemError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"Not Found"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := GetModuleItem(context.Background(), c, "42", "1", "999")
+	if err == nil {
+		t.Fatal("expected error for 404, got nil")
+	}
+}
+
 func TestListModulesWithQuery(t *testing.T) {
 	var gotQuery string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -208,5 +321,20 @@ func TestListModuleItemsNotFound(t *testing.T) {
 	_, _, err := ListModuleItems(context.Background(), c, "1", "999", nil)
 	if err == nil {
 		t.Fatal("expected error for 404, got nil")
+	}
+}
+
+func TestListModulesError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	_, _, err := ListModules(context.Background(), c, "1", nil)
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -53,7 +54,7 @@ func TestPaginateFollowsNextUntilExhausted(t *testing.T) {
 	}
 
 	page := 0
-	var srv *httptest.Server
+	var srv *httptest.Server //nolint:staticcheck // self-referential closure
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		page++
 		var items []item
@@ -206,12 +207,138 @@ func TestPaginatePassesPageSizeQuery(t *testing.T) {
 	}
 }
 
+func TestPaginate_APIErrorResponse(t *testing.T) {
+	type item struct {
+		ID string `json:"id"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"message":"invalid parameter"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	_, _, err := Paginate[item](context.Background(), c, "/api/v1/items", nil, 0, 100)
+	if err == nil {
+		t.Fatal("expected error for API error response")
+	}
+	if !strings.Contains(err.Error(), "api error") {
+		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
+	}
+}
+
+func TestPaginate_APIErrorWithCookieAuth(t *testing.T) {
+	type item struct {
+		ID string `json:"id"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"message":"Unauthorized"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "", "0.1.0", 5*time.Second, 0).WithCookie("cookie", "")
+	_, meta, err := Paginate[item](context.Background(), c, "/api/v1/items", nil, 0, 100)
+	if err == nil {
+		t.Fatal("expected error for 401 response")
+	}
+	if meta.RequestCount != 1 {
+		t.Errorf("RequestCount = %d, want 1", meta.RequestCount)
+	}
+}
+
+func TestPaginate_LimitTruncatesPageItems(t *testing.T) {
+	type item struct {
+		ID string `json:"id"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		items := []item{{ID: "1"}, {ID: "2"}, {ID: "3"}, {ID: "4"}, {ID: "5"}}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(items)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	items, meta, err := Paginate[item](context.Background(), c, "/api/v1/items", nil, 3, 100)
+	if err != nil {
+		t.Fatalf("Paginate() error: %v", err)
+	}
+
+	if len(items) != 3 {
+		t.Errorf("len(items) = %d, want 3", len(items))
+	}
+	if meta.TotalItems != 3 {
+		t.Errorf("TotalItems = %d, want 3", meta.TotalItems)
+	}
+}
+
+func TestPaginate_RelativeNextURL(t *testing.T) {
+	type item struct {
+		ID string `json:"id"`
+	}
+
+	page := 0
+	var srv *httptest.Server //nolint:staticcheck // self-referential closure
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page++
+		var items []item
+		switch page {
+		case 1:
+			items = []item{{ID: "1"}, {ID: "2"}}
+			// Use a relative path (not an absolute URL) in the Link header.
+			w.Header().Set("Link", `</api/v1/items?page=2>; rel="next"`)
+		case 2:
+			items = []item{{ID: "3"}}
+			// No Link header = last page
+		default:
+			items = []item{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(items)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+	items, meta, err := Paginate[item](context.Background(), c, "/api/v1/items", nil, 0, 100)
+	if err != nil {
+		t.Fatalf("Paginate() error: %v", err)
+	}
+
+	if len(items) != 3 {
+		t.Errorf("len(items) = %d, want 3", len(items))
+	}
+	if meta.RequestCount != 2 {
+		t.Errorf("RequestCount = %d, want 2", meta.RequestCount)
+	}
+}
+
+func TestParseLinkHeader_MissingAngleBrackets(t *testing.T) {
+	header := `https://canvas.example.com/api/v1/courses?page=2; rel="next"`
+	links := ParseLinkHeader(header)
+	if len(links) != 0 {
+		t.Errorf("expected empty map for malformed link, got %d entries", len(links))
+	}
+}
+
+func TestParseLinkHeader_NoRelAttribute(t *testing.T) {
+	header := `<https://canvas.example.com/api/v1/courses?page=2>; title="next"`
+	links := ParseLinkHeader(header)
+	if len(links) != 0 {
+		t.Errorf("expected empty map for link without rel, got %d entries", len(links))
+	}
+}
+
 func TestPaginateContextCancellation(t *testing.T) {
 	type item struct {
 		ID string `json:"id"`
 	}
 
-	var srv *httptest.Server
+	var srv *httptest.Server //nolint:staticcheck // self-referential closure
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		items := []item{{ID: "1"}}
 		w.Header().Set("Content-Type", "application/json")

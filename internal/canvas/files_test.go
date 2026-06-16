@@ -117,6 +117,65 @@ func TestListFilesPagination(t *testing.T) {
 	}
 }
 
+func TestGetFile(t *testing.T) {
+	var gotPath string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(File{
+			ID:          "55",
+			DisplayName: "syllabus.pdf",
+			Filename:    "syllabus.pdf",
+			Size:        2048,
+			ContentType: "application/pdf",
+			URL:         "https://example.com/files/syllabus.pdf",
+		})
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	file, err := GetFile(context.Background(), c, "55")
+	if err != nil {
+		t.Fatalf("GetFile() error: %v", err)
+	}
+
+	wantPath := "/api/v1/files/55"
+	if gotPath != wantPath {
+		t.Errorf("path = %q, want %q", gotPath, wantPath)
+	}
+
+	if file.ID != "55" {
+		t.Errorf("file.ID = %q, want %q", file.ID, "55")
+	}
+	if file.DisplayName != "syllabus.pdf" {
+		t.Errorf("file.DisplayName = %q, want %q", file.DisplayName, "syllabus.pdf")
+	}
+	if file.Size != 2048 {
+		t.Errorf("file.Size = %d, want %d", file.Size, 2048)
+	}
+	if file.ContentType != "application/pdf" {
+		t.Errorf("file.ContentType = %q, want %q", file.ContentType, "application/pdf")
+	}
+}
+
+func TestGetFileNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"Not Found"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, err := GetFile(context.Background(), c, "999")
+	if err == nil {
+		t.Fatal("expected error for 404, got nil")
+	}
+}
+
 func TestDownloadFile(t *testing.T) {
 	var gotPaths []string
 
@@ -158,5 +217,80 @@ func TestDownloadFile(t *testing.T) {
 
 	if buf.String() != "file-content-here" {
 		t.Errorf("downloaded content = %q, want %q", buf.String(), "file-content-here")
+	}
+}
+
+func TestListFilesError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	_, _, err := ListFiles(context.Background(), c, "42", nil)
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}
+
+func TestDownloadFileMetadataError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	var buf bytes.Buffer
+	err := DownloadFile(context.Background(), c, "55", &buf)
+	if err == nil {
+		t.Fatal("expected error for metadata 500, got nil")
+	}
+}
+
+func TestDownloadFileDownloadError(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/files/55":
+			fmt.Fprintf(w, `{"id":"55","display_name":"report.pdf","url":"%s/files/report.pdf","size":1024}`, srv.URL)
+		case "/files/report.pdf":
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"message":"download failed"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	var buf bytes.Buffer
+	err := DownloadFile(context.Background(), c, "55", &buf)
+	if err == nil {
+		t.Fatal("expected error for download 500, got nil")
+	}
+}
+
+func TestDownloadFileEmptyURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Return file metadata with empty URL
+		fmt.Fprintf(w, `{"id":"55","display_name":"report.pdf","url":"","size":1024}`)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	var buf bytes.Buffer
+	err := DownloadFile(context.Background(), c, "55", &buf)
+	if err == nil {
+		t.Fatal("expected error for empty download URL, got nil")
 	}
 }

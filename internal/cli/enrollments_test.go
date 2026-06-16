@@ -167,6 +167,67 @@ func TestEnrollmentsList_HumanMode(t *testing.T) {
 	}
 }
 
+func TestEnrollmentsList_APIError_JSON(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/enrollments", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newEnrollmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("expected no error in JSON mode, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false on API error")
+	}
+}
+
+func TestEnrollmentsList_APIError_Human(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/enrollments", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newEnrollmentsListCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error in human mode")
+	}
+}
+
 func TestEnrollmentsList_CourseRequired(t *testing.T) {
 	cfg := &config.ResolvedConfig{
 		BaseURL: "http://localhost",

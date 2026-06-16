@@ -900,6 +900,226 @@ profiles:
 	}
 }
 
+func TestResolve_ProfileFlagOverride(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://default.instructure.com
+    token: default-token
+  work:
+    base_url: https://work.instructure.com
+    token: work-token
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	unsetEnv(t, "CANVAS_PROFILE")
+
+	opts := Options{Profile: "work"}
+	resolved, err := Resolve(opts, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Profile != "work" {
+		t.Errorf("Profile = %q, want %q", resolved.Profile, "work")
+	}
+	if resolved.BaseURL != "https://work.instructure.com" {
+		t.Errorf("BaseURL = %q, want work profile URL", resolved.BaseURL)
+	}
+}
+
+func TestResolve_CANVAS_READ_ONLY_Env(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_READ_ONLY", "1")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if !resolved.ReadOnly {
+		t.Error("ReadOnly should be true when CANVAS_READ_ONLY=1")
+	}
+}
+
+func TestResolve_CANVAS_NO_COLOR_Env(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_NO_COLOR", "1")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if !resolved.OutputNoColor {
+		t.Error("OutputNoColor should be true when CANVAS_NO_COLOR=1")
+	}
+}
+
+func TestResolve_CANVAS_RETRIES_Env(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_RETRIES", "5")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Retries != 5 {
+		t.Errorf("Retries = %d, want 5", resolved.Retries)
+	}
+}
+
+func TestResolve_CANVAS_PAGE_SIZE_Env(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_PAGE_SIZE", "200")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.PageSize != 200 {
+		t.Errorf("PageSize = %d, want 200", resolved.PageSize)
+	}
+}
+
+func TestResolve_CANVAS_TIMEOUT_Env(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	cfg, _ := LoadConfig(path, "")
+
+	unsetEnv(t, "CANVAS_BASE_URL")
+	unsetEnv(t, "CANVAS_TOKEN")
+	setEnv(t, "CANVAS_TIMEOUT", "45s")
+
+	resolved, err := Resolve(Options{}, cfg)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if resolved.Timeout != "45s" {
+		t.Errorf("Timeout = %q, want 45s", resolved.Timeout)
+	}
+}
+
+func TestLoadConfig_TooPermissivePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not checked on Windows")
+	}
+	dir := t.TempDir()
+	yaml := `
+current_profile: default
+profiles:
+  default:
+    base_url: https://school.instructure.com
+    token: tok
+`
+	path := writeTempConfig(t, dir, "config.yaml", yaml)
+	// Set too-permissive permissions.
+	if err := os.Chmod(path, 0o777); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadConfig(path, "")
+	if err == nil {
+		t.Fatal("expected error for too-permissive config file")
+	}
+	if !strings.Contains(err.Error(), "too-permissive") {
+		t.Errorf("error = %q, want it to contain 'too-permissive'", err.Error())
+	}
+}
+
+func TestLoadConfig_EmptyPath_UsesDefault(t *testing.T) {
+	// LoadConfig with empty path uses ConfigPath(). If the default config
+	// doesn't exist, it should return an error about reading the file.
+	_, err := LoadConfig("", "")
+	if err == nil {
+		// Config might exist at default path; that's OK.
+		return
+	}
+	if !strings.Contains(err.Error(), "reading config") {
+		t.Errorf("error = %q, want it to contain 'reading config'", err.Error())
+	}
+}
+
+func TestResolvedConfig_String_RedactsBothEmpty(t *testing.T) {
+	rc := &ResolvedConfig{
+		BaseURL: "https://school.instructure.com",
+		Profile: "default",
+	}
+
+	s := rc.String()
+	if !strings.Contains(s, "(not set)") {
+		t.Errorf("String() should contain '(not set)' for unset token/cookie, got: %s", s)
+	}
+}
+
+func TestConfigPath_FallbackToHomeDir(t *testing.T) {
+	// Test that ConfigPath works when UserConfigDir succeeds.
+	got := ConfigPath()
+	if got == "" {
+		t.Fatal("ConfigPath returned empty string")
+	}
+	if !filepath.IsAbs(got) {
+		t.Errorf("ConfigPath = %q, want absolute path", got)
+	}
+}
+
 // Ensure the test file compiles on all platforms.
 func init() {
 	_ = runtime.GOOS

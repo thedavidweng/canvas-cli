@@ -173,7 +173,7 @@ func TestRedaction_TokenNeverInStderr_OnAuthError(t *testing.T) {
 
 func TestRedaction_TokenNeverInStderr_OnNetworkError(t *testing.T) {
 	cfg := &config.ResolvedConfig{
-		BaseURL: "http://127.0.0.1:1",
+		BaseURL: "http://localhost:0",
 		Token:   secretToken,
 		Profile: "default",
 	}
@@ -387,7 +387,7 @@ func TestRedaction_TokenRedactedInErrorMessages_403(t *testing.T) {
 
 func TestRedaction_TokenRedactedInErrorMessages_NetworkError(t *testing.T) {
 	cfg := &config.ResolvedConfig{
-		BaseURL: "http://127.0.0.1:1",
+		BaseURL: "http://localhost:0",
 		Token:   secretToken,
 		Profile: "default",
 	}

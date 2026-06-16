@@ -248,6 +248,80 @@ func TestHashBody_DeterministicSHA256(t *testing.T) {
 	}
 }
 
+func TestWriteEvent_MkdirAllError(t *testing.T) {
+	// Use a path where the parent cannot be created (file in place of directory).
+	path := filepath.Join(os.DevNull, "impossible", "audit.jsonl")
+
+	a := NewAuditor(path, true)
+	err := a.WriteEvent(testEvent())
+	if err == nil {
+		t.Fatal("expected error for impossible parent directory")
+	}
+	if !strings.Contains(err.Error(), "create dir") {
+		t.Errorf("error = %q, want it to contain 'create dir'", err.Error())
+	}
+}
+
+func TestWriteEvent_OpenFileError(t *testing.T) {
+	// Create a read-only directory; MkdirAll succeeds but OpenFile fails.
+	dir := t.TempDir()
+	roDir := filepath.Join(dir, "readonly")
+	if err := os.Mkdir(roDir, 0o444); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(roDir, "audit.jsonl")
+	a := NewAuditor(path, true)
+	err := a.WriteEvent(testEvent())
+	if err == nil {
+		t.Skip("could not trigger OpenFile error (may need root or different permissions)")
+	}
+	if !strings.Contains(err.Error(), "open file") {
+		t.Errorf("error = %q, want it to contain 'open file'", err.Error())
+	}
+}
+
+func TestStateDir_XDGStateHome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("XDG_STATE_HOME not used on Windows")
+	}
+	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", dir)
+	got := stateDir()
+	if got != dir {
+		t.Errorf("stateDir() = %q, want %q", got, dir)
+	}
+}
+
+func TestStateDir_FallbackToUserConfigDir(t *testing.T) {
+	// Unset XDG_STATE_HOME so stateDir falls through to UserConfigDir.
+	t.Setenv("XDG_STATE_HOME", "")
+	got := stateDir()
+	if got == "" {
+		t.Fatal("stateDir() returned empty string")
+	}
+	// On macOS, UserConfigDir returns ~/Library/Application Support.
+	// The result should be a valid directory path.
+	if !filepath.IsAbs(got) {
+		t.Errorf("stateDir() = %q, want absolute path", got)
+	}
+}
+
+func TestStateDir_Windows_LOCALAPPDATA(t *testing.T) {
+	// We can't change runtime.GOOS, but we can verify the function
+	// works on the current OS. This test documents the expected behavior.
+	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv("LOCALAPPDATA", dir)
+
+	got := stateDir()
+	// On non-Windows, LOCALAPPDATA is ignored and we get UserConfigDir.
+	// On Windows, we'd get dir. Either way, got should be non-empty.
+	if got == "" {
+		t.Fatal("stateDir() returned empty string")
+	}
+}
+
 func splitLines(s string) []string {
 	var lines []string
 	scanner := bufio.NewScanner(strings.NewReader(s))
