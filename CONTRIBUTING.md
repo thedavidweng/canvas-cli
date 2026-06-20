@@ -7,6 +7,7 @@ Thank you for your interest in contributing to canvas-cli.
 ```bash
 git clone https://github.com/thedavidweng/canvas-cli.git
 cd canvas-cli
+mise install  # install tools pinned in mise.toml
 go build ./cmd/canvas
 go test ./...
 ```
