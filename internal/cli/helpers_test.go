@@ -6,12 +6,16 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
+	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
 
 func TestGetClientFromContext_NilConfig(t *testing.T) {
@@ -230,5 +234,245 @@ func TestExitError_ExitCodePartialFailure(t *testing.T) {
 	err := &exitError{msg: "partial failure", exitCode: 8}
 	if err.ExitCode() != 8 {
 		t.Errorf("expected exit code 8, got %d", err.ExitCode())
+	}
+}
+
+func TestWriteNetworkError_JSONMode(t *testing.T) {
+	var buf bytes.Buffer
+	inputErr := errors.New("connection refused")
+
+	err := writeNetworkError(&buf, inputErr, "api.get", true)
+	if err != nil {
+		t.Fatalf("writeNetworkError in JSON mode returned error: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false in error envelope")
+	}
+	if env.Error == nil {
+		t.Fatal("expected error in envelope")
+	}
+	if env.Error.Code != "CANVAS_NETWORK_ERROR" {
+		t.Errorf("expected code CANVAS_NETWORK_ERROR, got %q", env.Error.Code)
+	}
+	if env.Error.Category != "network" {
+		t.Errorf("expected category 'network', got %q", env.Error.Category)
+	}
+}
+
+func TestWriteNetworkError_HumanMode(t *testing.T) {
+	var buf bytes.Buffer
+	inputErr := errors.New("connection refused")
+
+	err := writeNetworkError(&buf, inputErr, "api.get", false)
+	if err == nil {
+		t.Fatal("expected error to be returned")
+	}
+	if err.Error() != "connection refused" {
+		t.Errorf("expected 'connection refused', got %q", err.Error())
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected no output in human mode, got %q", buf.String())
+	}
+}
+
+func TestWriteErrorWithCode_JSONMode(t *testing.T) {
+	var buf bytes.Buffer
+	inputErr := errors.New("not found")
+
+	err := writeErrorWithCode(&buf, inputErr, "courses.get", "CANVAS_NOT_FOUND", "api", true)
+	if err != nil {
+		t.Fatalf("writeErrorWithCode in JSON mode returned error: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if env.Error == nil {
+		t.Fatal("expected error in envelope")
+	}
+	if env.Error.Code != "CANVAS_NOT_FOUND" {
+		t.Errorf("expected code CANVAS_NOT_FOUND, got %q", env.Error.Code)
+	}
+}
+
+func TestWriteErrorWithCode_HumanMode(t *testing.T) {
+	var buf bytes.Buffer
+	inputErr := errors.New("not found")
+
+	err := writeErrorWithCode(&buf, inputErr, "courses.get", "CANVAS_NOT_FOUND", "api", false)
+	if err == nil {
+		t.Fatal("expected error to be returned")
+	}
+	if err.Error() != "not found" {
+		t.Errorf("expected 'not found', got %q", err.Error())
+	}
+}
+
+func TestCheckSafetyLevel_BlockedByReadOnly(t *testing.T) {
+	cfg := &config.ResolvedConfig{ReadOnly: true}
+	err := checkSafetyLevel(cfg, false, false, safety.LowRiskWrite)
+	if err == nil {
+		t.Fatal("expected error when read-only and no confirm")
+	}
+	exitErr, ok := err.(*exitError)
+	if !ok {
+		t.Fatalf("expected *exitError, got %T", err)
+	}
+	if exitErr.ExitCode() == 0 {
+		t.Error("expected non-zero exit code for blocked operation")
+	}
+}
+
+func TestCheckSafetyLevel_HighRiskBlocked(t *testing.T) {
+	cfg := &config.ResolvedConfig{}
+	err := checkSafetyLevel(cfg, false, false, safety.HighRiskWrite)
+	if err == nil {
+		t.Fatal("expected error for high-risk write without confirm")
+	}
+}
+
+func TestCheckSafetyLevel_AllowedWithConfirm(t *testing.T) {
+	cfg := &config.ResolvedConfig{}
+	err := checkSafetyLevel(cfg, false, true, safety.HighRiskWrite)
+	if err != nil {
+		t.Fatalf("expected allowed with confirm, got: %v", err)
+	}
+}
+
+func TestWriteAudit_DisabledNoOp(t *testing.T) {
+	cfg := &config.ResolvedConfig{AuditEnabled: false}
+	// Should not panic or write anything
+	writeAudit(cfg, "test.cmd", "POST", "/path", "{}", false, 200, true)
+}
+
+func TestWriteAuditWithResource_WritesEvent(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	cfg := &config.ResolvedConfig{
+		Profile:      "test",
+		BaseURL:      "https://canvas.example.com",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	resource := map[string]string{
+		"course_id":     "1",
+		"assignment_id": "100",
+	}
+	writeAuditWithResource(cfg, "assignments.submit", "POST", "/api/v1/courses/1/assignments/100/submissions",
+		`{"submission":"test"}`, false, 201, true, resource)
+
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit file: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("expected audit event to be written")
+	}
+
+	var event canvas.AuditEvent
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatalf("failed to parse audit event: %v", err)
+	}
+	if event.Command != "assignments.submit" {
+		t.Errorf("expected command 'assignments.submit', got %q", event.Command)
+	}
+	if event.ResponseStatus != 201 {
+		t.Errorf("expected response status 201, got %d", event.ResponseStatus)
+	}
+	if !event.Success {
+		t.Error("expected success=true")
+	}
+	if event.Resource["course_id"] != "1" {
+		t.Errorf("expected resource course_id '1', got %q", event.Resource["course_id"])
+	}
+	if event.Resource["assignment_id"] != "100" {
+		t.Errorf("expected resource assignment_id '100', got %q", event.Resource["assignment_id"])
+	}
+}
+
+func TestWriteAuditWithResource_NilResourceDefaultsToEmpty(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	cfg := &config.ResolvedConfig{
+		Profile:      "test",
+		BaseURL:      "https://canvas.example.com",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	writeAuditWithResource(cfg, "test.cmd", "POST", "/path", "", false, 200, true, nil)
+
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit file: %v", err)
+	}
+
+	var event canvas.AuditEvent
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatalf("failed to parse audit event: %v", err)
+	}
+	if event.Resource == nil {
+		t.Fatal("expected non-nil resource map")
+	}
+	if len(event.Resource) != 0 {
+		t.Errorf("expected empty resource map, got %v", event.Resource)
+	}
+}
+
+func TestWriteAuditWithResource_FailureRecorded(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	cfg := &config.ResolvedConfig{
+		Profile:      "test",
+		BaseURL:      "https://canvas.example.com",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	writeAuditWithResource(cfg, "api.post", "POST", "/api/v1/test", "", false, 403, false, nil)
+
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit file: %v", err)
+	}
+
+	var event canvas.AuditEvent
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatalf("failed to parse audit event: %v", err)
+	}
+	if event.ResponseStatus != 403 {
+		t.Errorf("expected response status 403, got %d", event.ResponseStatus)
+	}
+	if event.Success {
+		t.Error("expected success=false for failed request")
+	}
+}
+
+func TestTruncateString_Multibyte(t *testing.T) {
+	// Chinese characters - each is 3 bytes in UTF-8 but 1 rune
+	s := "你好世界测试"
+	got := truncateString(s, 4)
+	if !strings.HasSuffix(got, "...") {
+		t.Errorf("expected truncation suffix, got %q", got)
+	}
+	// Should keep first 4 runes + "..."
+	want := "你好世界..."
+	if got != want {
+		t.Errorf("truncateString(%q, 4) = %q, want %q", s, got, want)
+	}
+}
+
+func TestTruncateString_NoSplitMidRune(t *testing.T) {
+	// Emoji is 4 bytes in UTF-8, but rune-aware truncation keeps it intact
+	s := "a😀b"
+	got := truncateString(s, 2)
+	// Should be "a😀..." not a split emoji byte sequence
+	want := "a😀..."
+	if got != want {
+		t.Errorf("truncateString(%q, 2) = %q, want %q", s, got, want)
 	}
 }

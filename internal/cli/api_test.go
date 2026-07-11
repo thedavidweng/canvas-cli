@@ -374,6 +374,61 @@ func TestApiPost_JSONMode(t *testing.T) {
 	}
 }
 
+func TestApiPost_ErrorResponseRecordsAuditFailure(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/courses/1/assignments", 403, map[string]any{
+		"error": "forbidden",
+	})
+
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	var buf bytes.Buffer
+	cmd := newApiPostCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("data", `{"name":"New Assignment"}`)
+	_ = cmd.Flags().Set("confirm", "true")
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, []string{"/api/v1/courses/1/assignments"})
+	if err != nil {
+		t.Fatalf("api post --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false for error response")
+	}
+
+	// Verify audit log recorded the failure correctly
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit file: %v", err)
+	}
+	var event canvas.AuditEvent
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatalf("failed to parse audit event: %v", err)
+	}
+	if event.ResponseStatus != 403 {
+		t.Errorf("expected audit response status 403, got %d", event.ResponseStatus)
+	}
+	if event.Success {
+		t.Error("expected audit success=false for failed request")
+	}
+}
+
 func TestApiPost_DryRunShowsPreview(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -593,6 +648,60 @@ func TestApiPut_JSONMode(t *testing.T) {
 	}
 }
 
+func TestApiPut_ErrorResponseRecordsAuditFailure(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("PUT", "/api/v1/courses/1/assignments/100", 404, map[string]any{
+		"error": "not found",
+	})
+
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	var buf bytes.Buffer
+	cmd := newApiPutCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("data", `{"name":"Updated"}`)
+	_ = cmd.Flags().Set("confirm", "true")
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, []string{"/api/v1/courses/1/assignments/100"})
+	if err != nil {
+		t.Fatalf("api put --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false for error response")
+	}
+
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit file: %v", err)
+	}
+	var event canvas.AuditEvent
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatalf("failed to parse audit event: %v", err)
+	}
+	if event.ResponseStatus != 404 {
+		t.Errorf("expected audit response status 404, got %d", event.ResponseStatus)
+	}
+	if event.Success {
+		t.Error("expected audit success=false for failed request")
+	}
+}
+
 // --- api delete ---
 
 func TestApiDelete_ConfirmSendsDELETE(t *testing.T) {
@@ -703,6 +812,59 @@ func TestApiDelete_JSONMode(t *testing.T) {
 	}
 	if !env.OK {
 		t.Error("expected ok:true")
+	}
+}
+
+func TestApiDelete_ErrorResponseRecordsAuditFailure(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("DELETE", "/api/v1/courses/1/assignments/100", 500, map[string]any{
+		"error": "internal server error",
+	})
+
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	cfg := &config.ResolvedConfig{
+		BaseURL:      mock.URL(),
+		Token:        "test-token",
+		Profile:      "default",
+		AuditEnabled: true,
+		AuditPath:    auditPath,
+	}
+
+	var buf bytes.Buffer
+	cmd := newApiDeleteCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("confirm", "true")
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, []string{"/api/v1/courses/1/assignments/100"})
+	if err != nil {
+		t.Fatalf("api delete --json failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok:false for error response")
+	}
+
+	data, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatalf("failed to read audit file: %v", err)
+	}
+	var event canvas.AuditEvent
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatalf("failed to parse audit event: %v", err)
+	}
+	if event.ResponseStatus != 500 {
+		t.Errorf("expected audit response status 500, got %d", event.ResponseStatus)
+	}
+	if event.Success {
+		t.Error("expected audit success=false for failed request")
 	}
 }
 
