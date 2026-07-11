@@ -275,7 +275,7 @@ func newApiPostCmd() *cobra.Command {
 				return fmt.Errorf("failed to read response: %w", err)
 			}
 
-			writeAudit(cfg, "api.post", "POST", path, string(payload), false, 200, true)
+			writeAudit(cfg, "api.post", "POST", path, string(payload), false, resp.StatusCode, resp.StatusCode < 400)
 
 			if resp.StatusCode >= 400 {
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
@@ -381,7 +381,7 @@ func newApiPutCmd() *cobra.Command {
 				return fmt.Errorf("failed to read response: %w", err)
 			}
 
-			writeAudit(cfg, "api.put", "PUT", path, string(payload), false, 200, true)
+			writeAudit(cfg, "api.put", "PUT", path, string(payload), false, resp.StatusCode, resp.StatusCode < 400)
 
 			if resp.StatusCode >= 400 {
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
@@ -475,7 +475,7 @@ func newApiDeleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to read response: %w", err)
 			}
 
-			writeAudit(cfg, "api.delete", "DELETE", path, "", false, 200, true)
+			writeAudit(cfg, "api.delete", "DELETE", path, "", false, resp.StatusCode, resp.StatusCode < 400)
 
 			if resp.StatusCode >= 400 {
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
