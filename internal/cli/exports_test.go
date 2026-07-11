@@ -877,3 +877,33 @@ func TestNewCoursesExportsCmd_APIErrorJSON(t *testing.T) {
 		t.Errorf("expected JSON error envelope with ok:false, got: %q", output)
 	}
 }
+
+func TestNewCoursesExportsCmd_HumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/content_exports", 200, []map[string]any{
+		{"id": "1", "export_type": "common_cartridge", "workflow_state": "exported", "created_at": "2026-01-01T00:00:00Z"},
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+
+	var buf bytes.Buffer
+	cmd := newCoursesExportsCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("courses exports human mode failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "ID") {
+		t.Errorf("expected table header 'ID' in output, got: %q", output)
+	}
+	if !strings.Contains(output, "common_cartridge") {
+		t.Errorf("expected export type in output, got: %q", output)
+	}
+}

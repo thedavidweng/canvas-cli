@@ -447,3 +447,18 @@ func TestMeUpcoming_HumanModeNoEndAt(t *testing.T) {
 		t.Errorf("should not contain 'End:' when EndAt is empty, got: %s", output)
 	}
 }
+
+func TestMeGet_NilConfig(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := newMeGetCmd()
+	cmd.SetContext(context.Background()) // no config
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when config is nil, got nil")
+	}
+	if !strings.Contains(err.Error(), "no config loaded") {
+		t.Errorf("expected 'no config loaded' in error, got: %v", err)
+	}
+}
