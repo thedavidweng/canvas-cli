@@ -3,13 +3,13 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
-	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
 
@@ -35,10 +35,11 @@ func newFilesListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List files in a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -46,35 +47,18 @@ func newFilesListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
 			files, _, err := canvas.ListFiles(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "files.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "files.list", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, files, "files.list", jsonMode, func(w io.Writer) error {
+				for _, f := range files {
+					fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", f.ID, f.DisplayName, f.Size, f.ContentType)
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(files, "files.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			for _, f := range files {
-				fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", f.ID, f.DisplayName, f.Size, f.ContentType)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -88,46 +72,30 @@ func newFilesGetCmd() *cobra.Command {
 		Short: "Get a file by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			fileID := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
 			file, err := canvas.GetFile(cmd.Context(), client, fileID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "files.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
+				return writeError(cmd.OutOrStdout(), err, "files.get", jsonMode)
 			}
 
-			if jsonMode {
-				env := output.NewSuccess(file, "files.get", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "ID:           %s\n", file.ID)
-			fmt.Fprintf(w, "Display Name: %s\n", file.DisplayName)
-			fmt.Fprintf(w, "Filename:     %s\n", file.Filename)
-			fmt.Fprintf(w, "Content Type: %s\n", file.ContentType)
-			fmt.Fprintf(w, "Size:         %d\n", file.Size)
-			fmt.Fprintf(w, "Created At:   %s\n", file.CreatedAt)
-			fmt.Fprintf(w, "Updated At:   %s\n", file.UpdatedAt)
-			return nil
+			return writeOutput(cmd.OutOrStdout(), cfg, file, "files.get", jsonMode, func(w io.Writer) error {
+				fmt.Fprintf(w, "ID:           %s\n", file.ID)
+				fmt.Fprintf(w, "Display Name: %s\n", file.DisplayName)
+				fmt.Fprintf(w, "Filename:     %s\n", file.Filename)
+				fmt.Fprintf(w, "Content Type: %s\n", file.ContentType)
+				fmt.Fprintf(w, "Size:         %d\n", file.Size)
+				fmt.Fprintf(w, "Created At:   %s\n", file.CreatedAt)
+				fmt.Fprintf(w, "Updated At:   %s\n", file.UpdatedAt)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -207,10 +175,11 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 		Use:   "download-course",
 		Short: "Download all files for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -223,20 +192,10 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 			noOverwrite, _ := cmd.Flags().GetBool("no-overwrite")
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			client := newClientFromCfg(cfg)
-
 			// List all files for the course
 			files, _, err := canvas.ListFiles(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "files.download-course")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
+				return writeError(cmd.OutOrStdout(), err, "files.download-course", jsonMode)
 			}
 
 			result := &FileDownloadResult{Total: len(files)}
@@ -319,21 +278,16 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 			}
 
 			// Output
-			if jsonMode {
-				meta := canvas.Meta{Profile: cfg.Profile, BaseURL: cfg.BaseURL}
-				env := output.NewSuccess(result, "files.download-course", meta)
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Downloaded %d/%d files\n", result.Downloaded, result.Total)
-			if result.Failed > 0 {
-				fmt.Fprintf(w, "%d failures (see manifest for details)\n", result.Failed)
-			}
-			if result.ManifestPath != "" {
-				fmt.Fprintf(w, "Manifest: %s\n", result.ManifestPath)
-			}
-			return nil
+			return writeOutput(cmd.OutOrStdout(), cfg, result, "files.download-course", jsonMode, func(w io.Writer) error {
+				fmt.Fprintf(w, "Downloaded %d/%d files\n", result.Downloaded, result.Total)
+				if result.Failed > 0 {
+					fmt.Fprintf(w, "%d failures (see manifest for details)\n", result.Failed)
+				}
+				if result.ManifestPath != "" {
+					fmt.Fprintf(w, "Manifest: %s\n", result.ManifestPath)
+				}
+				return nil
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -402,23 +356,17 @@ func newFilesUploadCmd() *cobra.Command {
 
 			// Write audit
 			writeAudit(cfg, "files.upload", "POST", path,
-				fmt.Sprintf(`{"file":"%s","folder":"%s"}`, filepath.Base(filePath), folder), false)
+				fmt.Sprintf(`{"file":"%s","folder":"%s"}`, filepath.Base(filePath), folder), false, 200, true)
 
 			// Output
-			if jsonMode {
-				result := map[string]string{
-					"id":   fileID,
-					"name": filepath.Base(filePath),
-				}
-				env := output.NewSuccess(result, "files.upload", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+			result := map[string]string{
+				"id":   fileID,
+				"name": filepath.Base(filePath),
 			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "Uploaded file %s (ID: %s)\n", filepath.Base(filePath), fileID)
-			return nil
+			return writeOutput(cmd.OutOrStdout(), cfg, result, "files.upload", jsonMode, func(w io.Writer) error {
+				fmt.Fprintf(w, "Uploaded file %s (ID: %s)\n", filepath.Base(filePath), fileID)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

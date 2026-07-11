@@ -46,11 +46,13 @@ func GetSubmission(ctx context.Context, client *Client, courseID, assignmentID, 
 // It sends GET /api/v1/courses/{courseID}/assignments/{assignmentID}/submissions with include[]=user.
 // The opts parameter controls additional query parameters, pagination limit, and page size.
 func ListSubmissions(ctx context.Context, client *Client, courseID, assignmentID string, opts RequestOptions) ([]Submission, PaginationMeta, error) {
-	query := opts.Query
-	if query == nil {
-		query = url.Values{}
+	query := url.Values{}
+	for k, vs := range opts.Query {
+		for _, v := range vs {
+			query.Add(k, v)
+		}
 	}
-	query.Set("include[]", "user")
+	query.Add("include[]", "user")
 
 	var submissions []Submission
 	meta, err := Request(ctx, client, RequestOptions{

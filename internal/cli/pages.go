@@ -2,12 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
-	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
 
@@ -31,10 +31,11 @@ func newPagesListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List wiki pages for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -42,35 +43,19 @@ func newPagesListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
 			pages, _, err := canvas.ListPages(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "pages.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "pages.list", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, pages, "pages.list", jsonMode, func(w io.Writer) error {
+				// Human output
+				for _, p := range pages {
+					fmt.Fprintf(w, "%s\t%s\n", p.URL, p.Title)
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(pages, "pages.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			for _, p := range pages {
-				fmt.Fprintf(w, "%s\t%s\n", p.URL, p.Title)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -84,10 +69,11 @@ func newPagesGetCmd() *cobra.Command {
 		Short: "Get a single wiki page with body",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -96,37 +82,21 @@ func newPagesGetCmd() *cobra.Command {
 
 			pageURL := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
 			page, err := canvas.GetPage(cmd.Context(), client, courseID, pageURL)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "pages.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "pages.get", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, page, "pages.get", jsonMode, func(w io.Writer) error {
+				// Human output
+				fmt.Fprintf(w, "URL:   %s\n", page.URL)
+				fmt.Fprintf(w, "Title: %s\n", page.Title)
+				if page.Body != "" {
+					fmt.Fprintf(w, "Body:\n%s\n", page.Body)
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(page, "pages.get", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "URL:   %s\n", page.URL)
-			fmt.Fprintf(w, "Title: %s\n", page.Title)
-			if page.Body != "" {
-				fmt.Fprintf(w, "Body:\n%s\n", page.Body)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -140,10 +110,11 @@ func newPagesUpdateCmd() *cobra.Command {
 		Short: "Update a wiki page",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -184,13 +155,12 @@ func newPagesUpdateCmd() *cobra.Command {
 				"body": string(body),
 			}
 
-			client := newClientFromCfg(cfg)
 			_, err = canvas.UpdatePage(cmd.Context(), client, courseID, pageURL, updates)
 			if err != nil {
 				return err
 			}
 
-			writeAudit(cfg, "pages.update", "PUT", path, string(body), false)
+			writeAudit(cfg, "pages.update", "PUT", path, string(body), false, 200, true)
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Page %s updated\n", pageURL)
 			return nil

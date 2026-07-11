@@ -2,11 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
-	"github.com/thedavidweng/canvas-cli/internal/output"
 )
 
 // NewInboxCmd returns the `inbox` parent command.
@@ -31,41 +31,26 @@ func newInboxListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List inbox conversations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
 			conversations, _, err := canvas.ListConversations(cmd.Context(), client, canvas.RequestOptions{PageSize: 100})
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "inbox.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "inbox.list", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, conversations, "inbox.list", jsonMode, func(w io.Writer) error {
+				// Human output
+				for _, c := range conversations {
+					fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, c.WorkflowState, c.Subject)
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(conversations, "inbox.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			for _, c := range conversations {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, c.WorkflowState, c.Subject)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -78,46 +63,31 @@ func newInboxGetCmd() *cobra.Command {
 		Short: "Get a single conversation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			conversationID := args[0]
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
 			conversation, err := canvas.GetConversation(cmd.Context(), client, conversationID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "inbox.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "inbox.get", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, conversation, "inbox.get", jsonMode, func(w io.Writer) error {
+				// Human output
+				fmt.Fprintf(w, "ID:       %s\n", conversation.ID)
+				fmt.Fprintf(w, "Subject:  %s\n", conversation.Subject)
+				fmt.Fprintf(w, "State:    %s\n", conversation.WorkflowState)
+				fmt.Fprintf(w, "Messages: %d\n", conversation.MessageCount)
+				if conversation.LastMessage != "" {
+					fmt.Fprintf(w, "Last:     %s\n", conversation.LastMessage)
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(conversation, "inbox.get", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "ID:       %s\n", conversation.ID)
-			fmt.Fprintf(w, "Subject:  %s\n", conversation.Subject)
-			fmt.Fprintf(w, "State:    %s\n", conversation.WorkflowState)
-			fmt.Fprintf(w, "Messages: %d\n", conversation.MessageCount)
-			if conversation.LastMessage != "" {
-				fmt.Fprintf(w, "Last:     %s\n", conversation.LastMessage)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -129,10 +99,11 @@ func newInboxSendCmd() *cobra.Command {
 		Use:   "send",
 		Short: "Send a new inbox message",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			to, _ := cmd.Flags().GetString("to")
 			subject, _ := cmd.Flags().GetString("subject")
@@ -165,13 +136,12 @@ func newInboxSendCmd() *cobra.Command {
 				return nil
 			}
 
-			client := newClientFromCfg(cfg)
 			conversation, err := canvas.SendMessage(cmd.Context(), client, []string{to}, subject, body)
 			if err != nil {
 				return err
 			}
 
-			writeAudit(cfg, "inbox.send", "POST", path, body, false)
+			writeAudit(cfg, "inbox.send", "POST", path, body, false, 200, true)
 
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "Message sent (conversation %s)\n", conversation.ID)
@@ -192,10 +162,11 @@ func newInboxReplyCmd() *cobra.Command {
 		Short: "Reply to an inbox conversation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			conversationID := args[0]
 			body, _ := cmd.Flags().GetString("body")
@@ -219,13 +190,12 @@ func newInboxReplyCmd() *cobra.Command {
 				return nil
 			}
 
-			client := newClientFromCfg(cfg)
-			_, err := canvas.ReplyToConversation(cmd.Context(), client, conversationID, body)
+			_, err = canvas.ReplyToConversation(cmd.Context(), client, conversationID, body)
 			if err != nil {
 				return err
 			}
 
-			writeAudit(cfg, "inbox.reply", "POST", path, body, false)
+			writeAudit(cfg, "inbox.reply", "POST", path, body, false, 200, true)
 
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "Reply sent\n")
@@ -244,10 +214,11 @@ func newInboxArchiveCmd() *cobra.Command {
 		Short: "Archive an inbox conversation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			conversationID := args[0]
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
@@ -266,12 +237,11 @@ func newInboxArchiveCmd() *cobra.Command {
 				return nil
 			}
 
-			client := newClientFromCfg(cfg)
 			if err := canvas.ArchiveConversation(cmd.Context(), client, conversationID); err != nil {
 				return err
 			}
 
-			writeAudit(cfg, "inbox.archive", "PUT", path, "archived", false)
+			writeAudit(cfg, "inbox.archive", "PUT", path, "archived", false, 200, true)
 
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "Conversation %s archived\n", conversationID)

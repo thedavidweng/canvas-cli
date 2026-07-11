@@ -6,11 +6,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/thedavidweng/canvas-cli/internal/audit"
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
@@ -382,25 +380,12 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 				return fmt.Errorf("submit assignment: %w", err)
 			}
 
-			// Write audit log on successful mutation.
-			if cfg.AuditEnabled {
-				auditBody, _ := json.Marshal(sub)
-				auditor := audit.NewAuditor(cfg.AuditPath, true)
-				_ = auditor.WriteEvent(canvas.AuditEvent{
-					Time:           time.Now().UTC().Format(time.RFC3339),
-					SchemaVersion:  output.SchemaVersion,
-					Command:        "assignments.submit",
-					Profile:        cfg.Profile,
-					BaseURL:        cfg.BaseURL,
-					Method:         "POST",
-					Path:           fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID),
-					Resource:       map[string]string{"course_id": courseID, "assignment_id": assignmentID},
-					RequestHash:    audit.HashBody(string(auditBody)),
-					ResponseStatus: 200,
-					DryRun:         false,
-					Success:        true,
-				})
-			}
+			auditPath := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID)
+			auditBody, _ := json.Marshal(sub)
+			writeAuditWithResource(cfg, "assignments.submit", "POST", auditPath, string(auditBody), false, 200, true, map[string]string{
+				"course_id":     courseID,
+				"assignment_id": assignmentID,
+			})
 
 			// Output.
 			if jsonMode {
@@ -478,7 +463,7 @@ func newAssignmentsUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			writeAudit(cfg, "assignments.update", "PUT", path, fmt.Sprintf(`{"assignment":{"due_at":"%s"}}`, dueAt), false)
+			writeAudit(cfg, "assignments.update", "PUT", path, fmt.Sprintf(`{"assignment":{"due_at":"%s"}}`, dueAt), false, 200, true)
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Assignment %s updated (due_at: %s)\n", assignmentID, dueAt)
 			return nil
@@ -493,6 +478,5 @@ func newAssignmentsUpdateCmd() *cobra.Command {
 
 // formatFloat formats a float64 for display, removing trailing zeros.
 func formatFloat(f float64) string {
-	s := fmt.Sprintf("%g", f)
-	return s
+	return fmt.Sprintf("%g", f)
 }

@@ -73,11 +73,23 @@ func writeOutput(w io.Writer, cfg *config.ResolvedConfig, data any, command stri
 // writeError writes an error as a JSON envelope when jsonMode is true,
 // or returns the raw error when jsonMode is false.
 func writeError(w io.Writer, err error, command string, jsonMode bool) error {
+	return writeErrorWithCode(w, err, command, "CANVAS_API_ERROR", "api", jsonMode)
+}
+
+// writeNetworkError writes a network error as a JSON envelope when jsonMode is
+// true, or returns the raw error when jsonMode is false.
+func writeNetworkError(w io.Writer, err error, command string, jsonMode bool) error {
+	return writeErrorWithCode(w, err, command, "CANVAS_NETWORK_ERROR", "network", jsonMode)
+}
+
+// writeErrorWithCode writes an error with the given code and category as a JSON
+// envelope when jsonMode is true, or returns the raw error when jsonMode is false.
+func writeErrorWithCode(w io.Writer, err error, command, code, category string, jsonMode bool) error {
 	if jsonMode {
 		env := output.NewError(canvas.ErrorInfo{
-			Code:     "CANVAS_API_ERROR",
+			Code:     code,
 			Message:  err.Error(),
-			Category: "api",
+			Category: category,
 		}, command)
 		return output.WriteJSON(w, env, false)
 	}
@@ -96,22 +108,20 @@ func (e *exitError) ExitCode() int { return e.exitCode }
 // checkSafety evaluates the safety policy for a write operation.
 // It returns nil if the operation is allowed, or an *exitError if blocked.
 func checkSafety(cfg *config.ResolvedConfig, dryRun, confirm bool) error {
-	policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm, false)
-	if err := policy.Check(safety.LowRiskWrite); err != nil {
-		var se *safety.SafetyError
-		if errors.As(err, &se) {
-			return &exitError{msg: se.Message, exitCode: se.ExitCode}
-		}
-		return err
-	}
-	return nil
+	return checkSafetyLevel(cfg, dryRun, confirm, safety.LowRiskWrite)
 }
 
 // checkHighRiskSafety evaluates the safety policy for a high-risk write operation.
 // It returns nil if the operation is allowed, or an *exitError if blocked.
 func checkHighRiskSafety(cfg *config.ResolvedConfig, dryRun, confirm bool) error {
+	return checkSafetyLevel(cfg, dryRun, confirm, safety.HighRiskWrite)
+}
+
+// checkSafetyLevel is the shared implementation for checkSafety and
+// checkHighRiskSafety. It evaluates the policy at the given safety level.
+func checkSafetyLevel(cfg *config.ResolvedConfig, dryRun, confirm bool, level safety.SafetyLevel) error {
 	policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm, false)
-	if err := policy.Check(safety.HighRiskWrite); err != nil {
+	if err := policy.Check(level); err != nil {
 		var se *safety.SafetyError
 		if errors.As(err, &se) {
 			return &exitError{msg: se.Message, exitCode: se.ExitCode}
@@ -122,9 +132,19 @@ func checkHighRiskSafety(cfg *config.ResolvedConfig, dryRun, confirm bool) error
 }
 
 // writeAudit writes an audit event for a mutation command.
-func writeAudit(cfg *config.ResolvedConfig, command, method, path, body string, dryRun bool) {
+// responseStatus and success reflect the actual API response outcome.
+func writeAudit(cfg *config.ResolvedConfig, command, method, path, body string, dryRun bool, responseStatus int, success bool) {
+	writeAuditWithResource(cfg, command, method, path, body, dryRun, responseStatus, success, nil)
+}
+
+// writeAuditWithResource is like writeAudit but also records resource IDs in
+// the audit event's Resource field.
+func writeAuditWithResource(cfg *config.ResolvedConfig, command, method, path, body string, dryRun bool, responseStatus int, success bool, resource map[string]string) {
 	if !cfg.AuditEnabled {
 		return
+	}
+	if resource == nil {
+		resource = map[string]string{}
 	}
 	auditor := audit.NewAuditor(cfg.AuditPath, cfg.AuditEnabled)
 	_ = auditor.WriteEvent(canvas.AuditEvent{
@@ -135,18 +155,19 @@ func writeAudit(cfg *config.ResolvedConfig, command, method, path, body string, 
 		BaseURL:        cfg.BaseURL,
 		Method:         method,
 		Path:           path,
-		Resource:       map[string]string{},
+		Resource:       resource,
 		RequestHash:    audit.HashBody(body),
-		ResponseStatus: 200,
+		ResponseStatus: responseStatus,
 		DryRun:         dryRun,
-		Success:        true,
+		Success:        success,
 	})
 }
 
-// truncateString truncates s to maxLen characters, appending "..." if truncated.
+// truncateString truncates s to maxLen runes, appending "..." if truncated.
 func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	r := []rune(s)
+	if len(r) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	return string(r[:maxLen]) + "..."
 }

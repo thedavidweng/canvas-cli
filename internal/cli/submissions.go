@@ -354,7 +354,7 @@ func newSubmissionsCommentCmd() *cobra.Command {
 			}
 
 			writeAudit(cfg, "submissions.comment", "PUT", path,
-				fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment), false)
+				fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment), false, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(sub, "submissions.comment", canvas.Meta{
