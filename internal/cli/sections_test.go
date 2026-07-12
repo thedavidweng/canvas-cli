@@ -189,3 +189,19 @@ func TestSectionsList_CourseRequired(t *testing.T) {
 		t.Fatal("expected error when --course is missing")
 	}
 }
+
+func TestSectionsList_NilConfig(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := newSectionsListCmd()
+	cmd.SetContext(context.Background()) // no config
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when config is nil, got nil")
+	}
+	if !strings.Contains(err.Error(), "no config loaded") {
+		t.Errorf("expected 'no config loaded' in error, got: %v", err)
+	}
+}

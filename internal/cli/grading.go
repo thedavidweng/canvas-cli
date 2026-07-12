@@ -93,7 +93,7 @@ func newGradeSetCmd() *cobra.Command {
 			}
 
 			writeAudit(cfg, "grade.set", "PUT", path,
-				fmt.Sprintf(`{"submission":{"posted_grade":"%s"}}`, score), false)
+				fmt.Sprintf(`{"submission":{"posted_grade":"%s"}}`, score), false, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(sub, "grade.set", canvas.Meta{
@@ -181,7 +181,7 @@ func newGradeCommentCmd() *cobra.Command {
 			}
 
 			writeAudit(cfg, "grade.comment", "PUT", path,
-				fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment), false)
+				fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment), false, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(sub, "grade.comment", canvas.Meta{
@@ -290,7 +290,7 @@ func newGradeImportCmd() *cobra.Command {
 			subs, err := canvas.ImportGrades(cmd.Context(), client, courseID, assignmentID, gradeData)
 			if err != nil {
 				result.Failed = len(gradeData)
-				writeAudit(cfg, "grade.import", "POST", path, "bulk import", false)
+				writeAudit(cfg, "grade.import", "POST", path, "bulk import", false, 0, false)
 
 				if jsonMode {
 					env := output.NewError(canvas.ErrorInfo{
@@ -304,7 +304,7 @@ func newGradeImportCmd() *cobra.Command {
 			}
 
 			result.Imported = len(subs)
-			writeAudit(cfg, "grade.import", "POST", path, "bulk import", false)
+			writeAudit(cfg, "grade.import", "POST", path, "bulk import", false, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(result, "grade.import", canvas.Meta{
@@ -402,7 +402,7 @@ func newGradeRubricCmd() *cobra.Command {
 			}
 
 			writeAudit(cfg, "grade.rubric", "PUT", path,
-				fmt.Sprintf("rubric assessment with %d criteria", len(rubricAssessment)), false)
+				fmt.Sprintf("rubric assessment with %d criteria", len(rubricAssessment)), false, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(sub, "grade.rubric", canvas.Meta{

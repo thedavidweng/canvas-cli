@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -32,25 +33,18 @@ func newMeGetCmd() *cobra.Command {
 		Use:   "get",
 		Short: "Get current user information",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			ctx := cmd.Context()
+			client, err := getClientFromContext(ctx)
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(ctx)
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			client := newClientFromCfg(cfg)
-			resp, err := client.Do(cmd.Context(), "GET", "/api/v1/users/self", nil, nil)
+			resp, err := client.Do(ctx, "GET", "/api/v1/users/self", nil, nil)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_NETWORK_ERROR",
-						Message:  err.Error(),
-						Category: "network",
-					}, "me.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return fmt.Errorf("failed to reach API: %w", err)
+				return writeNetworkError(cmd.OutOrStdout(), err, "me.get", jsonMode)
 			}
 			defer resp.Body.Close()
 
@@ -67,28 +61,21 @@ func newMeGetCmd() *cobra.Command {
 				return fmt.Errorf("failed to decode response: %w", err)
 			}
 
-			if jsonMode {
-				env := output.NewSuccess(user, "me.get", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Name:      %s\n", user.Name)
-			fmt.Fprintf(w, "ID:        %s\n", user.ID)
-			if user.LoginID != "" {
-				fmt.Fprintf(w, "Login ID:  %s\n", user.LoginID)
-			}
-			if user.Email != nil && *user.Email != "" {
-				fmt.Fprintf(w, "Email:     %s\n", *user.Email)
-			}
-			if user.ShortName != "" {
-				fmt.Fprintf(w, "Short Name: %s\n", user.ShortName)
-			}
-			return nil
+			return writeOutput(cmd.OutOrStdout(), cfg, user, "me.get", jsonMode, func(w io.Writer) error {
+				// Human output
+				fmt.Fprintf(w, "Name:      %s\n", user.Name)
+				fmt.Fprintf(w, "ID:        %s\n", user.ID)
+				if user.LoginID != "" {
+					fmt.Fprintf(w, "Login ID:  %s\n", user.LoginID)
+				}
+				if user.Email != nil && *user.Email != "" {
+					fmt.Fprintf(w, "Email:     %s\n", *user.Email)
+				}
+				if user.ShortName != "" {
+					fmt.Fprintf(w, "Short Name: %s\n", user.ShortName)
+				}
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -101,45 +88,31 @@ func newMeActivityCmd() *cobra.Command {
 		Use:   "activity",
 		Short: "Show recent activity stream",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
-			}
-
-			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
-
-			items, err := canvas.GetActivityStream(cmd.Context(), client)
+			ctx := cmd.Context()
+			client, err := getClientFromContext(ctx)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "me.activity")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
 				return err
 			}
+			cfg := GetConfig(ctx)
 
-			if jsonMode {
-				env := output.NewSuccess(items, "me.activity", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+			jsonMode, _ := cmd.Flags().GetBool("json")
+
+			items, err := canvas.GetActivityStream(ctx, client)
+			if err != nil {
+				return writeError(cmd.OutOrStdout(), err, "me.activity", jsonMode)
 			}
 
-			// Human output
-			w := cmd.OutOrStdout()
-			for _, item := range items {
-				fmt.Fprintf(w, "[%s] %s\n", item.Type, item.Title)
-				if item.Message != "" {
-					fmt.Fprintf(w, "  %s\n", item.Message)
+			return writeOutput(cmd.OutOrStdout(), cfg, items, "me.activity", jsonMode, func(w io.Writer) error {
+				// Human output
+				for _, item := range items {
+					fmt.Fprintf(w, "[%s] %s\n", item.Type, item.Title)
+					if item.Message != "" {
+						fmt.Fprintf(w, "  %s\n", item.Message)
+					}
+					fmt.Fprintf(w, "  Created: %s\n", item.CreatedAt)
 				}
-				fmt.Fprintf(w, "  Created: %s\n", item.CreatedAt)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -152,45 +125,31 @@ func newMeTodoCmd() *cobra.Command {
 		Use:   "todo",
 		Short: "Show todo items",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
-			}
-
-			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
-
-			items, err := canvas.GetTodoItems(cmd.Context(), client)
+			ctx := cmd.Context()
+			client, err := getClientFromContext(ctx)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "me.todo")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
 				return err
 			}
+			cfg := GetConfig(ctx)
 
-			if jsonMode {
-				env := output.NewSuccess(items, "me.todo", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+			jsonMode, _ := cmd.Flags().GetBool("json")
+
+			items, err := canvas.GetTodoItems(ctx, client)
+			if err != nil {
+				return writeError(cmd.OutOrStdout(), err, "me.todo", jsonMode)
 			}
 
-			// Human output
-			w := cmd.OutOrStdout()
-			for _, item := range items {
-				dueStr := "no due date"
-				if item.DueDate != nil {
-					dueStr = *item.DueDate
+			return writeOutput(cmd.OutOrStdout(), cfg, items, "me.todo", jsonMode, func(w io.Writer) error {
+				// Human output
+				for _, item := range items {
+					dueStr := "no due date"
+					if item.DueDate != nil {
+						dueStr = *item.DueDate
+					}
+					fmt.Fprintf(w, "[%s] %s (due: %s)\n", item.Type, item.Title, dueStr)
 				}
-				fmt.Fprintf(w, "[%s] %s (due: %s)\n", item.Type, item.Title, dueStr)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -203,45 +162,31 @@ func newMeUpcomingCmd() *cobra.Command {
 		Use:   "upcoming",
 		Short: "Show upcoming events",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
-			}
-
-			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
-
-			items, err := canvas.GetUpcomingEvents(cmd.Context(), client)
+			ctx := cmd.Context()
+			client, err := getClientFromContext(ctx)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "me.upcoming")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
 				return err
 			}
+			cfg := GetConfig(ctx)
 
-			if jsonMode {
-				env := output.NewSuccess(items, "me.upcoming", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+			jsonMode, _ := cmd.Flags().GetBool("json")
+
+			items, err := canvas.GetUpcomingEvents(ctx, client)
+			if err != nil {
+				return writeError(cmd.OutOrStdout(), err, "me.upcoming", jsonMode)
 			}
 
-			// Human output
-			w := cmd.OutOrStdout()
-			for _, item := range items {
-				fmt.Fprintf(w, "[%s] %s\n", item.Type, item.Title)
-				fmt.Fprintf(w, "  Start: %s\n", item.StartAt)
-				if item.EndAt != "" {
-					fmt.Fprintf(w, "  End:   %s\n", item.EndAt)
+			return writeOutput(cmd.OutOrStdout(), cfg, items, "me.upcoming", jsonMode, func(w io.Writer) error {
+				// Human output
+				for _, item := range items {
+					fmt.Fprintf(w, "[%s] %s\n", item.Type, item.Title)
+					fmt.Fprintf(w, "  Start: %s\n", item.StartAt)
+					if item.EndAt != "" {
+						fmt.Fprintf(w, "  End:   %s\n", item.EndAt)
+					}
 				}
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")

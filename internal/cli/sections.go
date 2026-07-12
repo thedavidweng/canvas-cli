@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -27,10 +28,12 @@ func newSectionsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List sections for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			ctx := cmd.Context()
+			client, err := getClientFromContext(ctx)
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(ctx)
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -38,42 +41,26 @@ func newSectionsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
-			sections, err := canvas.ListSections(cmd.Context(), client, courseID)
+			sections, err := canvas.ListSections(ctx, client, courseID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "sections.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
+				return writeError(cmd.OutOrStdout(), err, "sections.list", jsonMode)
 			}
 
-			if jsonMode {
-				env := output.NewSuccess(sections, "sections.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode: table output
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Name", "Course ID", "Total Students"},
-			}
-			for _, s := range sections {
-				total := ""
-				if s.TotalStudents != nil {
-					total = fmt.Sprintf("%d", *s.TotalStudents)
+			return writeOutput(cmd.OutOrStdout(), cfg, sections, "sections.list", jsonMode, func(w io.Writer) error {
+				// Human mode: table output
+				tbl := output.Table{
+					Headers: []string{"ID", "Name", "Course ID", "Total Students"},
 				}
-				tbl.Rows = append(tbl.Rows, []string{s.ID, s.Name, s.CourseID, total})
-			}
-			return tbl.Render(w, false)
+				for _, s := range sections {
+					total := ""
+					if s.TotalStudents != nil {
+						total = fmt.Sprintf("%d", *s.TotalStudents)
+					}
+					tbl.Rows = append(tbl.Rows, []string{s.ID, s.Name, s.CourseID, total})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

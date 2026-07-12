@@ -59,7 +59,7 @@ func NewDoctorCmd() *cobra.Command {
 			checks = append(checks, checkBaseURL(cfg))
 
 			// 5. API connectivity and token validity check
-			checks = append(checks, checkAPIAndToken(cfg, timeout))
+			checks = append(checks, checkAPIAndToken(cmd.Context(), cfg, timeout))
 
 			// 6. Write safety check
 			checks = append(checks, checkWriteSafety(cfg))
@@ -235,7 +235,7 @@ func checkBaseURL(cfg *config.ResolvedConfig) DoctorCheck {
 	}
 }
 
-func checkAPIAndToken(cfg *config.ResolvedConfig, timeout time.Duration) DoctorCheck {
+func checkAPIAndToken(ctx context.Context, cfg *config.ResolvedConfig, timeout time.Duration) DoctorCheck {
 	if cfg == nil || cfg.BaseURL == "" || (cfg.Token == "" && cfg.Cookie == "") {
 		return DoctorCheck{
 			Check:   "api_and_token",
@@ -248,7 +248,6 @@ func checkAPIAndToken(cfg *config.ResolvedConfig, timeout time.Duration) DoctorC
 	if cfg.Token == "" && cfg.Cookie != "" {
 		client.WithCookie(cfg.Cookie, cfg.CSRFToken)
 	}
-	ctx := context.Background()
 	resp, err := client.Do(ctx, "GET", "/api/v1/users/self", nil, nil)
 	if err != nil {
 		return DoctorCheck{

@@ -248,3 +248,19 @@ func TestEnrollmentsList_CourseRequired(t *testing.T) {
 		t.Errorf("expected error about --course, got: %v", err)
 	}
 }
+
+func TestEnrollmentsList_NilConfig(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := newEnrollmentsListCmd()
+	cmd.SetContext(context.Background()) // no config
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error when config is nil, got nil")
+	}
+	if !strings.Contains(err.Error(), "no config loaded") {
+		t.Errorf("expected 'no config loaded' in error, got: %v", err)
+	}
+}

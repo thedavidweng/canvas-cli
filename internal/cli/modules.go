@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 
 	"github.com/spf13/cobra"
@@ -34,10 +35,11 @@ func newModulesListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List modules for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			courseID, _ := cmd.Flags().GetString("course")
@@ -45,43 +47,26 @@ func newModulesListCmd() *cobra.Command {
 				return fmt.Errorf("--course is required")
 			}
 
-			client := newClientFromCfg(cfg)
 			modules, _, err := canvas.ListModules(cmd.Context(), client, courseID, url.Values{})
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "modules.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
+				return writeError(cmd.OutOrStdout(), err, "modules.list", jsonMode)
 			}
 
-			if jsonMode {
-				env := output.NewSuccess(modules, "modules.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Name", "Position", "Published", "Items"},
-			}
-			for _, m := range modules {
-				published := "no"
-				if m.Published {
-					published = "yes"
+			return writeOutput(cmd.OutOrStdout(), cfg, modules, "modules.list", jsonMode, func(w io.Writer) error {
+				tbl := output.Table{
+					Headers: []string{"ID", "Name", "Position", "Published", "Items"},
 				}
-				tbl.Rows = append(tbl.Rows, []string{
-					m.ID, m.Name, fmt.Sprintf("%d", m.Position), published, fmt.Sprintf("%d", m.ItemsCount),
-				})
-			}
-			return tbl.Render(w, false)
+				for _, m := range modules {
+					published := "no"
+					if m.Published {
+						published = "yes"
+					}
+					tbl.Rows = append(tbl.Rows, []string{
+						m.ID, m.Name, fmt.Sprintf("%d", m.Position), published, fmt.Sprintf("%d", m.ItemsCount),
+					})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -95,10 +80,11 @@ func newModulesGetCmd() *cobra.Command {
 		Short: "Get a module by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			courseID, _ := cmd.Flags().GetString("course")
@@ -107,36 +93,19 @@ func newModulesGetCmd() *cobra.Command {
 			}
 			moduleID := args[0]
 
-			client := newClientFromCfg(cfg)
 			mod, err := canvas.GetModule(cmd.Context(), client, courseID, moduleID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "modules.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
+				return writeError(cmd.OutOrStdout(), err, "modules.get", jsonMode)
 			}
 
-			if jsonMode {
-				env := output.NewSuccess(mod, "modules.get", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "ID:        %s\n", mod.ID)
-			fmt.Fprintf(w, "Name:      %s\n", mod.Name)
-			fmt.Fprintf(w, "Position:  %d\n", mod.Position)
-			fmt.Fprintf(w, "Published: %v\n", mod.Published)
-			fmt.Fprintf(w, "Items:     %d\n", mod.ItemsCount)
-			return nil
+			return writeOutput(cmd.OutOrStdout(), cfg, mod, "modules.get", jsonMode, func(w io.Writer) error {
+				fmt.Fprintf(w, "ID:        %s\n", mod.ID)
+				fmt.Fprintf(w, "Name:      %s\n", mod.Name)
+				fmt.Fprintf(w, "Position:  %d\n", mod.Position)
+				fmt.Fprintf(w, "Published: %v\n", mod.Published)
+				fmt.Fprintf(w, "Items:     %d\n", mod.ItemsCount)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -149,10 +118,11 @@ func newModulesItemsCmd() *cobra.Command {
 		Use:   "items",
 		Short: "List items in a module",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			courseID, _ := cmd.Flags().GetString("course")
@@ -164,37 +134,20 @@ func newModulesItemsCmd() *cobra.Command {
 				return fmt.Errorf("--module is required")
 			}
 
-			client := newClientFromCfg(cfg)
 			items, _, err := canvas.ListModuleItems(cmd.Context(), client, courseID, moduleID, url.Values{})
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "modules.items")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "modules.items", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, items, "modules.items", jsonMode, func(w io.Writer) error {
+				tbl := output.Table{
+					Headers: []string{"ID", "Title", "Type", "Position"},
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(items, "modules.items", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Title", "Type", "Position"},
-			}
-			for _, item := range items {
-				tbl.Rows = append(tbl.Rows, []string{item.ID, item.Title, item.Type, fmt.Sprintf("%d", item.Position)})
-			}
-			return tbl.Render(w, false)
+				for _, item := range items {
+					tbl.Rows = append(tbl.Rows, []string{item.ID, item.Title, item.Type, fmt.Sprintf("%d", item.Position)})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -209,10 +162,11 @@ func newModulesItemCmd() *cobra.Command {
 		Short: "Get a module item by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			courseID, _ := cmd.Flags().GetString("course")
@@ -225,46 +179,29 @@ func newModulesItemCmd() *cobra.Command {
 			}
 			itemID := args[0]
 
-			client := newClientFromCfg(cfg)
 			item, err := canvas.GetModuleItem(cmd.Context(), client, courseID, moduleID, itemID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "modules.item")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
+				return writeError(cmd.OutOrStdout(), err, "modules.item", jsonMode)
 			}
 
-			if jsonMode {
-				env := output.NewSuccess(item, "modules.item", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "ID:         %s\n", item.ID)
-			fmt.Fprintf(w, "Title:      %s\n", item.Title)
-			fmt.Fprintf(w, "Type:       %s\n", item.Type)
-			fmt.Fprintf(w, "Position:   %d\n", item.Position)
-			fmt.Fprintf(w, "ContentID:  %s\n", item.ContentID)
-			fmt.Fprintf(w, "HTMLURL:    %s\n", item.HTMLURL)
-			published := "n/a"
-			if item.Published != nil {
-				if *item.Published {
-					published = "yes"
-				} else {
-					published = "no"
+			return writeOutput(cmd.OutOrStdout(), cfg, item, "modules.item", jsonMode, func(w io.Writer) error {
+				fmt.Fprintf(w, "ID:         %s\n", item.ID)
+				fmt.Fprintf(w, "Title:      %s\n", item.Title)
+				fmt.Fprintf(w, "Type:       %s\n", item.Type)
+				fmt.Fprintf(w, "Position:   %d\n", item.Position)
+				fmt.Fprintf(w, "ContentID:  %s\n", item.ContentID)
+				fmt.Fprintf(w, "HTMLURL:    %s\n", item.HTMLURL)
+				published := "n/a"
+				if item.Published != nil {
+					if *item.Published {
+						published = "yes"
+					} else {
+						published = "no"
+					}
 				}
-			}
-			fmt.Fprintf(w, "Published:  %s\n", published)
-			return nil
+				fmt.Fprintf(w, "Published:  %s\n", published)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -345,7 +282,7 @@ func runModulePublish(cmd *cobra.Command, args []string, published bool) error {
 	if !published {
 		action = "unpublished"
 	}
-	writeAudit(cfg, fmt.Sprintf("modules.%s", action), "PUT", path, fmt.Sprintf(`{"module":{"published":%v}}`, published), false)
+	writeAudit(cfg, fmt.Sprintf("modules.%s", action), "PUT", path, fmt.Sprintf(`{"module":{"published":%v}}`, published), false, 200, true)
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Module %s %s\n", moduleID, action)
 	return nil

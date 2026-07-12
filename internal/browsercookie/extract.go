@@ -10,9 +10,9 @@ import (
 	"github.com/browserutils/kooky"
 )
 
-// KOOKY_AVAILABLE indicates whether browser cookie extraction is compiled in.
+// Available indicates whether browser cookie extraction is compiled in.
 // Always true when the kooky dependency is present.
-const KOOKY_AVAILABLE = true
+const Available = true
 
 // Known session cookie names for Canvas LMS.
 var sessionCookieNames = []string{

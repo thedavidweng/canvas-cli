@@ -478,7 +478,7 @@ func promptCookieAuth(ctx context.Context, w io.Writer, baseURL, browserOverride
 
 	host := extractHost(baseURL)
 
-	if !browsercookie.KOOKY_AVAILABLE {
+	if !browsercookie.Available {
 		fmt.Fprintln(w, "Browser cookie auto-extraction is not available on this platform.")
 		fmt.Fprintln(w, "Copy the session cookie from your browser:")
 		fmt.Fprintln(w, "  DevTools -> Application -> Cookies -> your Canvas domain")

@@ -2,12 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
-	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
 
@@ -31,10 +31,11 @@ func newAnnouncementsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List announcements for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -42,35 +43,19 @@ func newAnnouncementsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
 			announcements, _, err := canvas.ListAnnouncements(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "announcements.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "announcements.list", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, announcements, "announcements.list", jsonMode, func(w io.Writer) error {
+				// Human output
+				for _, a := range announcements {
+					fmt.Fprintf(w, "%s\t%s\n", a.ID, a.Title)
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(announcements, "announcements.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human output
-			w := cmd.OutOrStdout()
-			for _, a := range announcements {
-				fmt.Fprintf(w, "%s\t%s\n", a.ID, a.Title)
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -84,10 +69,11 @@ func newAnnouncementsGetCmd() *cobra.Command {
 		Short: "Get an announcement by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			courseID, _ := cmd.Flags().GetString("course")
@@ -96,40 +82,24 @@ func newAnnouncementsGetCmd() *cobra.Command {
 			}
 			announcementID := args[0]
 
-			client := newClientFromCfg(cfg)
 			topic, err := canvas.GetAnnouncement(cmd.Context(), client, courseID, announcementID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "announcements.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "announcements.get", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, topic, "announcements.get", jsonMode, func(w io.Writer) error {
+				// Human mode
+				fmt.Fprintf(w, "ID:       %s\n", topic.ID)
+				fmt.Fprintf(w, "Title:    %s\n", topic.Title)
+				fmt.Fprintf(w, "Message:  %s\n", topic.Message)
+				postedAt := "n/a"
+				if topic.PostedAt != nil {
+					postedAt = *topic.PostedAt
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(topic, "announcements.get", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "ID:       %s\n", topic.ID)
-			fmt.Fprintf(w, "Title:    %s\n", topic.Title)
-			fmt.Fprintf(w, "Message:  %s\n", topic.Message)
-			postedAt := "n/a"
-			if topic.PostedAt != nil {
-				postedAt = *topic.PostedAt
-			}
-			fmt.Fprintf(w, "PostedAt: %s\n", postedAt)
-			fmt.Fprintf(w, "UserName: %s\n", topic.UserName)
-			return nil
+				fmt.Fprintf(w, "PostedAt: %s\n", postedAt)
+				fmt.Fprintf(w, "UserName: %s\n", topic.UserName)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -142,10 +112,11 @@ func newAnnouncementsCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create an announcement for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -185,13 +156,12 @@ func newAnnouncementsCreateCmd() *cobra.Command {
 				return nil
 			}
 
-			client := newClientFromCfg(cfg)
 			topic, err := canvas.CreateAnnouncement(cmd.Context(), client, courseID, title, string(body))
 			if err != nil {
 				return err
 			}
 
-			writeAudit(cfg, "announcements.create", "POST", path, string(body), false)
+			writeAudit(cfg, "announcements.create", "POST", path, string(body), false, 200, true)
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Announcement created (ID: %s, title: %s)\n", topic.ID, topic.Title)
 			return nil

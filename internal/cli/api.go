@@ -168,15 +168,7 @@ func handlePaginatedRequest(cmd *cobra.Command, client *canvas.Client, path stri
 
 	items, pagMeta, err := canvas.Paginate[any](cmd.Context(), client, path, query, limit, pageSize)
 	if err != nil {
-		if jsonMode {
-			env := output.NewError(canvas.ErrorInfo{
-				Code:     "CANVAS_API_ERROR",
-				Message:  err.Error(),
-				Category: "api",
-			}, "api.get")
-			return output.WriteJSON(cmd.OutOrStdout(), env, false)
-		}
-		return fmt.Errorf("pagination failed: %w", err)
+		return writeError(cmd.OutOrStdout(), fmt.Errorf("pagination failed: %w", err), "api.get", jsonMode)
 	}
 
 	if rawMode {
@@ -283,7 +275,7 @@ func newApiPostCmd() *cobra.Command {
 				return fmt.Errorf("failed to read response: %w", err)
 			}
 
-			writeAudit(cfg, "api.post", "POST", path, string(payload), false)
+			writeAudit(cfg, "api.post", "POST", path, string(payload), false, resp.StatusCode, resp.StatusCode < 400)
 
 			if resp.StatusCode >= 400 {
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
@@ -389,7 +381,7 @@ func newApiPutCmd() *cobra.Command {
 				return fmt.Errorf("failed to read response: %w", err)
 			}
 
-			writeAudit(cfg, "api.put", "PUT", path, string(payload), false)
+			writeAudit(cfg, "api.put", "PUT", path, string(payload), false, resp.StatusCode, resp.StatusCode < 400)
 
 			if resp.StatusCode >= 400 {
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
@@ -483,7 +475,7 @@ func newApiDeleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to read response: %w", err)
 			}
 
-			writeAudit(cfg, "api.delete", "DELETE", path, "", false)
+			writeAudit(cfg, "api.delete", "DELETE", path, "", false, resp.StatusCode, resp.StatusCode < 400)
 
 			if resp.StatusCode >= 400 {
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)

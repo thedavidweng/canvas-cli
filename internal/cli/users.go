@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 
 	"github.com/spf13/cobra"
@@ -28,10 +29,11 @@ func newUsersListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List users in a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -46,40 +48,22 @@ func newUsersListCmd() *cobra.Command {
 				query.Set("enrollment_type[]", enrollmentType)
 			}
 
-			client := newClientFromCfg(cfg)
-
 			users, _, err := canvas.ListUsers(cmd.Context(), client, courseID, canvas.RequestOptions{
 				Query: query,
 			})
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "users.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "users.list", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, users, "users.list", jsonMode, func(w io.Writer) error {
+				tbl := output.Table{
+					Headers: []string{"ID", "Name", "Login ID"},
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(users, "users.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode: table output
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Name", "Login ID"},
-			}
-			for _, u := range users {
-				tbl.Rows = append(tbl.Rows, []string{u.ID, u.Name, u.LoginID})
-			}
-			return tbl.Render(w, false)
+				for _, u := range users {
+					tbl.Rows = append(tbl.Rows, []string{u.ID, u.Name, u.LoginID})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

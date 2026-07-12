@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -27,10 +28,12 @@ func newRubricsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List rubrics for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			ctx := cmd.Context()
+			client, err := getClientFromContext(ctx)
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(ctx)
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -38,38 +41,22 @@ func newRubricsListCmd() *cobra.Command {
 			}
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			client := newClientFromCfg(cfg)
 
-			rubrics, err := canvas.ListRubrics(cmd.Context(), client, courseID)
+			rubrics, err := canvas.ListRubrics(ctx, client, courseID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "rubrics.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "rubrics.list", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, rubrics, "rubrics.list", jsonMode, func(w io.Writer) error {
+				// Human mode: table output
+				tbl := output.Table{
+					Headers: []string{"ID", "Title", "Points Possible"},
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(rubrics, "rubrics.list", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			// Human mode: table output
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Title", "Points Possible"},
-			}
-			for _, r := range rubrics {
-				tbl.Rows = append(tbl.Rows, []string{r.ID, r.Title, fmt.Sprintf("%.0f", r.PointsPossible)})
-			}
-			return tbl.Render(w, false)
+				for _, r := range rubrics {
+					tbl.Rows = append(tbl.Rows, []string{r.ID, r.Title, fmt.Sprintf("%.0f", r.PointsPossible)})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

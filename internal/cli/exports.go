@@ -31,10 +31,11 @@ Supported formats:
 The export is asynchronous — the CLI polls until complete, then downloads
 the file to the current directory (or --out path).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			courseID, _ := cmd.Flags().GetString("course")
@@ -49,7 +50,6 @@ the file to the current directory (or --out path).`,
 				return fmt.Errorf("--format is required (epub, common_cartridge, qti, zip)")
 			}
 
-			client := newClientFromCfg(cfg)
 			w := cmd.OutOrStdout()
 
 			if format == "epub" {
@@ -74,10 +74,11 @@ func newCoursesExportsCmd() *cobra.Command {
 		Use:   "exports",
 		Short: "List past content exports",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := GetConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("no config loaded")
+			client, err := getClientFromContext(cmd.Context())
+			if err != nil {
+				return err
 			}
+			cfg := GetConfig(cmd.Context())
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			courseID, _ := cmd.Flags().GetString("course")
@@ -86,37 +87,20 @@ func newCoursesExportsCmd() *cobra.Command {
 				return fmt.Errorf("--course is required")
 			}
 
-			client := newClientFromCfg(cfg)
-
 			exports, _, err := canvas.ListContentExports(cmd.Context(), client, courseID)
 			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "courses.exports")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeError(cmd.OutOrStdout(), err, "courses.exports", jsonMode)
+			}
+
+			return writeOutput(cmd.OutOrStdout(), cfg, exports, "courses.exports", jsonMode, func(w io.Writer) error {
+				tbl := output.Table{
+					Headers: []string{"ID", "Type", "State", "Created"},
 				}
-				return err
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(exports, "courses.exports", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			w := cmd.OutOrStdout()
-			tbl := output.Table{
-				Headers: []string{"ID", "Type", "State", "Created"},
-			}
-			for _, e := range exports {
-				tbl.Rows = append(tbl.Rows, []string{e.ID, e.ExportType, e.WorkflowState, e.CreatedAt})
-			}
-			return tbl.Render(w, false)
+				for _, e := range exports {
+					tbl.Rows = append(tbl.Rows, []string{e.ID, e.ExportType, e.WorkflowState, e.CreatedAt})
+				}
+				return tbl.Render(w, false)
+			})
 		},
 	}
 
@@ -135,13 +119,11 @@ func exportEpub(ctx context.Context, client *canvas.Client, w io.Writer, courseI
 	}
 
 	if noWait {
-		if jsonMode {
-			env := output.NewSuccess(export, "courses.export")
-			return output.WriteJSON(w, env, false)
-		}
-		fmt.Fprintf(w, "Export started (ID: %s)\n", export.ID)
-		fmt.Fprintf(w, "Poll progress at: %s\n", export.ProgressURL)
-		return nil
+		return writeOutput(w, cfg, export, "courses.export", jsonMode, func(w io.Writer) error {
+			fmt.Fprintf(w, "Export started (ID: %s)\n", export.ID)
+			fmt.Fprintf(w, "Poll progress at: %s\n", export.ProgressURL)
+			return nil
+		})
 	}
 
 	// Wait for completion
@@ -183,13 +165,11 @@ func exportContent(ctx context.Context, client *canvas.Client, w io.Writer, cour
 	}
 
 	if noWait {
-		if jsonMode {
-			env := output.NewSuccess(export, "courses.export")
-			return output.WriteJSON(w, env, false)
-		}
-		fmt.Fprintf(w, "Export started (ID: %s, type: %s)\n", export.ID, export.ExportType)
-		fmt.Fprintf(w, "Poll progress at: %s\n", export.ProgressURL)
-		return nil
+		return writeOutput(w, cfg, export, "courses.export", jsonMode, func(w io.Writer) error {
+			fmt.Fprintf(w, "Export started (ID: %s, type: %s)\n", export.ID, export.ExportType)
+			fmt.Fprintf(w, "Poll progress at: %s\n", export.ProgressURL)
+			return nil
+		})
 	}
 
 	// Wait for completion
