@@ -50,7 +50,6 @@ func ListFiles(ctx context.Context, client *Client, courseID string, query url.V
 // It first fetches the file metadata from GET /api/v1/files/{fileID} to obtain
 // the download URL, then streams the file content into w.
 func DownloadFile(ctx context.Context, client *Client, fileID string, w io.Writer) error {
-	// Step 1: Get file metadata to obtain the download URL
 	resp, err := client.Do(ctx, "GET", fmt.Sprintf("/api/v1/files/%s", fileID), nil, nil)
 	if err != nil {
 		return fmt.Errorf("get file metadata %s: %w", fileID, err)
@@ -70,7 +69,6 @@ func DownloadFile(ctx context.Context, client *Client, fileID string, w io.Write
 		return fmt.Errorf("file %s: download URL is empty", fileID)
 	}
 
-	// Step 2: Download the file content from the URL.
 	// Canvas returns a full URL; extract path so client.Do does not double-prefix.
 	parsed, err := url.Parse(file.URL)
 	if err != nil {

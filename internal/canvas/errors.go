@@ -99,7 +99,6 @@ func normalizeErrorInfo(resp *http.Response, bodyBytes []byte, baseURL ...string
 		errInfo.CanvasRequestID = reqID
 	}
 
-	// Check for cookie session expiry if baseURL is provided.
 	if len(baseURL) > 0 && baseURL[0] != "" && IsCookieSessionExpired(resp, bodyBytes, baseURL[0]) {
 		errInfo.Code = "CANVAS_SESSION_EXPIRED"
 		errInfo.Message = "session expired. Re-authenticate: canvas auth login"
@@ -231,7 +230,6 @@ func isAuthRedirect(location string) bool {
 	path := strings.ToLower(u.Path)
 	host := strings.ToLower(u.Host)
 
-	// Check path prefixes that indicate auth redirects.
 	authPaths := []string{
 		"/login", "/logout", "/saml", "/cas", "/shibboleth.sso/", "/idp/",
 	}
@@ -241,7 +239,6 @@ func isAuthRedirect(location string) bool {
 		}
 	}
 
-	// Check host patterns for SSO infrastructure.
 	if strings.Contains(host, ".shibboleth.") || strings.HasPrefix(host, "shibboleth.") ||
 		strings.Contains(host, ".cas.") || strings.HasPrefix(host, "cas.") {
 		return true

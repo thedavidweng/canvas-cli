@@ -137,17 +137,14 @@ func NewRootCmd(version string) *cobra.Command {
 		return nil
 	}
 
-	// Add built-in subcommands.
 	cmd.AddCommand(newVersionCmd(version))
 	cmd.AddCommand(newCompletionCmd(cmd))
 
-	// Add Phase 1 commands.
 	cmd.AddCommand(NewAuthCmd())
 	cmd.AddCommand(NewDoctorCmd())
 	cmd.AddCommand(NewMeCmd())
 	cmd.AddCommand(NewApiCmd())
 
-	// Resource commands.
 	cmd.AddCommand(NewCoursesCmd())
 	cmd.AddCommand(NewModulesCmd())
 	cmd.AddCommand(NewAssignmentsCmd())

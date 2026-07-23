@@ -62,18 +62,15 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 		return "", fmt.Errorf("upload init response missing upload_url")
 	}
 
-	// --- Step 2: Upload file content to upload_url ---
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	// Add upload_params as form fields.
 	for key, val := range init.UploadParams {
 		if err := writer.WriteField(key, val); err != nil {
 			return "", fmt.Errorf("write upload param %s: %w", key, err)
 		}
 	}
 
-	// Add the file content.
 	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
 		return "", fmt.Errorf("create form file: %w", err)
@@ -85,7 +82,6 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 		return "", fmt.Errorf("close multipart writer: %w", err)
 	}
 
-	// Parse the upload_url to determine whether it is a full URL or a path.
 	parsedURL, err := url.Parse(init.UploadURL)
 	if err != nil {
 		return "", fmt.Errorf("parse upload_url %s: %w", init.UploadURL, err)

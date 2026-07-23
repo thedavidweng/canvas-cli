@@ -103,4 +103,4 @@ canvas files download FILE_ID --out ./resources/file.pdf
 canvas files download-course --course 123 --out ./course-files
 ```
 
-Bulk downloads should write a manifest for agent use.
+`files download-course` writes a `manifest.json` in the output directory for agent use.

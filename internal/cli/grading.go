@@ -446,7 +446,6 @@ func parseGradeCSV(path string) (map[string]string, error) {
 		return nil, fmt.Errorf("csv must have a header row and at least one data row")
 	}
 
-	// Find column indices from header
 	header := records[0]
 	userIDIdx := -1
 	scoreIdx := -1

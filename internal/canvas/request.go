@@ -18,7 +18,6 @@ func Request(ctx context.Context, client *Client, opts RequestOptions) (*Respons
 	meta := &ResponseMeta{}
 
 	if opts.Paginate {
-		// Use pagination for list endpoints
 		if opts.DecodeInto == nil {
 			return meta, fmt.Errorf("decodeInto required when paginate is true")
 		}
@@ -29,8 +28,6 @@ func Request(ctx context.Context, client *Client, opts RequestOptions) (*Respons
 			pageSize = 100
 		}
 
-		// Paginate returns []T, but DecodeInto is a *[]T
-		// We need to handle this carefully
 		items, pagMeta, err := Paginate[any](ctx, client, opts.PathOrURL, opts.Query, limit, pageSize)
 		if err != nil {
 			return meta, fmt.Errorf("pagination failed: %w", err)
@@ -38,9 +35,7 @@ func Request(ctx context.Context, client *Client, opts RequestOptions) (*Respons
 
 		meta.Pagination = pagMeta
 
-		// Decode the collected items into the target
-		// Since Paginate already decoded each page, we need to re-encode and decode
-		// to get the final result into DecodeInto
+		// Paginate decodes each page individually; re-marshal to fit DecodeInto.
 		if len(items) > 0 {
 			data, err := json.Marshal(items)
 			if err != nil {
@@ -54,23 +49,19 @@ func Request(ctx context.Context, client *Client, opts RequestOptions) (*Respons
 		return meta, nil
 	}
 
-	// Single request (non-paginated)
 	resp, err := client.DoWithHeaders(ctx, opts.Method, opts.PathOrURL, opts.Query, opts.Body, opts.Headers)
 	if err != nil {
 		return meta, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Capture rate limit meta
 	meta.RateLimit = CaptureRateMeta(resp)
 
-	// Check for errors
 	if resp.StatusCode >= 400 {
 		env := NormalizeError(resp, opts.Method)
 		return meta, fmt.Errorf("api error: %s (status %d)", env.Error.Message, env.Error.Status)
 	}
 
-	// Decode response if target is provided
 	if opts.DecodeInto != nil {
 		decoder := json.NewDecoder(resp.Body)
 		if err := decoder.Decode(opts.DecodeInto); err != nil {

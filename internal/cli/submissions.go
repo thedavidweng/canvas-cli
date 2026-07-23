@@ -459,7 +459,6 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 		}
 	}
 
-	// Write manifests into the assignment directory
 	assignDir := filepath.Join(outDir, assignmentID)
 	if mkErr := os.MkdirAll(assignDir, 0755); mkErr != nil {
 		return result, fmt.Errorf("create assignment directory: %w", mkErr)
