@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -255,35 +256,36 @@ func runModulePublish(cmd *cobra.Command, args []string, published bool) error {
 
 	moduleID := args[0]
 
-	if err := checkSafety(cfg, dryRun, confirm); err != nil {
-		return err
-	}
-
 	path := fmt.Sprintf("/api/v1/courses/%s/modules/%s", courseID, moduleID)
-
-	if dryRun {
-		preview := safety.FormatPreview(safety.Preview{
-			Method:         "PUT",
-			Path:           path,
-			ResourceIDs:    []string{courseID, moduleID},
-			PayloadSummary: fmt.Sprintf("published=%v", published),
-		})
-		fmt.Fprintln(cmd.OutOrStdout(), preview)
-		return nil
-	}
-
-	client := newClientFromCfg(cfg)
-	_, err := canvas.PublishModule(cmd.Context(), client, courseID, moduleID, published)
-	if err != nil {
-		return err
-	}
-
 	action := "published"
 	if !published {
 		action = "unpublished"
 	}
-	writeAudit(cfg, fmt.Sprintf("modules.%s", action), "PUT", path, fmt.Sprintf(`{"module":{"published":%v}}`, published), false, 200, true)
+	payload := fmt.Sprintf(`{"module":{"published":%v}}`, published)
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Module %s %s\n", moduleID, action)
-	return nil
+	spec := MutationSpec{
+		Command:        fmt.Sprintf("modules.%s", action),
+		Level:          safety.LowRiskWrite,
+		Method:         "PUT",
+		Path:           path,
+		DryRun:         dryRun,
+		Confirm:        confirm,
+		ResourceIDs:    []string{courseID, moduleID},
+		PayloadSummary: fmt.Sprintf("published=%v", published),
+		AuditBody:      payload,
+	}
+
+	return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+		func(ctx context.Context, client *canvas.Client) (any, int, error) {
+			_, err := canvas.PublishModule(ctx, client, courseID, moduleID, published)
+			if err != nil {
+				return nil, 0, err
+			}
+			return nil, 200, nil
+		},
+		func(w io.Writer, _ any) error {
+			fmt.Fprintf(w, "Module %s %s\n", moduleID, action)
+			return nil
+		},
+	)
 }

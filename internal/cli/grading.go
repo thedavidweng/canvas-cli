@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -61,51 +63,34 @@ func newGradeSetCmd() *cobra.Command {
 				return fmt.Errorf("--score is required")
 			}
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/%s", courseID, assignmentID, userID)
+			payload := fmt.Sprintf(`{"submission":{"posted_grade":"%s"}}`, score)
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "PUT",
-					Path:           path,
-					ResourceIDs:    []string{courseID, assignmentID, userID},
-					PayloadSummary: fmt.Sprintf(`{"submission":{"posted_grade":"%s"}}`, score),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "grade.set",
+				Level:          safety.HighRiskWrite,
+				Method:         "PUT",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, assignmentID, userID},
+				PayloadSummary: payload,
+				AuditBody:      payload,
 			}
 
-			client := newClientFromCfg(cfg)
-			sub, err := canvas.SetGrade(cmd.Context(), client, courseID, assignmentID, userID, score)
-			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "grade.set")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
-			}
-
-			writeAudit(cfg, "grade.set", "PUT", path,
-				fmt.Sprintf(`{"submission":{"posted_grade":"%s"}}`, score), false, 200, true)
-
-			if jsonMode {
-				env := output.NewSuccess(sub, "grade.set", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Grade set to %s for user %s on assignment %s\n", score, userID, assignmentID)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					sub, err := canvas.SetGrade(ctx, client, courseID, assignmentID, userID, score)
+					if err != nil {
+						return nil, 0, err
+					}
+					return sub, 200, nil
+				},
+				func(w io.Writer, _ any) error {
+					fmt.Fprintf(w, "Grade set to %s for user %s on assignment %s\n", score, userID, assignmentID)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -149,51 +134,34 @@ func newGradeCommentCmd() *cobra.Command {
 				return fmt.Errorf("--comment is required")
 			}
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/%s", courseID, assignmentID, userID)
+			payload := fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment)
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "PUT",
-					Path:           path,
-					ResourceIDs:    []string{courseID, assignmentID, userID},
-					PayloadSummary: fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "grade.comment",
+				Level:          safety.HighRiskWrite,
+				Method:         "PUT",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, assignmentID, userID},
+				PayloadSummary: payload,
+				AuditBody:      payload,
 			}
 
-			client := newClientFromCfg(cfg)
-			sub, err := canvas.AddComment(cmd.Context(), client, courseID, assignmentID, userID, comment)
-			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "grade.comment")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
-			}
-
-			writeAudit(cfg, "grade.comment", "PUT", path,
-				fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment), false, 200, true)
-
-			if jsonMode {
-				env := output.NewSuccess(sub, "grade.comment", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Comment added for user %s on assignment %s\n", userID, assignmentID)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					sub, err := canvas.AddComment(ctx, client, courseID, assignmentID, userID, comment)
+					if err != nil {
+						return nil, 0, err
+					}
+					return sub, 200, nil
+				},
+				func(w io.Writer, _ any) error {
+					fmt.Fprintf(w, "Comment added for user %s on assignment %s\n", userID, assignmentID)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -258,24 +226,30 @@ func newGradeImportCmd() *cobra.Command {
 				return fmt.Errorf("csv file contains no grade data")
 			}
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/update_grades", courseID, assignmentID)
 
-			if dryRun {
-				var summary strings.Builder
-				for uid, score := range gradeData {
-					fmt.Fprintf(&summary, "  user %s -> %s\n", uid, score)
-				}
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "POST",
-					Path:           path,
-					ResourceIDs:    []string{courseID, assignmentID},
-					PayloadSummary: fmt.Sprintf("%d grades:\n%s", len(gradeData), summary.String()),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
+			var summary strings.Builder
+			for uid, score := range gradeData {
+				fmt.Fprintf(&summary, "  user %s -> %s\n", uid, score)
+			}
+
+			spec := MutationSpec{
+				Command:        "grade.import",
+				Level:          safety.HighRiskWrite,
+				Method:         "POST",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, assignmentID},
+				PayloadSummary: fmt.Sprintf("%d grades:\n%s", len(gradeData), summary.String()),
+				AuditBody:      "bulk import",
+			}
+
+			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), spec)
+			if err != nil {
+				return err
+			}
+			if dryRunShortCircuit {
 				return nil
 			}
 
@@ -290,7 +264,7 @@ func newGradeImportCmd() *cobra.Command {
 			subs, err := canvas.ImportGrades(cmd.Context(), client, courseID, assignmentID, gradeData)
 			if err != nil {
 				result.Failed = len(gradeData)
-				writeAudit(cfg, "grade.import", "POST", path, "bulk import", false, 0, false)
+				RecordAudit(cfg, spec, 0, false)
 
 				if jsonMode {
 					env := output.NewError(canvas.ErrorInfo{
@@ -304,7 +278,7 @@ func newGradeImportCmd() *cobra.Command {
 			}
 
 			result.Imported = len(subs)
-			writeAudit(cfg, "grade.import", "POST", path, "bulk import", false, 200, true)
+			RecordAudit(cfg, spec, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(result, "grade.import", canvas.Meta{
@@ -370,51 +344,34 @@ func newGradeRubricCmd() *cobra.Command {
 				return fmt.Errorf("parse rubric JSON: %w", err)
 			}
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/%s", courseID, assignmentID, userID)
+			summary := fmt.Sprintf("rubric assessment with %d criteria", len(rubricAssessment))
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "PUT",
-					Path:           path,
-					ResourceIDs:    []string{courseID, assignmentID, userID},
-					PayloadSummary: fmt.Sprintf("rubric assessment with %d criteria", len(rubricAssessment)),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "grade.rubric",
+				Level:          safety.HighRiskWrite,
+				Method:         "PUT",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, assignmentID, userID},
+				PayloadSummary: summary,
+				AuditBody:      summary,
 			}
 
-			client := newClientFromCfg(cfg)
-			sub, err := canvas.GradeRubric(cmd.Context(), client, courseID, assignmentID, userID, rubricAssessment)
-			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "grade.rubric")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
-			}
-
-			writeAudit(cfg, "grade.rubric", "PUT", path,
-				fmt.Sprintf("rubric assessment with %d criteria", len(rubricAssessment)), false, 200, true)
-
-			if jsonMode {
-				env := output.NewSuccess(sub, "grade.rubric", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Rubric assessment submitted for user %s on assignment %s\n", userID, assignmentID)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					sub, err := canvas.GradeRubric(ctx, client, courseID, assignmentID, userID, rubricAssessment)
+					if err != nil {
+						return nil, 0, err
+					}
+					return sub, 200, nil
+				},
+				func(w io.Writer, _ any) error {
+					fmt.Fprintf(w, "Rubric assessment submitted for user %s on assignment %s\n", userID, assignmentID)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -446,7 +403,6 @@ func parseGradeCSV(path string) (map[string]string, error) {
 		return nil, fmt.Errorf("csv must have a header row and at least one data row")
 	}
 
-	// Find column indices from header
 	header := records[0]
 	userIDIdx := -1
 	scoreIdx := -1

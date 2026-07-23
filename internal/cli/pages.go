@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -110,11 +111,10 @@ func newPagesUpdateCmd() *cobra.Command {
 		Short: "Update a wiki page",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClientFromContext(cmd.Context())
-			if err != nil {
-				return err
-			}
 			cfg := GetConfig(cmd.Context())
+			if cfg == nil {
+				return fmt.Errorf("no config loaded")
+			}
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -134,36 +134,34 @@ func newPagesUpdateCmd() *cobra.Command {
 				return fmt.Errorf("read body file: %w", err)
 			}
 
-			if err := checkSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/pages/%s", courseID, pageURL)
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "PUT",
-					Path:           path,
-					ResourceIDs:    []string{courseID, pageURL},
-					PayloadSummary: fmt.Sprintf("body=%s", truncateString(string(body), 120)),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "pages.update",
+				Level:          safety.LowRiskWrite,
+				Method:         "PUT",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, pageURL},
+				PayloadSummary: fmt.Sprintf("body=%s", truncateString(string(body), 120)),
+				AuditBody:      string(body),
 			}
 
-			updates := map[string]any{
-				"body": string(body),
-			}
-
-			_, err = canvas.UpdatePage(cmd.Context(), client, courseID, pageURL, updates)
-			if err != nil {
-				return err
-			}
-
-			writeAudit(cfg, "pages.update", "PUT", path, string(body), false, 200, true)
-
-			fmt.Fprintf(cmd.OutOrStdout(), "Page %s updated\n", pageURL)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					updates := map[string]any{"body": string(body)}
+					_, err := canvas.UpdatePage(ctx, client, courseID, pageURL, updates)
+					if err != nil {
+						return nil, 0, err
+					}
+					return nil, 200, nil
+				},
+				func(w io.Writer, _ any) error {
+					fmt.Fprintf(w, "Page %s updated\n", pageURL)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

@@ -74,7 +74,6 @@ func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken 
 		}
 	}
 
-	// Return error if no session cookie found.
 	if sessionCookie == "" {
 		return "", csrfToken, ErrNoSessionCookie
 	}

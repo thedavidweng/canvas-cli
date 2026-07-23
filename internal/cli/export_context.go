@@ -233,7 +233,6 @@ func ExportContext(ctx context.Context, client *canvas.Client, courseID string, 
 		sections = allExportSections
 	}
 
-	// Parse --since
 	var sinceTime time.Time
 	if opts.Since != "" {
 		var err error
@@ -251,7 +250,6 @@ func ExportContext(ctx context.Context, client *canvas.Client, courseID string, 
 	}
 	totalRequests := 0
 
-	// Fetch each section sequentially, isolating errors
 	for _, section := range sections {
 		reqCount, err := fetchSection(ctx, client, courseID, section, sinceTime, result)
 		totalRequests += reqCount
@@ -453,7 +451,6 @@ func fetchPagesSection(ctx context.Context, client *canvas.Client, courseID stri
 		return reqCount, classifyError(err)
 	}
 
-	// Fetch body for each page
 	var fullPages []any
 	for _, p := range pages {
 		pageURL, _ := p["url"].(string)

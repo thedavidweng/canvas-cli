@@ -120,73 +120,16 @@ func (c *Client) doOnce(ctx context.Context, method, path string, query url.Valu
 		return nil, err
 	}
 
-	// Auth header: token takes precedence over cookie.
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	} else if c.cookie != "" {
-		req.Header.Set("Cookie", c.cookie)
-	}
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Accept", "application/json+canvas-string-ids")
-
-	// CSRF header for unsafe methods when using cookie auth.
-	if c.cookie != "" && c.token == "" && isUnsafeMethod(method) {
-		csrf := c.csrfToken
-		if csrf == "" {
-			c.csrfMu.Lock()
-			csrf = c.csrfCached
-			c.csrfMu.Unlock()
-		}
-		if csrf == "" {
-			return nil, fmt.Errorf("csrf token required for mutation with cookie auth")
-		}
-		req.Header.Set("X-CSRF-Token", csrf)
-	}
-
-	// Apply custom headers (override defaults if needed).
-	for k, vals := range headers {
-		for _, v := range vals {
-			req.Header.Set(k, v)
-		}
-	}
-
-	// Use per-request redirect policy for cookie auth to avoid mutating the shared client.
-	hc := c.httpClient
-	if c.cookie != "" && c.token == "" {
-		hc = &http.Client{
-			Transport: c.httpClient.Transport,
-			CheckRedirect: func(redirectReq *http.Request, via []*http.Request) error {
-				if isAuthRedirect(redirectReq.URL.String()) {
-					return &CookieSessionExpiredError{Location: redirectReq.URL.String()}
-				}
-				if len(via) > 0 && isUnsafeMethod(via[0].Method) {
-					return http.ErrUseLastResponse
-				}
-				redirectReq.Header.Del("Cookie")
-				redirectReq.Header.Del("Authorization")
-				redirectReq.Header.Del("X-CSRF-Token")
-				return nil
-			},
-			Timeout: c.httpClient.Timeout,
-		}
-	}
-
-	resp, err := hc.Do(req)
-	if err != nil {
-		var csErr *CookieSessionExpiredError
-		if errors.As(err, &csErr) {
-			return nil, csErr
-		}
+	if err := c.applyAuth(req, method, true); err != nil {
 		return nil, err
 	}
+	applyCustomHeaders(req, headers)
 
-	// Cache X-CSRF-Token from response header.
-	if csrf := resp.Header.Get("X-CSRF-Token"); csrf != "" {
-		c.csrfMu.Lock()
-		c.csrfCached = csrf
-		c.csrfMu.Unlock()
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
 	}
-
+	c.cacheCSRF(resp)
 	return resp, nil
 }
 
@@ -205,54 +148,76 @@ func (c *Client) DoURLWithHeaders(ctx context.Context, method, absoluteURL strin
 	}
 
 	// Only send auth headers to the same host as the configured base URL.
-	sameHost := urlHostMatches(c.baseURL, absoluteURL)
-	if sameHost {
-		if c.token != "" {
-			req.Header.Set("Authorization", "Bearer "+c.token)
-		} else if c.cookie != "" {
-			req.Header.Set("Cookie", c.cookie)
-		}
-		if c.cookie != "" && c.token == "" && isUnsafeMethod(method) {
-			csrf := c.csrfToken
-			if csrf == "" {
-				c.csrfMu.Lock()
-				csrf = c.csrfCached
-				c.csrfMu.Unlock()
-			}
-			if csrf == "" {
-				return nil, fmt.Errorf("csrf token required for mutation with cookie auth")
-			}
-			req.Header.Set("X-CSRF-Token", csrf)
-		}
+	sendAuth := urlHostMatches(c.baseURL, absoluteURL)
+	if err := c.applyAuth(req, method, sendAuth); err != nil {
+		return nil, err
 	}
+	applyCustomHeaders(req, headers)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	c.cacheCSRF(resp)
+	return resp, nil
+}
+
+// applyAuth sets auth headers (token or cookie), CSRF token for unsafe methods
+// under cookie auth, and the standard User-Agent / Accept headers.
+// When sendAuth is false, no auth or CSRF headers are added (used for
+// cross-origin DoURL requests).
+func (c *Client) applyAuth(req *http.Request, method string, sendAuth bool) error {
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/json+canvas-string-ids")
 
-	// Apply custom headers (override defaults if needed).
+	if !sendAuth {
+		return nil
+	}
+
+	// Auth header: token takes precedence over cookie.
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	} else if c.cookie != "" {
+		req.Header.Set("Cookie", c.cookie)
+	}
+
+	// CSRF header for unsafe methods when using cookie auth.
+	if c.cookie != "" && c.token == "" && isUnsafeMethod(method) {
+		csrf := c.csrfToken
+		if csrf == "" {
+			c.csrfMu.Lock()
+			csrf = c.csrfCached
+			c.csrfMu.Unlock()
+		}
+		if csrf == "" {
+			return fmt.Errorf("csrf token required for mutation with cookie auth")
+		}
+		req.Header.Set("X-CSRF-Token", csrf)
+	}
+
+	return nil
+}
+
+// applyCustomHeaders merges caller-supplied headers onto the request,
+// overriding defaults.
+func applyCustomHeaders(req *http.Request, headers http.Header) {
 	for k, vals := range headers {
 		for _, v := range vals {
 			req.Header.Set(k, v)
 		}
 	}
+}
 
-	// Per-request redirect policy for cookie auth.
+// doRequest sends req through the appropriate HTTP client. When cookie auth is
+// active, a per-request client with a credential-stripping redirect policy is
+// used to avoid mutating the shared client.
+func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	hc := c.httpClient
 	if c.cookie != "" && c.token == "" {
 		hc = &http.Client{
-			Transport: c.httpClient.Transport,
-			CheckRedirect: func(redirectReq *http.Request, via []*http.Request) error {
-				if isAuthRedirect(redirectReq.URL.String()) {
-					return &CookieSessionExpiredError{Location: redirectReq.URL.String()}
-				}
-				if len(via) > 0 && isUnsafeMethod(via[0].Method) {
-					return http.ErrUseLastResponse
-				}
-				redirectReq.Header.Del("Cookie")
-				redirectReq.Header.Del("Authorization")
-				redirectReq.Header.Del("X-CSRF-Token")
-				return nil
-			},
-			Timeout: c.httpClient.Timeout,
+			Transport:     c.httpClient.Transport,
+			CheckRedirect: c.cookieAuthRedirectPolicy,
+			Timeout:       c.httpClient.Timeout,
 		}
 	}
 
@@ -264,14 +229,33 @@ func (c *Client) DoURLWithHeaders(ctx context.Context, method, absoluteURL strin
 		}
 		return nil, err
 	}
+	return resp, nil
+}
 
+// cookieAuthRedirectPolicy is the per-request redirect policy used under
+// cookie auth. It detects session-expiry redirects, blocks redirects on
+// unsafe methods, and strips credentials from cross-origin redirects.
+func (c *Client) cookieAuthRedirectPolicy(redirectReq *http.Request, via []*http.Request) error {
+	if isAuthRedirect(redirectReq.URL.String()) {
+		return &CookieSessionExpiredError{Location: redirectReq.URL.String()}
+	}
+	if len(via) > 0 && isUnsafeMethod(via[0].Method) {
+		return http.ErrUseLastResponse
+	}
+	redirectReq.Header.Del("Cookie")
+	redirectReq.Header.Del("Authorization")
+	redirectReq.Header.Del("X-CSRF-Token")
+	return nil
+}
+
+// cacheCSRF stores the X-CSRF-Token from a response header for later
+// cookie-auth mutations.
+func (c *Client) cacheCSRF(resp *http.Response) {
 	if csrf := resp.Header.Get("X-CSRF-Token"); csrf != "" {
 		c.csrfMu.Lock()
 		c.csrfCached = csrf
 		c.csrfMu.Unlock()
 	}
-
-	return resp, nil
 }
 
 // isUnsafeMethod returns true for HTTP methods that can modify state.

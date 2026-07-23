@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -325,12 +327,6 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 				}
 			}
 
-			// Safety check: --dry-run always allowed, --read-only blocks writes, --confirm required for writes.
-			policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm, false)
-			if err := policy.Check(safety.LowRiskWrite); err != nil {
-				return err
-			}
-
 			// Build submission request for preview.
 			sub := canvas.SubmissionRequest{
 				SubmissionType: submissionType,
@@ -344,18 +340,29 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 
 			subJSON, _ := json.Marshal(sub)
 
-			// Build preview.
-			preview := safety.FormatPreview(safety.Preview{
-				Method:      "POST",
-				Path:        fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID),
-				ResourceIDs: []string{courseID, assignmentID},
-				PayloadSummary: fmt.Sprintf("type=%s body=%s",
-					submissionType, truncateString(string(subJSON), 120)),
-			})
+			auditPath := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID)
 
-			// Dry-run: show preview and exit without mutation.
-			if dryRun {
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
+			spec := MutationSpec{
+				Command:        "assignments.submit",
+				Level:          safety.LowRiskWrite,
+				Method:         "POST",
+				Path:           auditPath,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, assignmentID},
+				PayloadSummary: fmt.Sprintf("type=%s body=%s", submissionType, truncateString(string(subJSON), 120)),
+				AuditBody:      string(subJSON),
+				Resource: map[string]string{
+					"course_id":     courseID,
+					"assignment_id": assignmentID,
+				},
+			}
+
+			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), spec)
+			if err != nil {
+				return err
+			}
+			if dryRunShortCircuit {
 				return nil
 			}
 
@@ -377,17 +384,12 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 			// Submit the assignment.
 			result, err := canvas.SubmitAssignment(cmd.Context(), client, courseID, assignmentID, sub)
 			if err != nil {
-				return fmt.Errorf("submit assignment: %w", err)
+				RecordAudit(cfg, spec, 0, false)
+				return writeError(cmd.OutOrStdout(), fmt.Errorf("submit assignment: %w", err), "assignments.submit", jsonMode)
 			}
 
-			auditPath := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID)
-			auditBody, _ := json.Marshal(sub)
-			writeAuditWithResource(cfg, "assignments.submit", "POST", auditPath, string(auditBody), false, 200, true, map[string]string{
-				"course_id":     courseID,
-				"assignment_id": assignmentID,
-			})
+			RecordAudit(cfg, spec, 200, true)
 
-			// Output.
 			if jsonMode {
 				env := output.NewSuccess(result, "assignments.submit", canvas.Meta{
 					Profile: cfg.Profile,
@@ -436,37 +438,35 @@ func newAssignmentsUpdateCmd() *cobra.Command {
 
 			assignmentID := args[0]
 
-			if err := checkSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s", courseID, assignmentID)
+			payload := fmt.Sprintf(`{"assignment":{"due_at":"%s"}}`, dueAt)
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "PUT",
-					Path:           path,
-					ResourceIDs:    []string{courseID, assignmentID},
-					PayloadSummary: fmt.Sprintf("due_at=%s", dueAt),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "assignments.update",
+				Level:          safety.LowRiskWrite,
+				Method:         "PUT",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, assignmentID},
+				PayloadSummary: fmt.Sprintf("due_at=%s", dueAt),
+				AuditBody:      payload,
 			}
 
-			updates := map[string]any{
-				"due_at": dueAt,
-			}
-
-			client := newClientFromCfg(cfg)
-			_, err := canvas.UpdateAssignment(cmd.Context(), client, courseID, assignmentID, updates)
-			if err != nil {
-				return err
-			}
-
-			writeAudit(cfg, "assignments.update", "PUT", path, fmt.Sprintf(`{"assignment":{"due_at":"%s"}}`, dueAt), false, 200, true)
-
-			fmt.Fprintf(cmd.OutOrStdout(), "Assignment %s updated (due_at: %s)\n", assignmentID, dueAt)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					updates := map[string]any{"due_at": dueAt}
+					_, err := canvas.UpdateAssignment(ctx, client, courseID, assignmentID, updates)
+					if err != nil {
+						return nil, 0, err
+					}
+					return nil, 200, nil
+				},
+				func(w io.Writer, _ any) error {
+					fmt.Fprintf(w, "Assignment %s updated (due_at: %s)\n", assignmentID, dueAt)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

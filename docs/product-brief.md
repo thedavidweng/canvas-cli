@@ -6,7 +6,7 @@ Positioning:
 
 > Canvas LMS CLI for automation agents, students, and teaching teams.
 
-The project should eventually cover the main Canvas workflows that a student or teaching team uses in the browser:
+The project covers the main Canvas workflows that a student or teaching team uses in the browser:
 
 - inspect courses
 - pull modules, assignments, files, pages, announcements, discussions, calendar items, grades, and inbox conversations

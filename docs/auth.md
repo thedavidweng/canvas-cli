@@ -129,15 +129,7 @@ Re-run `canvas auth login` to get a fresh cookie.
 
 ## OAuth2
 
-OAuth2 is planned for multi-user distribution. The following commands are under consideration:
-
-```bash
-canvas auth oauth login
-canvas auth oauth callback
-canvas auth refresh
-```
-
-OAuth tokens would use OS keychain storage when feasible.
+OAuth2 login for multi-user distribution is tracked in [#16](https://github.com/thedavidweng/canvas-cli/issues/16). Not yet implemented.
 
 ## Auth commands
 

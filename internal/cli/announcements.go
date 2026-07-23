@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -112,11 +113,10 @@ func newAnnouncementsCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create an announcement for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClientFromContext(cmd.Context())
-			if err != nil {
-				return err
-			}
 			cfg := GetConfig(cmd.Context())
+			if cfg == nil {
+				return fmt.Errorf("no config loaded")
+			}
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -138,33 +138,34 @@ func newAnnouncementsCreateCmd() *cobra.Command {
 				return fmt.Errorf("read body file: %w", err)
 			}
 
-			if err := checkSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/discussion_topics", courseID)
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:      "POST",
-					Path:        path,
-					ResourceIDs: []string{courseID},
-					PayloadSummary: fmt.Sprintf("title=%q is_announcement=true body=%s",
-						title, truncateString(string(body), 120)),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "announcements.create",
+				Level:          safety.LowRiskWrite,
+				Method:         "POST",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID},
+				PayloadSummary: fmt.Sprintf("title=%q is_announcement=true body=%s", title, truncateString(string(body), 120)),
+				AuditBody:      string(body),
 			}
 
-			topic, err := canvas.CreateAnnouncement(cmd.Context(), client, courseID, title, string(body))
-			if err != nil {
-				return err
-			}
-
-			writeAudit(cfg, "announcements.create", "POST", path, string(body), false, 200, true)
-
-			fmt.Fprintf(cmd.OutOrStdout(), "Announcement created (ID: %s, title: %s)\n", topic.ID, topic.Title)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					topic, err := canvas.CreateAnnouncement(ctx, client, courseID, title, string(body))
+					if err != nil {
+						return nil, 0, err
+					}
+					return &topic, 200, nil
+				},
+				func(w io.Writer, data any) error {
+					topic := data.(*canvas.DiscussionTopic)
+					fmt.Fprintf(w, "Announcement created (ID: %s, title: %s)\n", topic.ID, topic.Title)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

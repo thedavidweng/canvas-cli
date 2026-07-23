@@ -1,6 +1,6 @@
 # Safety Model
 
-`canvas-cli` is intended to perform real Canvas writes eventually. Safety must be designed before write commands are implemented.
+`canvas-cli` performs real Canvas writes (submissions, discussion replies, inbox messages, grading, content edits, raw API). Every write command enforces the safety gates below.
 
 ## Safety levels
 

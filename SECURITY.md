@@ -40,6 +40,6 @@ Every mutation (when audit is enabled in config) writes a JSONL event to the aud
 
 - Never store tokens in repository files.
 - Support `env:CANVAS_TOKEN` config references for CI/CD environments.
-- OAuth2 is planned for multi-user distribution scenarios.
+- OAuth2 for multi-user distribution is tracked in [#16](https://github.com/thedavidweng/canvas-cli/issues/16).
 
 Report security issues privately to the repository owner.

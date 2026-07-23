@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -235,79 +236,23 @@ func newApiPostCmd() *cobra.Command {
 				return fmt.Errorf("--data is required")
 			}
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
-			// Resolve data: @file reads from file, otherwise use as-is
 			payload, err := resolveData(data)
 			if err != nil {
 				return fmt.Errorf("failed to read data: %w", err)
 			}
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "POST",
-					Path:           path,
-					PayloadSummary: string(payload),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "api.post",
+				Level:          safety.HighRiskWrite,
+				Method:         "POST",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				PayloadSummary: string(payload),
+				AuditBody:      string(payload),
 			}
 
-			client := newClientFromCfg(cfg)
-			resp, err := client.Do(cmd.Context(), "POST", path, nil, bytes.NewReader(payload))
-			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_NETWORK_ERROR",
-						Message:  err.Error(),
-						Category: "network",
-					}, "api.post")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return fmt.Errorf("request failed: %w", err)
-			}
-			defer resp.Body.Close()
-
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to read response: %w", err)
-			}
-
-			writeAudit(cfg, "api.post", "POST", path, string(payload), false, resp.StatusCode, resp.StatusCode < 400)
-
-			if resp.StatusCode >= 400 {
-				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
-				env := canvas.Envelope{
-					OK:    false,
-					Error: &errInfo,
-					Meta: canvas.Meta{
-						SchemaVersion: output.SchemaVersion,
-						Command:       "api.post",
-					},
-				}
-				if jsonMode {
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
-			}
-
-			var dataOut any
-			if err := json.Unmarshal(bodyBytes, &dataOut); err != nil {
-				dataOut = string(bodyBytes)
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(dataOut, "api.post", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "POST %s succeeded (status %d)\n", path, resp.StatusCode)
-			return nil
+			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec, bytes.NewReader(payload))
 		},
 	}
 
@@ -341,79 +286,23 @@ func newApiPutCmd() *cobra.Command {
 				return fmt.Errorf("--data is required")
 			}
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
-			// Resolve data: @file reads from file, otherwise use as-is
 			payload, err := resolveData(data)
 			if err != nil {
 				return fmt.Errorf("failed to read data: %w", err)
 			}
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "PUT",
-					Path:           path,
-					PayloadSummary: string(payload),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "api.put",
+				Level:          safety.HighRiskWrite,
+				Method:         "PUT",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				PayloadSummary: string(payload),
+				AuditBody:      string(payload),
 			}
 
-			client := newClientFromCfg(cfg)
-			resp, err := client.Do(cmd.Context(), "PUT", path, nil, bytes.NewReader(payload))
-			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_NETWORK_ERROR",
-						Message:  err.Error(),
-						Category: "network",
-					}, "api.put")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return fmt.Errorf("request failed: %w", err)
-			}
-			defer resp.Body.Close()
-
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to read response: %w", err)
-			}
-
-			writeAudit(cfg, "api.put", "PUT", path, string(payload), false, resp.StatusCode, resp.StatusCode < 400)
-
-			if resp.StatusCode >= 400 {
-				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
-				env := canvas.Envelope{
-					OK:    false,
-					Error: &errInfo,
-					Meta: canvas.Meta{
-						SchemaVersion: output.SchemaVersion,
-						Command:       "api.put",
-					},
-				}
-				if jsonMode {
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
-			}
-
-			var dataOut any
-			if err := json.Unmarshal(bodyBytes, &dataOut); err != nil {
-				dataOut = string(bodyBytes)
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(dataOut, "api.put", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "PUT %s succeeded (status %d)\n", path, resp.StatusCode)
-			return nil
+			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec, bytes.NewReader(payload))
 		},
 	}
 
@@ -442,72 +331,16 @@ func newApiDeleteCmd() *cobra.Command {
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			confirm, _ := cmd.Flags().GetBool("confirm")
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
+			spec := MutationSpec{
+				Command: "api.delete",
+				Level:   safety.HighRiskWrite,
+				Method:  "DELETE",
+				Path:    path,
+				DryRun:  dryRun,
+				Confirm: confirm,
 			}
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method: "DELETE",
-					Path:   path,
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
-			}
-
-			client := newClientFromCfg(cfg)
-			resp, err := client.Do(cmd.Context(), "DELETE", path, nil, nil)
-			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_NETWORK_ERROR",
-						Message:  err.Error(),
-						Category: "network",
-					}, "api.delete")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return fmt.Errorf("request failed: %w", err)
-			}
-			defer resp.Body.Close()
-
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to read response: %w", err)
-			}
-
-			writeAudit(cfg, "api.delete", "DELETE", path, "", false, resp.StatusCode, resp.StatusCode < 400)
-
-			if resp.StatusCode >= 400 {
-				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
-				env := canvas.Envelope{
-					OK:    false,
-					Error: &errInfo,
-					Meta: canvas.Meta{
-						SchemaVersion: output.SchemaVersion,
-						Command:       "api.delete",
-					},
-				}
-				if jsonMode {
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
-			}
-
-			var dataOut any
-			if err := json.Unmarshal(bodyBytes, &dataOut); err != nil {
-				dataOut = string(bodyBytes)
-			}
-
-			if jsonMode {
-				env := output.NewSuccess(dataOut, "api.delete", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "DELETE %s succeeded (status %d)\n", path, resp.StatusCode)
-			return nil
+			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec, nil)
 		},
 	}
 
@@ -526,4 +359,67 @@ func resolveData(data string) ([]byte, error) {
 		return os.ReadFile(filePath)
 	}
 	return []byte(data), nil
+}
+
+// rawApiMutation executes a raw API write request through the centralized
+// safety, dry-run, audit, and error-normalization pipeline. It is the shared
+// path for `api post`, `api put`, and `api delete`. The body parameter is
+// nil for DELETE and a bytes.Reader for POST/PUT.
+func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer, jsonMode bool, spec MutationSpec, body io.Reader) error {
+	dryRun, err := CheckAndPreview(cfg, w, spec)
+	if err != nil {
+		return err
+	}
+	if dryRun {
+		return nil
+	}
+
+	client := newClientFromCfg(cfg)
+	resp, err := client.Do(ctx, spec.Method, spec.Path, nil, body)
+	if err != nil {
+		RecordAudit(cfg, spec, 0, false)
+		return writeNetworkError(w, err, spec.Command, jsonMode)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		RecordAudit(cfg, spec, 0, false)
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	success := resp.StatusCode < 400
+	RecordAudit(cfg, spec, resp.StatusCode, success)
+
+	if !success {
+		errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
+		env := canvas.Envelope{
+			OK:    false,
+			Error: &errInfo,
+			Meta: canvas.Meta{
+				SchemaVersion: output.SchemaVersion,
+				Command:       spec.Command,
+			},
+		}
+		if jsonMode {
+			return output.WriteJSON(w, env, false)
+		}
+		return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
+	}
+
+	var dataOut any
+	if err := json.Unmarshal(bodyBytes, &dataOut); err != nil {
+		dataOut = string(bodyBytes)
+	}
+
+	if jsonMode {
+		env := output.NewSuccess(dataOut, spec.Command, canvas.Meta{
+			Profile: cfg.Profile,
+			BaseURL: cfg.BaseURL,
+		})
+		return output.WriteJSON(w, env, false)
+	}
+
+	fmt.Fprintf(w, "%s %s succeeded (status %d)\n", spec.Method, spec.Path, resp.StatusCode)
+	return nil
 }

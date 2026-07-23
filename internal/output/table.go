@@ -36,7 +36,6 @@ func (t Table) Render(w io.Writer, noColor bool) error {
 		}
 	}
 
-	// Write header
 	for i, h := range t.Headers {
 		if i > 0 {
 			fmt.Fprint(w, "  ")
@@ -45,7 +44,6 @@ func (t Table) Render(w io.Writer, noColor bool) error {
 	}
 	fmt.Fprintln(w)
 
-	// Write separator
 	for i := range t.Headers {
 		if i > 0 {
 			fmt.Fprint(w, "  ")
@@ -54,7 +52,6 @@ func (t Table) Render(w io.Writer, noColor bool) error {
 	}
 	fmt.Fprintln(w)
 
-	// Write rows
 	for _, row := range t.Rows {
 		for i := 0; i < numCols; i++ {
 			if i > 0 {
