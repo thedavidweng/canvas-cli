@@ -948,3 +948,126 @@ func TestHandlePaginatedRequest_HumanMode(t *testing.T) {
 		t.Errorf("expected 'Course 2' in output, got: %s", output)
 	}
 }
+
+func TestApiPost_ErrorResponseHumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/test", 403, map[string]any{
+		"error": "forbidden",
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newApiPostCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("data", `{"name":"test"}`)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, []string{"/api/v1/test"})
+	if err == nil {
+		t.Fatal("expected error for 403 in human mode, got nil")
+	}
+	if !strings.Contains(err.Error(), "api error") {
+		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
+	}
+}
+
+func TestApiPost_NonJSONResponse(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/test", 200, "plain text response")
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newApiPostCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("data", `{"name":"test"}`)
+	_ = cmd.Flags().Set("confirm", "true")
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, []string{"/api/v1/test"})
+	if err != nil {
+		t.Fatalf("api post --json with non-JSON response failed: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("failed to parse JSON envelope: %v", err)
+	}
+	if !env.OK {
+		t.Error("expected ok:true for 200 response")
+	}
+}
+
+func TestApiDelete_ErrorResponseHumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("DELETE", "/api/v1/test", 404, map[string]any{
+		"error": "not found",
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newApiDeleteCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, []string{"/api/v1/test"})
+	if err == nil {
+		t.Fatal("expected error for 404 in human mode, got nil")
+	}
+	if !strings.Contains(err.Error(), "api error") {
+		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
+	}
+}
+
+func TestApiPut_ErrorResponseHumanMode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("PUT", "/api/v1/test", 400, map[string]any{
+		"error": "bad request",
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newApiPutCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("data", `{"name":"test"}`)
+	_ = cmd.Flags().Set("confirm", "true")
+
+	err := cmd.RunE(cmd, []string{"/api/v1/test"})
+	if err == nil {
+		t.Fatal("expected error for 400 in human mode, got nil")
+	}
+	if !strings.Contains(err.Error(), "api error") {
+		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
+	}
+}
