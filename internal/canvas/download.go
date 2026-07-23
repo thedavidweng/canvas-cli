@@ -62,7 +62,13 @@ func DownloadCourseFiles(ctx context.Context, client *Client, opts DownloadCours
 			Size:        f.Size,
 		}
 
-		localPath := filepath.Join(opts.OutDir, f.Filename)
+		// Sanitize the filename to prevent path traversal — Canvas filenames
+		// are untrusted and may contain "../" or absolute paths.
+		safeName := filepath.Base(f.Filename)
+		if safeName == "." || safeName == string(filepath.Separator) {
+			safeName = fmt.Sprintf("file_%s", f.ID)
+		}
+		localPath := filepath.Join(opts.OutDir, safeName)
 		entry.LocalPath = localPath
 
 		if opts.NoOverwrite {

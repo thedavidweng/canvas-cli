@@ -243,3 +243,57 @@ func TestDownloadCourseFiles_EmptyFileList(t *testing.T) {
 		t.Errorf("Downloaded = %d, want 0", result.Downloaded)
 	}
 }
+
+func TestDownloadCourseFiles_PathTraversalSanitized(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/courses/42/files":
+			json.NewEncoder(w).Encode([]File{
+				{ID: "101", Filename: "../../.bashrc", DisplayName: "evil", Size: 5, ContentType: "text/plain"},
+				{ID: "102", Filename: "/etc/passwd", DisplayName: "absolute", Size: 5, ContentType: "text/plain"},
+			})
+		case "/api/v1/files/101":
+			fmt.Fprintf(w, `{"id":"101","url":"%s/raw/101","size":5}`, srv.URL)
+		case "/api/v1/files/102":
+			fmt.Fprintf(w, `{"id":"102","url":"%s/raw/102","size":5}`, srv.URL)
+		case "/raw/101":
+			w.Write([]byte("hello"))
+		case "/raw/102":
+			w.Write([]byte("world"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
+
+	tmpDir := t.TempDir()
+	result, err := DownloadCourseFiles(context.Background(), c, DownloadCourseFilesOptions{
+		CourseID: "42",
+		OutDir:   tmpDir,
+	})
+	if err != nil {
+		t.Fatalf("DownloadCourseFiles() error: %v", err)
+	}
+
+	if result.Downloaded != 2 {
+		t.Fatalf("Downloaded = %d, want 2", result.Downloaded)
+	}
+
+	// Files should be written inside tmpDir with sanitized names, not outside.
+	for _, name := range []string{".bashrc", "passwd"} {
+		path := filepath.Join(tmpDir, name)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected sanitized file %s to exist: %v", path, err)
+		}
+	}
+
+	// Verify no file was created outside tmpDir.
+	outsidePath := filepath.Join(filepath.Dir(tmpDir), ".bashrc")
+	if _, err := os.Stat(outsidePath); err == nil {
+		t.Errorf("traversal file should not exist at %s", outsidePath)
+	}
+}
