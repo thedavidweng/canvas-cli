@@ -12,7 +12,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
-	"github.com/thedavidweng/canvas-cli/internal/safety"
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
@@ -254,15 +253,15 @@ func TestSubmit_NoConfirm_InNonInteractiveMode_ReturnsError(t *testing.T) {
 		t.Fatal("expected error without --confirm, got nil")
 	}
 
-	safetyErr, ok := err.(*safety.SafetyError)
+	exitErr, ok := err.(interface{ ExitCode() int })
 	if !ok {
-		t.Fatalf("expected *safety.SafetyError, got %T: %v", err, err)
+		t.Fatalf("expected error with ExitCode(), got %T: %v", err, err)
 	}
-	if safetyErr.ExitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", safetyErr.ExitCode)
+	if exitErr.ExitCode() != 0 {
+		t.Errorf("expected exit code 0, got %d", exitErr.ExitCode())
 	}
-	if !strings.Contains(safetyErr.Error(), "--confirm") {
-		t.Errorf("expected error to mention --confirm, got: %s", safetyErr.Error())
+	if !strings.Contains(err.Error(), "--confirm") {
+		t.Errorf("expected error to mention --confirm, got: %s", err.Error())
 	}
 }
 
@@ -295,15 +294,15 @@ func TestSubmit_ReadOnly_ReturnsExit7(t *testing.T) {
 		t.Fatal("expected error in read-only mode, got nil")
 	}
 
-	safetyErr, ok := err.(*safety.SafetyError)
+	exitErr, ok := err.(interface{ ExitCode() int })
 	if !ok {
-		t.Fatalf("expected *safety.SafetyError, got %T: %v", err, err)
+		t.Fatalf("expected error with ExitCode(), got %T: %v", err, err)
 	}
-	if safetyErr.ExitCode != 7 {
-		t.Errorf("expected exit code 7, got %d", safetyErr.ExitCode)
+	if exitErr.ExitCode() != 7 {
+		t.Errorf("expected exit code 7, got %d", exitErr.ExitCode())
 	}
-	if !strings.Contains(safetyErr.Error(), "read-only") {
-		t.Errorf("expected 'read-only' in error, got: %s", safetyErr.Error())
+	if !strings.Contains(err.Error(), "read-only") {
+		t.Errorf("expected 'read-only' in error, got: %s", err.Error())
 	}
 }
 

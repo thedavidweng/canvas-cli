@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -158,12 +159,10 @@ func newDiscussionsReplyCmd() *cobra.Command {
 		Use:   "reply",
 		Short: "Reply to a discussion topic",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			client, err := getClientFromContext(ctx)
-			if err != nil {
-				return err
+			cfg := GetConfig(cmd.Context())
+			if cfg == nil {
+				return fmt.Errorf("no config loaded")
 			}
-			cfg := GetConfig(ctx)
 
 			courseID, _ := cmd.Flags().GetString("course")
 			did, _ := cmd.Flags().GetString("did")
@@ -181,29 +180,34 @@ func newDiscussionsReplyCmd() *cobra.Command {
 				return fmt.Errorf("--message is required")
 			}
 
-			if err := checkSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/discussion_topics/%s/entries", courseID, did)
 
-			if dryRun {
-				w := cmd.OutOrStdout()
-				fmt.Fprintf(w, "DRY RUN: would send POST %s\n", path)
-				fmt.Fprintf(w, "Body: {\"message\": %q}\n", message)
-				return nil
+			spec := MutationSpec{
+				Command:        "discussions.reply",
+				Level:          safety.LowRiskWrite,
+				Method:         "POST",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, did},
+				PayloadSummary: fmt.Sprintf(`{"message":%q}`, message),
+				AuditBody:      message,
 			}
 
-			entry, err := canvas.ReplyToDiscussion(ctx, client, courseID, did, message)
-			if err != nil {
-				return err
-			}
-
-			writeAudit(cfg, "discussions.reply", "POST", path, message, false, 200, true)
-
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Reply posted (entry %s)\n", entry.ID)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					entry, err := canvas.ReplyToDiscussion(ctx, client, courseID, did, message)
+					if err != nil {
+						return nil, 0, err
+					}
+					return &entry, 200, nil
+				},
+				func(w io.Writer, data any) error {
+					entry := data.(*canvas.DiscussionEntry)
+					fmt.Fprintf(w, "Reply posted (entry %s)\n", entry.ID)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -219,12 +223,10 @@ func newDiscussionsReplyEntryCmd() *cobra.Command {
 		Use:   "reply-entry",
 		Short: "Reply to a discussion entry",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			client, err := getClientFromContext(ctx)
-			if err != nil {
-				return err
+			cfg := GetConfig(cmd.Context())
+			if cfg == nil {
+				return fmt.Errorf("no config loaded")
 			}
-			cfg := GetConfig(ctx)
 
 			courseID, _ := cmd.Flags().GetString("course")
 			did, _ := cmd.Flags().GetString("did")
@@ -246,29 +248,34 @@ func newDiscussionsReplyEntryCmd() *cobra.Command {
 				return fmt.Errorf("--message is required")
 			}
 
-			if err := checkSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/discussion_topics/%s/entries/%s/replies", courseID, did, entryID)
 
-			if dryRun {
-				w := cmd.OutOrStdout()
-				fmt.Fprintf(w, "DRY RUN: would send POST %s\n", path)
-				fmt.Fprintf(w, "Body: {\"message\": %q}\n", message)
-				return nil
+			spec := MutationSpec{
+				Command:        "discussions.reply-entry",
+				Level:          safety.LowRiskWrite,
+				Method:         "POST",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, did, entryID},
+				PayloadSummary: fmt.Sprintf(`{"message":%q}`, message),
+				AuditBody:      message,
 			}
 
-			entry, err := canvas.ReplyToEntry(ctx, client, courseID, did, entryID, message)
-			if err != nil {
-				return err
-			}
-
-			writeAudit(cfg, "discussions.reply-entry", "POST", path, message, false, 200, true)
-
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Reply posted (entry %s)\n", entry.ID)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					entry, err := canvas.ReplyToEntry(ctx, client, courseID, did, entryID, message)
+					if err != nil {
+						return nil, 0, err
+					}
+					return &entry, 200, nil
+				},
+				func(w io.Writer, data any) error {
+					entry := data.(*canvas.DiscussionEntry)
+					fmt.Fprintf(w, "Reply posted (entry %s)\n", entry.ID)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")
@@ -285,12 +292,10 @@ func newDiscussionsCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a discussion topic for a course",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			client, err := getClientFromContext(ctx)
-			if err != nil {
-				return err
+			cfg := GetConfig(cmd.Context())
+			if cfg == nil {
+				return fmt.Errorf("no config loaded")
 			}
-			cfg := GetConfig(ctx)
 
 			courseID, _ := cmd.Flags().GetString("course")
 			if courseID == "" {
@@ -312,33 +317,34 @@ func newDiscussionsCreateCmd() *cobra.Command {
 				return fmt.Errorf("read body file: %w", err)
 			}
 
-			if err := checkSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/discussion_topics", courseID)
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:      "POST",
-					Path:        path,
-					ResourceIDs: []string{courseID},
-					PayloadSummary: fmt.Sprintf("title=%q body=%s",
-						title, truncateString(string(body), 120)),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "discussions.create",
+				Level:          safety.LowRiskWrite,
+				Method:         "POST",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID},
+				PayloadSummary: fmt.Sprintf("title=%q body=%s", title, truncateString(string(body), 120)),
+				AuditBody:      string(body),
 			}
 
-			topic, err := canvas.CreateDiscussion(ctx, client, courseID, title, string(body))
-			if err != nil {
-				return err
-			}
-
-			writeAudit(cfg, "discussions.create", "POST", path, string(body), false, 200, true)
-
-			fmt.Fprintf(cmd.OutOrStdout(), "Discussion created (ID: %s, title: %s)\n", topic.ID, topic.Title)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					topic, err := canvas.CreateDiscussion(ctx, client, courseID, title, string(body))
+					if err != nil {
+						return nil, 0, err
+					}
+					return &topic, 200, nil
+				},
+				func(w io.Writer, data any) error {
+					topic := data.(*canvas.DiscussionTopic)
+					fmt.Fprintf(w, "Discussion created (ID: %s, title: %s)\n", topic.ID, topic.Title)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

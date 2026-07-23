@@ -567,12 +567,12 @@ func TestGolden_ReadOnly_BlocksWrite(t *testing.T) {
 		t.Fatal("expected --read-only to block the write operation")
 	}
 
-	safetyErr, ok := err.(*safety.SafetyError)
+	exitErr, ok := err.(interface{ ExitCode() int })
 	if !ok {
-		t.Fatalf("expected *safety.SafetyError, got %T: %v", err, err)
+		t.Fatalf("expected error with ExitCode(), got %T: %v", err, err)
 	}
-	if safetyErr.ExitCode != 7 {
-		t.Errorf("expected exit code 7, got %d", safetyErr.ExitCode)
+	if exitErr.ExitCode() != 7 {
+		t.Errorf("expected exit code 7, got %d", exitErr.ExitCode())
 	}
 
 	// Verify no POST request was sent.

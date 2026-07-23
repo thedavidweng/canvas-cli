@@ -322,51 +322,34 @@ func newSubmissionsCommentCmd() *cobra.Command {
 				return fmt.Errorf("--comment is required")
 			}
 
-			if err := checkHighRiskSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/%s", courseID, assignmentID, userID)
+			payload := fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment)
 
-			if dryRun {
-				preview := safety.FormatPreview(safety.Preview{
-					Method:         "PUT",
-					Path:           path,
-					ResourceIDs:    []string{courseID, assignmentID, userID},
-					PayloadSummary: fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment),
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
-				return nil
+			spec := MutationSpec{
+				Command:        "submissions.comment",
+				Level:          safety.HighRiskWrite,
+				Method:         "PUT",
+				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
+				ResourceIDs:    []string{courseID, assignmentID, userID},
+				PayloadSummary: payload,
+				AuditBody:      payload,
 			}
 
-			client := newClientFromCfg(cfg)
-			sub, err := canvas.AddComment(cmd.Context(), client, courseID, assignmentID, userID, comment)
-			if err != nil {
-				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
-						Code:     "CANVAS_API_ERROR",
-						Message:  err.Error(),
-						Category: "api",
-					}, "submissions.comment")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
-				}
-				return err
-			}
-
-			writeAudit(cfg, "submissions.comment", "PUT", path,
-				fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment), false, 200, true)
-
-			if jsonMode {
-				env := output.NewSuccess(sub, "submissions.comment", canvas.Meta{
-					Profile: cfg.Profile,
-					BaseURL: cfg.BaseURL,
-				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
-			}
-
-			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "Comment added for user %s on assignment %s\n", userID, assignmentID)
-			return nil
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+				func(ctx context.Context, client *canvas.Client) (any, int, error) {
+					sub, err := canvas.AddComment(ctx, client, courseID, assignmentID, userID, comment)
+					if err != nil {
+						return nil, 0, err
+					}
+					return sub, 200, nil
+				},
+				func(w io.Writer, _ any) error {
+					fmt.Fprintf(w, "Comment added for user %s on assignment %s\n", userID, assignmentID)
+					return nil
+				},
+			)
 		},
 	}
 	cmd.Flags().String("course", "", "course ID (required)")

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -150,26 +149,6 @@ func newFilesDownloadCmd() *cobra.Command {
 	return cmd
 }
 
-// FileDownloadResult holds the outcome of a course files download operation.
-type FileDownloadResult struct {
-	Total        int    `json:"total"`
-	Downloaded   int    `json:"downloaded"`
-	Failed       int    `json:"failed"`
-	ManifestPath string `json:"manifest_path"`
-}
-
-// FileManifestEntry represents a single file entry in the download manifest.
-type FileManifestEntry struct {
-	FileID         string `json:"file_id"`
-	Filename       string `json:"filename"`
-	DisplayName    string `json:"display_name"`
-	ContentType    string `json:"content_type"`
-	Size           int64  `json:"size"`
-	LocalPath      string `json:"local_path"`
-	DownloadStatus string `json:"download_status"`
-	Error          string `json:"error,omitempty"`
-}
-
 func newFilesDownloadCourseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download-course",
@@ -192,92 +171,15 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 			noOverwrite, _ := cmd.Flags().GetBool("no-overwrite")
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			// List all files for the course
-			files, _, err := canvas.ListFiles(cmd.Context(), client, courseID, nil)
+			result, err := canvas.DownloadCourseFiles(cmd.Context(), client, canvas.DownloadCourseFilesOptions{
+				CourseID:    courseID,
+				OutDir:      outDir,
+				NoOverwrite: noOverwrite,
+			})
 			if err != nil {
 				return writeError(cmd.OutOrStdout(), err, "files.download-course", jsonMode)
 			}
 
-			result := &FileDownloadResult{Total: len(files)}
-			var entries []FileManifestEntry
-
-			for _, f := range files {
-				entry := FileManifestEntry{
-					FileID:      f.ID,
-					Filename:    f.Filename,
-					DisplayName: f.DisplayName,
-					ContentType: f.ContentType,
-					Size:        f.Size,
-				}
-
-				localPath := filepath.Join(outDir, f.Filename)
-				entry.LocalPath = localPath
-
-				// Check --no-overwrite
-				if noOverwrite {
-					if _, statErr := os.Stat(localPath); statErr == nil {
-						entry.DownloadStatus = "skipped"
-						entries = append(entries, entry)
-						result.Downloaded++
-						continue
-					}
-				}
-
-				// Download file
-				outFile, createErr := os.Create(localPath)
-				if createErr != nil {
-					entry.DownloadStatus = "error"
-					entry.Error = createErr.Error()
-					entries = append(entries, entry)
-					result.Failed++
-					continue
-				}
-
-				dlErr := canvas.DownloadFile(cmd.Context(), client, f.ID, outFile)
-				outFile.Close()
-				if dlErr != nil {
-					entry.DownloadStatus = "error"
-					entry.Error = dlErr.Error()
-					entries = append(entries, entry)
-					result.Failed++
-					continue
-				}
-
-				entry.DownloadStatus = "ok"
-				entries = append(entries, entry)
-				result.Downloaded++
-			}
-
-			// Write manifest
-			if mkErr := os.MkdirAll(outDir, 0755); mkErr != nil {
-				return fmt.Errorf("create output directory: %w", mkErr)
-			}
-
-			manifestJSONPath := filepath.Join(outDir, "manifest.json")
-			jsonData, jsonErr := json.MarshalIndent(entries, "", "  ")
-			if jsonErr != nil {
-				return fmt.Errorf("marshal manifest: %w", jsonErr)
-			}
-			if writeErr := os.WriteFile(manifestJSONPath, jsonData, 0644); writeErr != nil {
-				return fmt.Errorf("write manifest.json: %w", writeErr)
-			}
-			result.ManifestPath = manifestJSONPath
-
-			// manifest.ndjson
-			manifestNDJSONPath := filepath.Join(outDir, "manifest.ndjson")
-			ndjsonFile, ndErr := os.Create(manifestNDJSONPath)
-			if ndErr != nil {
-				return fmt.Errorf("create manifest.ndjson: %w", ndErr)
-			}
-			defer ndjsonFile.Close()
-			enc := json.NewEncoder(ndjsonFile)
-			for _, entry := range entries {
-				if encErr := enc.Encode(entry); encErr != nil {
-					return fmt.Errorf("encode manifest.ndjson entry: %w", encErr)
-				}
-			}
-
-			// Output
 			return writeOutput(cmd.OutOrStdout(), cfg, result, "files.download-course", jsonMode, func(w io.Writer) error {
 				fmt.Fprintf(w, "Downloaded %d/%d files\n", result.Downloaded, result.Total)
 				if result.Failed > 0 {
@@ -320,23 +222,25 @@ func newFilesUploadCmd() *cobra.Command {
 			confirm, _ := cmd.Flags().GetBool("confirm")
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			// Safety check
-			if err := checkSafety(cfg, dryRun, confirm); err != nil {
-				return err
-			}
-
-			// Build preview
 			path := fmt.Sprintf("/api/v1/courses/%s/files", courseID)
-			preview := safety.FormatPreview(safety.Preview{
+
+			spec := MutationSpec{
+				Command:        "files.upload",
+				Level:          safety.LowRiskWrite,
 				Method:         "POST",
 				Path:           path,
+				DryRun:         dryRun,
+				Confirm:        confirm,
 				ResourceIDs:    []string{courseID},
 				PayloadSummary: fmt.Sprintf("file=%s folder=%s", filePath, folder),
-			})
+				AuditBody:      fmt.Sprintf(`{"file":"%s","folder":"%s"}`, filepath.Base(filePath), folder),
+			}
 
-			// Dry-run: show preview and exit
-			if dryRun {
-				fmt.Fprintln(cmd.OutOrStdout(), preview)
+			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), spec)
+			if err != nil {
+				return err
+			}
+			if dryRunShortCircuit {
 				return nil
 			}
 
@@ -347,18 +251,14 @@ func newFilesUploadCmd() *cobra.Command {
 			}
 
 			client := newClientFromCfg(cfg)
-
-			// Upload via 3-step flow
 			fileID, err := canvas.UploadFile(cmd.Context(), client, courseID, filePath, content)
 			if err != nil {
-				return fmt.Errorf("upload file: %w", err)
+				RecordAudit(cfg, spec, 0, false)
+				return writeError(cmd.OutOrStdout(), fmt.Errorf("upload file: %w", err), "files.upload", jsonMode)
 			}
 
-			// Write audit
-			writeAudit(cfg, "files.upload", "POST", path,
-				fmt.Sprintf(`{"file":"%s","folder":"%s"}`, filepath.Base(filePath), folder), false, 200, true)
+			RecordAudit(cfg, spec, 200, true)
 
-			// Output
 			result := map[string]string{
 				"id":   fileID,
 				"name": filepath.Base(filePath),
