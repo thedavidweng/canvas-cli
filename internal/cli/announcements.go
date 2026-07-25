@@ -150,7 +150,7 @@ func newAnnouncementsCreateCmd() *cobra.Command {
 				AuditBody:      string(body),
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					topic, err := canvas.CreateAnnouncement(ctx, client, courseID, title, string(body))
 					if err != nil {

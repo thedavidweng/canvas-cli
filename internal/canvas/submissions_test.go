@@ -299,7 +299,7 @@ func TestListSubmissions(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	submissions, meta, err := ListSubmissions(context.Background(), c, "42", "301", RequestOptions{})
+	submissions, meta, err := ListSubmissions(context.Background(), c, "42", "301", &RequestOptions{})
 	if err != nil {
 		t.Fatalf("ListSubmissions() error: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestListSubmissionsPagination(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	submissions, meta, err := ListSubmissions(context.Background(), c, "42", "301", RequestOptions{})
+	submissions, meta, err := ListSubmissions(context.Background(), c, "42", "301", &RequestOptions{})
 	if err != nil {
 		t.Fatalf("ListSubmissions() error: %v", err)
 	}
@@ -383,7 +383,7 @@ func TestListSubmissionsError(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	_, _, err := ListSubmissions(context.Background(), c, "42", "301", RequestOptions{})
+	_, _, err := ListSubmissions(context.Background(), c, "42", "301", &RequestOptions{})
 	if err == nil {
 		t.Fatal("expected error for 403, got nil")
 	}

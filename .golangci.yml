@@ -24,12 +24,6 @@ linters:
         - diagnostic
         - performance
         - style
-      disabled-checks:
-        # DEVIATION from canonical: pass-by-value of JSON-envelope, audit, and
-        # mutation DTOs is intentional in this one-shot CLI (no hot loops);
-        # pointer-threading them for a micro-optimization is not worth the churn.
-        - hugeParam
-        - rangeValCopy
     misspell:
       locale: US
     nolintlint:

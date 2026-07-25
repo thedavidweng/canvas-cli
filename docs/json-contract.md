@@ -9,8 +9,9 @@ Stable JSON output is a public interface. Agents and scripts can depend on it ac
   "ok": true,
   "data": [],
   "meta": {
-    "schema_version": "2026-06-12",
+    "schema_version": "2026-07-25",
     "command": "courses.list",
+    "request_id": "550e8400-e29b-41d4-a716-446655440000",
     "profile": "default",
     "base_url": "https://school.instructure.com",
     "duration_ms": 123,
@@ -44,8 +45,9 @@ Stable JSON output is a public interface. Agents and scripts can depend on it ac
     }
   },
   "meta": {
-    "schema_version": "2026-06-12",
+    "schema_version": "2026-07-25",
     "command": "assignments.list",
+    "request_id": "550e8400-e29b-41d4-a716-446655440000",
     "profile": "default",
     "base_url": "https://school.instructure.com",
     "duration_ms": 81,
@@ -53,6 +55,10 @@ Stable JSON output is a public interface. Agents and scripts can depend on it ac
   }
 }
 ```
+
+## Meta fields
+
+`meta` accompanies every response. `schema_version` (a date string), `command`, and `request_id` are always present; `request_id` is a fresh uuid v4 minted per invocation so a caller can correlate an envelope with its audit-log entry and Canvas support tickets. `duration_ms` reports the invocation's wall-clock time and appears once measured. `warnings` is optional and omitted when empty. The remaining fields (`profile`, `base_url`, `request_count`, `paginated`, `page_size`, `limit`, `rate_limit`) are additive and appear when relevant.
 
 ## Entity normalization
 

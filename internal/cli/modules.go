@@ -275,7 +275,7 @@ func runModulePublish(cmd *cobra.Command, args []string, published bool) error {
 		AuditBody:      payload,
 	}
 
-	return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+	return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 		func(ctx context.Context, client *canvas.Client) (any, int, error) {
 			_, err := canvas.PublishModule(ctx, client, courseID, moduleID, published)
 			if err != nil {

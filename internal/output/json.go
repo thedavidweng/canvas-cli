@@ -9,7 +9,7 @@ import (
 
 // WriteJSON serializes an Envelope to the writer as JSON.
 // When pretty is true the output is indented; otherwise it is compact.
-func WriteJSON(w io.Writer, envelope canvas.Envelope, pretty bool) error {
+func WriteJSON(w io.Writer, envelope *canvas.Envelope, pretty bool) error {
 	enc := json.NewEncoder(w)
 	if pretty {
 		enc.SetIndent("", "  ")

@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
+	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
 
@@ -72,6 +74,51 @@ func TestWriteOutput_JSONMode(t *testing.T) {
 	}
 	if env.Meta.Profile != "test" {
 		t.Errorf("expected profile 'test', got %q", env.Meta.Profile)
+	}
+	if env.Meta.RequestID == "" {
+		t.Error("expected request_id to be set in envelope meta")
+	}
+}
+
+func TestWriteEnvelope_StampsDurationAndRequestID(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		Profile:   "test",
+		StartTime: time.Now().Add(-50 * time.Millisecond),
+	}
+	env := output.NewSuccess(map[string]string{"k": "v"}, "courses.list")
+
+	var buf bytes.Buffer
+	if err := writeEnvelope(&buf, cfg, &env); err != nil {
+		t.Fatalf("writeEnvelope failed: %v", err)
+	}
+
+	var got canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("failed to parse envelope: %v", err)
+	}
+	if got.Meta.DurationMS <= 0 {
+		t.Errorf("expected duration_ms > 0 when StartTime is set, got %d", got.Meta.DurationMS)
+	}
+	if got.Meta.RequestID == "" {
+		t.Error("expected request_id to be set")
+	}
+}
+
+func TestWriteEnvelope_NoDurationWithoutStartTime(t *testing.T) {
+	cfg := &config.ResolvedConfig{Profile: "test"}
+	env := output.NewSuccess(map[string]string{"k": "v"}, "courses.list")
+
+	var buf bytes.Buffer
+	if err := writeEnvelope(&buf, cfg, &env); err != nil {
+		t.Fatalf("writeEnvelope failed: %v", err)
+	}
+
+	var got canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("failed to parse envelope: %v", err)
+	}
+	if got.Meta.DurationMS != 0 {
+		t.Errorf("expected duration_ms omitted when StartTime is zero, got %d", got.Meta.DurationMS)
 	}
 }
 

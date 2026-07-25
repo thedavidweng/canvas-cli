@@ -9,7 +9,7 @@ import (
 // ListUsers returns all users in a course filtered by enrollment type.
 // It sends GET /api/v1/courses/{courseID}/users with enrollment_type[]=student.
 // The opts parameter controls additional query parameters, pagination limit, and page size.
-func ListUsers(ctx context.Context, client *Client, courseID string, opts RequestOptions) ([]User, PaginationMeta, error) {
+func ListUsers(ctx context.Context, client *Client, courseID string, opts *RequestOptions) ([]User, PaginationMeta, error) {
 	query := opts.Query
 	if query == nil {
 		query = url.Values{}
@@ -19,7 +19,7 @@ func ListUsers(ctx context.Context, client *Client, courseID string, opts Reques
 	}
 
 	var users []User
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/users", courseID),
 		Query:      query,

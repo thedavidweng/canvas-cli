@@ -9,8 +9,9 @@ Canonical specification: [`docs/json-contract.md`](docs/json-contract.md).
   "ok": true,
   "data": [],
   "meta": {
-    "schema_version": "2026-06-12",
+    "schema_version": "2026-07-25",
     "command": "courses.list",
+    "request_id": "550e8400-e29b-41d4-a716-446655440000",
     "profile": "default",
     "base_url": "https://school.instructure.com",
     "duration_ms": 123,
@@ -40,11 +41,16 @@ Canonical specification: [`docs/json-contract.md`](docs/json-contract.md).
     "status": 400
   },
   "meta": {
-    "schema_version": "2026-06-12",
-    "command": "assignments.list"
+    "schema_version": "2026-07-25",
+    "command": "assignments.list",
+    "request_id": "550e8400-e29b-41d4-a716-446655440000"
   }
 }
 ```
+
+## Meta fields
+
+Every envelope carries a `meta` object. Core fields (always present): `schema_version` (a date string), `command`, and `request_id` (a fresh uuid v4 generated per invocation, for correlating logs and support tickets). `duration_ms` is the wall-clock time for the invocation and is present once measured. `warnings` is an optional array, omitted when empty. Tool-specific additive fields — `profile`, `base_url`, `request_count`, `paginated`, `page_size`, `limit`, `rate_limit` — appear when relevant.
 
 ## Error codes
 

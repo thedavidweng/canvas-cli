@@ -57,6 +57,7 @@ func NewRootCmd(version string) *cobra.Command {
 	flags.String("base-url", "", "Canvas instance base URL")
 
 	cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
+		start := time.Now()
 		configPath, _ := c.Flags().GetString("config")
 		profileName, _ := c.Flags().GetString("profile")
 		baseURLFlag, _ := c.Flags().GetString("base-url")
@@ -117,6 +118,7 @@ func NewRootCmd(version string) *cobra.Command {
 			resolved.OutputNoColor = v
 		}
 
+		resolved.StartTime = start
 		c.SetContext(WithConfig(c.Context(), resolved))
 		return nil
 	}
@@ -155,16 +157,12 @@ func newVersionCmd(version string) *cobra.Command {
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			if jsonMode {
 				pretty, _ := cmd.Flags().GetBool("pretty")
-				env := canvas.Envelope{
-					OK: true,
-					Data: map[string]string{
-						"version": version,
-						"commit":  Commit,
-						"date":    Date,
-					},
-					Meta: canvas.Meta{SchemaVersion: output.SchemaVersion, Command: "version"},
-				}
-				_ = output.WriteJSON(cmd.OutOrStdout(), env, pretty)
+				env := output.NewSuccess(map[string]string{
+					"version": version,
+					"commit":  Commit,
+					"date":    Date,
+				}, "version")
+				_ = output.WriteJSON(cmd.OutOrStdout(), &env, pretty)
 				return
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "canvas %s (commit: %s, built: %s)\n", version, Commit, Date)

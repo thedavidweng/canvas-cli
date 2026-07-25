@@ -8,7 +8,7 @@ import (
 )
 
 // SchemaVersion is the current JSON output contract version.
-const SchemaVersion = "2026-06-12"
+const SchemaVersion = "2026-07-25"
 
 // Envelope is the top-level JSON output wrapper.
 type Envelope struct {
@@ -22,6 +22,7 @@ type Envelope struct {
 type Meta struct {
 	SchemaVersion string     `json:"schema_version"`
 	Command       string     `json:"command"`
+	RequestID     string     `json:"request_id"`
 	Profile       string     `json:"profile,omitempty"`
 	BaseURL       string     `json:"base_url,omitempty"`
 	DurationMS    int64      `json:"duration_ms,omitempty"`

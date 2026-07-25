@@ -53,7 +53,8 @@ func DownloadCourseFiles(ctx context.Context, client *Client, opts DownloadCours
 		return nil, fmt.Errorf("create output directory: %w", err)
 	}
 
-	for _, f := range files {
+	for i := range files {
+		f := &files[i]
 		entry := FileManifestEntry{
 			FileID:      f.ID,
 			Filename:    f.Filename,

@@ -48,7 +48,7 @@ func newUsersListCmd() *cobra.Command {
 				query.Set("enrollment_type[]", enrollmentType)
 			}
 
-			users, _, err := canvas.ListUsers(cmd.Context(), client, courseID, canvas.RequestOptions{
+			users, _, err := canvas.ListUsers(cmd.Context(), client, courseID, &canvas.RequestOptions{
 				Query: query,
 			})
 			if err != nil {

@@ -14,7 +14,7 @@ func ListAssignments(ctx context.Context, client *Client, courseID string, query
 	}
 
 	var assignments []Assignment
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/assignments", courseID),
 		Query:      query,
@@ -33,7 +33,7 @@ func ListAssignments(ctx context.Context, client *Client, courseID string, query
 // It sends GET /api/v1/courses/{courseID}/assignments/{assignmentID}.
 func GetAssignment(ctx context.Context, client *Client, courseID, assignmentID string) (Assignment, error) {
 	var assignment Assignment
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/assignments/%s", courseID, assignmentID),
 		DecodeInto: &assignment,
@@ -53,7 +53,7 @@ func ListAssignmentGroups(ctx context.Context, client *Client, courseID string) 
 	}
 
 	var groups []AssignmentGroup
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/assignment_groups", courseID),
 		Query:      query,

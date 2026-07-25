@@ -42,7 +42,7 @@ func newEnrollmentsListCmd() *cobra.Command {
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			enrollments, _, err := canvas.ListEnrollments(ctx, client, courseID, canvas.RequestOptions{})
+			enrollments, _, err := canvas.ListEnrollments(ctx, client, courseID, &canvas.RequestOptions{})
 			if err != nil {
 				return writeError(cmd.OutOrStdout(), cfg, err, "enrollments.list", jsonMode)
 			}

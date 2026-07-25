@@ -15,7 +15,7 @@ func ListCourses(ctx context.Context, client *Client, query url.Values) ([]Cours
 	}
 
 	var courses []Course
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/courses",
 		Query:      query,
@@ -54,7 +54,7 @@ func GetCourse(ctx context.Context, client *Client, courseID string, query url.V
 	}
 
 	var course Course
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s", courseID),
 		Query:      query,
@@ -71,7 +71,7 @@ func GetCourse(ctx context.Context, client *Client, courseID string, query url.V
 // It sends GET /api/v1/courses/{courseID}/tabs.
 func ListCourseTabs(ctx context.Context, client *Client, courseID string) ([]Tab, error) {
 	var tabs []Tab
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/tabs", courseID),
 		DecodeInto: &tabs,

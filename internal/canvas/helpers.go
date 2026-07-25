@@ -10,7 +10,7 @@ import (
 // It wraps Request with Paginate=true and decodes the response into []T.
 func List[T any](ctx context.Context, client *Client, path string, query url.Values, pageSize int) ([]T, PaginationMeta, error) {
 	var items []T
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  path,
 		Query:      query,
@@ -29,7 +29,7 @@ func List[T any](ctx context.Context, client *Client, path string, query url.Val
 // It wraps Request without pagination and decodes the response into T.
 func Get[T any](ctx context.Context, client *Client, path string) (T, error) {
 	var item T
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  path,
 		DecodeInto: &item,

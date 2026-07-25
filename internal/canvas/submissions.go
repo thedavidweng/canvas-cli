@@ -27,7 +27,7 @@ var validSubmissionTypes = map[string]bool{
 // It sends GET /api/v1/courses/{courseID}/assignments/{assignmentID}/submissions/{userID}.
 func GetSubmission(ctx context.Context, client *Client, courseID, assignmentID, userID string) (Submission, error) {
 	var sub Submission
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method: "GET",
 		PathOrURL: fmt.Sprintf(
 			"/api/v1/courses/%s/assignments/%s/submissions/%s",
@@ -45,7 +45,7 @@ func GetSubmission(ctx context.Context, client *Client, courseID, assignmentID, 
 // ListSubmissions returns all submissions for an assignment in a course.
 // It sends GET /api/v1/courses/{courseID}/assignments/{assignmentID}/submissions with include[]=user.
 // The opts parameter controls additional query parameters, pagination limit, and page size.
-func ListSubmissions(ctx context.Context, client *Client, courseID, assignmentID string, opts RequestOptions) ([]Submission, PaginationMeta, error) {
+func ListSubmissions(ctx context.Context, client *Client, courseID, assignmentID string, opts *RequestOptions) ([]Submission, PaginationMeta, error) {
 	query := url.Values{}
 	for k, vs := range opts.Query {
 		for _, v := range vs {
@@ -55,7 +55,7 @@ func ListSubmissions(ctx context.Context, client *Client, courseID, assignmentID
 	query.Add("include[]", "user")
 
 	var submissions []Submission
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID),
 		Query:      query,
@@ -89,7 +89,7 @@ func SubmitAssignment(ctx context.Context, client *Client, courseID, assignmentI
 		return result, fmt.Errorf("marshal submission request: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:    "POST",
 		PathOrURL: fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions", courseID, assignmentID),
 		Body:      bytes.NewReader(body),

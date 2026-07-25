@@ -21,7 +21,7 @@ func SetGrade(ctx context.Context, client *Client, courseID, assignmentID, userI
 		return sub, fmt.Errorf("marshal grade request: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method: "PUT",
 		PathOrURL: fmt.Sprintf(
 			"/api/v1/courses/%s/assignments/%s/submissions/%s",
@@ -51,7 +51,7 @@ func AddComment(ctx context.Context, client *Client, courseID, assignmentID, use
 		return sub, fmt.Errorf("marshal comment request: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method: "PUT",
 		PathOrURL: fmt.Sprintf(
 			"/api/v1/courses/%s/assignments/%s/submissions/%s",
@@ -77,7 +77,7 @@ func GradeRubric(ctx context.Context, client *Client, courseID, assignmentID, us
 	if err != nil {
 		return sub, fmt.Errorf("marshal rubric assessment: %w", err)
 	}
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method: "PUT",
 		PathOrURL: fmt.Sprintf(
 			"/api/v1/courses/%s/assignments/%s/submissions/%s",
@@ -108,7 +108,7 @@ func ImportGrades(ctx context.Context, client *Client, courseID, assignmentID st
 	}
 
 	var submissions []Submission
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method: "POST",
 		PathOrURL: fmt.Sprintf(
 			"/api/v1/courses/%s/assignments/%s/submissions/update_grades",

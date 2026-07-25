@@ -78,7 +78,7 @@ func newGradeSetCmd() *cobra.Command {
 				AuditBody:      payload,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					sub, err := canvas.SetGrade(ctx, client, courseID, assignmentID, userID, score)
 					if err != nil {
@@ -149,7 +149,7 @@ func newGradeCommentCmd() *cobra.Command {
 				AuditBody:      payload,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					sub, err := canvas.AddComment(ctx, client, courseID, assignmentID, userID, comment)
 					if err != nil {
@@ -244,7 +244,7 @@ func newGradeImportCmd() *cobra.Command {
 				AuditBody:      "bulk import",
 			}
 
-			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), spec)
+			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), &spec)
 			if err != nil {
 				return err
 			}
@@ -262,21 +262,21 @@ func newGradeImportCmd() *cobra.Command {
 			subs, err := canvas.ImportGrades(cmd.Context(), client, courseID, assignmentID, gradeData)
 			if err != nil {
 				result.Failed = len(gradeData)
-				RecordAudit(cfg, spec, 0, false)
+				RecordAudit(cfg, &spec, 0, false)
 
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "PARTIAL_FAILURE",
 						Message:  err.Error(),
 						Category: "partial_failure",
 					}, "grade.import")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return &gradeImportPartialFailureError{msg: fmt.Sprintf("grade import failed: %v", err)}
 			}
 
 			result.Imported = len(subs)
-			RecordAudit(cfg, spec, 200, true)
+			RecordAudit(cfg, &spec, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(result, "grade.import", canvas.Meta{
@@ -284,7 +284,7 @@ func newGradeImportCmd() *cobra.Command {
 					BaseURL:  cfg.BaseURL,
 					Warnings: result.Warnings,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			fmt.Fprintf(w, "Imported %d grades for assignment %s\n", result.Imported, assignmentID)
@@ -356,7 +356,7 @@ func newGradeRubricCmd() *cobra.Command {
 				AuditBody:      summary,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					sub, err := canvas.GradeRubric(ctx, client, courseID, assignmentID, userID, rubricAssessment)
 					if err != nil {

@@ -17,8 +17,10 @@ The CLI serves both humans (table output) and agents (machine-readable output). 
   "ok": true,
   "data": <any>,
   "meta": {
-    "schema_version": "2026-06-12",
+    "schema_version": "2026-07-25",
     "command": "courses.list",
+    "request_id": "550e8400-e29b-41d4-a716-446655440000",
+    "duration_ms": 123,
     "profile": "default",
     "base_url": "https://school.instructure.com",
     "pagination": { "next": "...", "previous": "..." },
@@ -53,3 +55,13 @@ Exit codes are also part of the contract: `cli.Execute` maps each error's catego
 - Adding fields to `data` is safe; removing or renaming fields is a breaking change.
 - Agents can rely on `ok`, `error.code`, and exit codes for control flow.
 - Human output (tables) is secondary and can change freely.
+
+## Amendment (2026-07-25)
+
+The CLI fleet envelope unification (Round 2) bumps `schema_version` to `2026-07-25` and adds three meta fields to align canvas-cli with its sibling tools:
+
+- `request_id` — a uuid v4 minted once per invocation. Agents correlate an envelope with its audit-log entry and with Canvas support tickets through this id. Always present.
+- `duration_ms` — wall-clock time for the invocation, measured from command start. Present once measured.
+- `warnings` — an optional array of non-fatal notices, omitted when empty.
+
+All three are additive, so the compatibility rules above hold: adding fields is non-breaking, and existing agents that ignore unknown fields are unaffected.

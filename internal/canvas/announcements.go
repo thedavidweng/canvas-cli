@@ -19,7 +19,7 @@ func ListAnnouncements(ctx context.Context, client *Client, courseID string, que
 	query.Set("context_codes[]", fmt.Sprintf("course_%s", courseID))
 
 	var announcements []DiscussionTopic
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/announcements",
 		Query:      query,
@@ -38,7 +38,7 @@ func ListAnnouncements(ctx context.Context, client *Client, courseID string, que
 // Announcements are discussion topics, so this fetches from the discussion topics endpoint.
 func GetAnnouncement(ctx context.Context, client *Client, courseID, announcementID string) (DiscussionTopic, error) {
 	var topic DiscussionTopic
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/discussion_topics/%s", courseID, announcementID),
 		DecodeInto: &topic,
@@ -64,7 +64,7 @@ func CreateAnnouncement(ctx context.Context, client *Client, courseID, title, me
 		return topic, fmt.Errorf("marshal announcement request: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "POST",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/discussion_topics", courseID),
 		Body:       bytes.NewReader(body),

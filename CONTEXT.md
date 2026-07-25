@@ -1,23 +1,23 @@
-# canvas-cli 领域术语表
+# canvas-cli Domain Glossary
 
-## 核心守则
+## Core Creed
 
-**canvas-cli 是 Canvas LMS 网页版的替代品**，额外提供自动化便利和 agent 友好。
+**canvas-cli is a replacement for the Canvas LMS web interface**, adding automation convenience and agent-friendliness on top.
 
-## 核心概念
+## Core Concepts
 
-**canvas-cli** — Canvas LMS 的本地 CLI 工具，用于管理课程、作业、模块、文件、讨论、收件箱等。安装后的二进制文件是 `canvas`。
+**canvas-cli** — A local CLI tool for Canvas LMS, used to manage courses, assignments, modules, files, discussions, the inbox, and more. Once installed, the binary is `canvas`.
 
-## 用户
+## Users
 
-**学生** — 需要快速拉取课程工作上下文的人。
+**Student** — Someone who needs to quickly pull the context of their coursework.
 
-**教学团队** — 教师、助教、评分员、课程设计者。
+**Teaching team** — Teachers, teaching assistants, graders, and course designers.
 
-**Agent** — 自动化代理。需要确定性、可解析、可逆的行为。
+**Agent** — An automation agent. Needs deterministic, parseable, reversible behavior.
 
-## 命令设计决策
+## Command Design Decisions
 
-**安全门控** — `--read-only`、`--dry-run`、`--confirm` 三级安全机制。
+**Safety gates** — The three-tier safety mechanism: `--read-only`, `--dry-run`, `--confirm`.
 
-**原始 API 逃生舱** — `canvas api` 允许直接调用任何 Canvas API 端点。
+**Raw API escape hatch** — `canvas api` allows calling any Canvas API endpoint directly.

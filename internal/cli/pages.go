@@ -146,7 +146,7 @@ func newPagesUpdateCmd() *cobra.Command {
 				AuditBody:      string(body),
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					updates := map[string]any{"body": string(body)}
 					_, err := canvas.UpdatePage(ctx, client, courseID, pageURL, updates)

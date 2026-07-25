@@ -21,7 +21,7 @@ func UpdateAssignment(ctx context.Context, client *Client, courseID, assignmentI
 		return a, fmt.Errorf("marshal assignment update: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "PUT",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/assignments/%s", courseID, assignmentID),
 		Body:       bytes.NewReader(body),
@@ -48,7 +48,7 @@ func UpdatePage(ctx context.Context, client *Client, courseID, pageURL string, u
 		return page, fmt.Errorf("marshal page update: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "PUT",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/pages/%s", courseID, pageURL),
 		Body:       bytes.NewReader(body),
@@ -77,7 +77,7 @@ func PublishModule(ctx context.Context, client *Client, courseID, moduleID strin
 		return mod, fmt.Errorf("marshal module publish request: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "PUT",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/modules/%s", courseID, moduleID),
 		Body:       bytes.NewReader(body),

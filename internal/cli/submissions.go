@@ -97,15 +97,15 @@ func newSubmissionsListCmd() *cobra.Command {
 			}
 
 			client := newClientFromCfg(cfg)
-			submissions, _, err := canvas.ListSubmissions(cmd.Context(), client, courseID, assignmentID, canvas.RequestOptions{})
+			submissions, _, err := canvas.ListSubmissions(cmd.Context(), client, courseID, assignmentID, &canvas.RequestOptions{})
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_API_ERROR",
 						Message:  err.Error(),
 						Category: "api",
 					}, "submissions.list")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return err
 			}
@@ -115,11 +115,12 @@ func newSubmissionsListCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
-			for _, sub := range submissions {
+			for i := range submissions {
+				sub := &submissions[i]
 				userName := ""
 				if sub.User != nil {
 					userName = sub.User.Name
@@ -173,12 +174,12 @@ func newSubmissionsGetCmd() *cobra.Command {
 			sub, err := canvas.GetSubmission(cmd.Context(), client, courseID, assignmentID, userID)
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_API_ERROR",
 						Message:  err.Error(),
 						Category: "api",
 					}, "submissions.get")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return err
 			}
@@ -188,7 +189,7 @@ func newSubmissionsGetCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -253,18 +254,18 @@ func newSubmissionsDownloadCmd() *cobra.Command {
 				if pfErr, ok := err.(*PartialFailureError); ok {
 					meta.Warnings = []string{pfErr.Error()}
 					env := output.NewSuccess(result, "submissions.download", meta)
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				if err != nil {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_API_ERROR",
 						Message:  err.Error(),
 						Category: "api",
 					}, "submissions.download")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				env := output.NewSuccess(result, "submissions.download", meta)
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -334,7 +335,7 @@ func newSubmissionsCommentCmd() *cobra.Command {
 				AuditBody:      payload,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					sub, err := canvas.AddComment(ctx, client, courseID, assignmentID, userID, comment)
 					if err != nil {
@@ -363,7 +364,7 @@ func newSubmissionsCommentCmd() *cobra.Command {
 // It lists submissions, downloads each attachment into a deterministic directory
 // structure, and writes manifest.json and manifest.ndjson.
 func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, assignmentID, outDir string, opts DownloadOptions) (*DownloadResult, error) {
-	submissions, _, err := canvas.ListSubmissions(ctx, client, courseID, assignmentID, canvas.RequestOptions{})
+	submissions, _, err := canvas.ListSubmissions(ctx, client, courseID, assignmentID, &canvas.RequestOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("list submissions: %w", err)
 	}
@@ -372,7 +373,8 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 	var entries []ManifestEntry
 	var failures []error
 
-	for _, sub := range submissions {
+	for i := range submissions {
+		sub := &submissions[i]
 		sortableName := "unknown"
 		userName := ""
 		if sub.User != nil {
@@ -382,7 +384,8 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 			userName = sub.User.Name
 		}
 
-		for _, att := range sub.Attachments {
+		for j := range sub.Attachments {
+			att := &sub.Attachments[j]
 			result.Total++
 
 			entry := ManifestEntry{
@@ -457,8 +460,8 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 	}
 	defer ndjsonFile.Close()
 	enc := json.NewEncoder(ndjsonFile)
-	for _, entry := range entries {
-		if encErr := enc.Encode(entry); encErr != nil {
+	for i := range entries {
+		if encErr := enc.Encode(&entries[i]); encErr != nil {
 			return result, fmt.Errorf("encode manifest.ndjson entry: %w", encErr)
 		}
 	}
@@ -471,7 +474,7 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 }
 
 // downloadAttachment downloads a single attachment to a local file path.
-func downloadAttachment(ctx context.Context, client *canvas.Client, att canvas.Attachment, localPath string) error {
+func downloadAttachment(ctx context.Context, client *canvas.Client, att *canvas.Attachment, localPath string) error {
 	parsed, err := url.Parse(att.URL)
 	if err != nil {
 		return fmt.Errorf("parse attachment URL: %w", err)

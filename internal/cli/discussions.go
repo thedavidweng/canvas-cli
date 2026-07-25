@@ -191,7 +191,7 @@ func newDiscussionsReplyCmd() *cobra.Command {
 				AuditBody:      message,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					entry, err := canvas.ReplyToDiscussion(ctx, client, courseID, did, message)
 					if err != nil {
@@ -259,7 +259,7 @@ func newDiscussionsReplyEntryCmd() *cobra.Command {
 				AuditBody:      message,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					entry, err := canvas.ReplyToEntry(ctx, client, courseID, did, entryID, message)
 					if err != nil {
@@ -328,7 +328,7 @@ func newDiscussionsCreateCmd() *cobra.Command {
 				AuditBody:      string(body),
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					topic, err := canvas.CreateDiscussion(ctx, client, courseID, title, string(body))
 					if err != nil {

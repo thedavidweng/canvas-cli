@@ -13,8 +13,8 @@ import (
 )
 
 // helper builds a minimal AuditEvent for testing.
-func testEvent() canvas.AuditEvent {
-	return canvas.AuditEvent{
+func testEvent() *canvas.AuditEvent {
+	return &canvas.AuditEvent{
 		Time:           "2026-06-12T19:20:00Z",
 		SchemaVersion:  "2026-06-12",
 		Command:        "assignments.submit",

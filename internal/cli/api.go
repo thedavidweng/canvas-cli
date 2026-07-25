@@ -79,12 +79,12 @@ func newApiGetCmd() *cobra.Command {
 			resp, err := client.Do(cmd.Context(), "GET", path, query, nil)
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_NETWORK_ERROR",
 						Message:  err.Error(),
 						Category: "network",
 					}, "api.get")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return fmt.Errorf("request failed: %w", err)
 			}
@@ -97,16 +97,9 @@ func newApiGetCmd() *cobra.Command {
 
 			if resp.StatusCode >= 400 {
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
-				env := canvas.Envelope{
-					OK:    false,
-					Error: &errInfo,
-					Meta: canvas.Meta{
-						SchemaVersion: output.SchemaVersion,
-						Command:       "api.get",
-					},
-				}
+				env := output.NewError(&errInfo, "api.get")
 				if jsonMode {
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 			}
@@ -131,7 +124,7 @@ func newApiGetCmd() *cobra.Command {
 					meta.Warnings = extractResponseHeaders(resp)
 				}
 				env := output.NewSuccess(data, "api.get", meta)
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -184,7 +177,7 @@ func handlePaginatedRequest(cmd *cobra.Command, client *canvas.Client, path stri
 			PageSize:     pagMeta.PageSize,
 			RequestCount: pagMeta.RequestCount,
 		})
-		return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+		return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 	}
 
 	w := cmd.OutOrStdout()
@@ -245,7 +238,7 @@ func newApiPostCmd() *cobra.Command {
 				AuditBody:      string(payload),
 			}
 
-			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec, bytes.NewReader(payload))
+			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, &spec, bytes.NewReader(payload))
 		},
 	}
 
@@ -295,7 +288,7 @@ func newApiPutCmd() *cobra.Command {
 				AuditBody:      string(payload),
 			}
 
-			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec, bytes.NewReader(payload))
+			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, &spec, bytes.NewReader(payload))
 		},
 	}
 
@@ -333,7 +326,7 @@ func newApiDeleteCmd() *cobra.Command {
 				Confirm: confirm,
 			}
 
-			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, spec, nil)
+			return rawApiMutation(cmd.Context(), cfg, cmd.OutOrStdout(), jsonMode, &spec, nil)
 		},
 	}
 
@@ -358,7 +351,7 @@ func resolveData(data string) ([]byte, error) {
 // safety, dry-run, audit, and error-normalization pipeline. It is the shared
 // path for `api post`, `api put`, and `api delete`. The body parameter is
 // nil for DELETE and a bytes.Reader for POST/PUT.
-func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer, jsonMode bool, spec MutationSpec, body io.Reader) error {
+func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer, jsonMode bool, spec *MutationSpec, body io.Reader) error {
 	dryRun, err := CheckAndPreview(cfg, w, spec)
 	if err != nil {
 		return err
@@ -386,16 +379,9 @@ func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer
 
 	if !success {
 		errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
-		env := canvas.Envelope{
-			OK:    false,
-			Error: &errInfo,
-			Meta: canvas.Meta{
-				SchemaVersion: output.SchemaVersion,
-				Command:       spec.Command,
-			},
-		}
+		env := output.NewError(&errInfo, spec.Command)
 		if jsonMode {
-			return writeEnvelope(w, cfg, env)
+			return writeEnvelope(w, cfg, &env)
 		}
 		return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 	}
@@ -410,7 +396,7 @@ func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer
 			Profile: cfg.Profile,
 			BaseURL: cfg.BaseURL,
 		})
-		return writeEnvelope(w, cfg, env)
+		return writeEnvelope(w, cfg, &env)
 	}
 
 	fmt.Fprintf(w, "%s %s succeeded (status %d)\n", spec.Method, spec.Path, resp.StatusCode)

@@ -51,7 +51,7 @@ type Progress struct {
 // StartEpubExport creates a new ePub export for a course.
 func StartEpubExport(ctx context.Context, client *Client, courseID string) (EpubExport, error) {
 	var export EpubExport
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "POST",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/epub_exports", courseID),
 		DecodeInto: &export,
@@ -65,7 +65,7 @@ func StartEpubExport(ctx context.Context, client *Client, courseID string) (Epub
 // GetEpubExport returns the status of an ePub export.
 func GetEpubExport(ctx context.Context, client *Client, courseID, exportID string) (EpubExport, error) {
 	var export EpubExport
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/epub_exports/%s", courseID, exportID),
 		DecodeInto: &export,
@@ -79,7 +79,7 @@ func GetEpubExport(ctx context.Context, client *Client, courseID, exportID strin
 // ListEpubExports returns all courses with their latest ePub export status.
 func ListEpubExports(ctx context.Context, client *Client) ([]CourseEpubExport, PaginationMeta, error) {
 	var exports []CourseEpubExport
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/epub_exports",
 		Paginate:   true,
@@ -97,7 +97,7 @@ func StartContentExport(ctx context.Context, client *Client, courseID, exportTyp
 	var export ContentExport
 	body := url.Values{}
 	body.Set("export_type", exportType)
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:    "POST",
 		PathOrURL: fmt.Sprintf("/api/v1/courses/%s/content_exports", courseID),
 		Body:      formReader(body),
@@ -115,7 +115,7 @@ func StartContentExport(ctx context.Context, client *Client, courseID, exportTyp
 // GetContentExport returns the status of a content export.
 func GetContentExport(ctx context.Context, client *Client, courseID, exportID string) (ContentExport, error) {
 	var export ContentExport
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/content_exports/%s", courseID, exportID),
 		DecodeInto: &export,
@@ -129,7 +129,7 @@ func GetContentExport(ctx context.Context, client *Client, courseID, exportID st
 // ListContentExports returns all content exports for a course.
 func ListContentExports(ctx context.Context, client *Client, courseID string) ([]ContentExport, PaginationMeta, error) {
 	var exports []ContentExport
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/content_exports", courseID),
 		Paginate:   true,
@@ -149,7 +149,7 @@ func GetProgress(ctx context.Context, client *Client, progressURL string) (Progr
 	if err != nil {
 		return progress, fmt.Errorf("parse progress URL: %w", err)
 	}
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  parsed.Path,
 		DecodeInto: &progress,

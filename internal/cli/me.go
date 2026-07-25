@@ -50,7 +50,7 @@ func newMeGetCmd() *cobra.Command {
 			if resp.StatusCode != 200 {
 				env := canvas.NormalizeError(resp, "me.get", cookieAuthBaseURL(cfg)...)
 				if jsonMode {
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return fmt.Errorf("api error: %s (status %d)", env.Error.Message, resp.StatusCode)
 			}

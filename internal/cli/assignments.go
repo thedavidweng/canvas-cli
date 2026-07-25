@@ -77,12 +77,12 @@ func newAssignmentsListCmd() *cobra.Command {
 			assignments, _, err := canvas.ListAssignments(cmd.Context(), client, courseID, query)
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_API_ERROR",
 						Message:  err.Error(),
 						Category: "api",
 					}, "assignments.list")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return err
 			}
@@ -90,9 +90,9 @@ func newAssignmentsListCmd() *cobra.Command {
 			if publishedFilter != "" {
 				wantPublished := publishedFilter == "true"
 				filtered := make([]canvas.Assignment, 0, len(assignments))
-				for _, a := range assignments {
-					if a.Published == wantPublished {
-						filtered = append(filtered, a)
+				for i := range assignments {
+					if assignments[i].Published == wantPublished {
+						filtered = append(filtered, assignments[i])
 					}
 				}
 				assignments = filtered
@@ -103,14 +103,15 @@ func newAssignmentsListCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
 			tbl := output.Table{
 				Headers: []string{"ID", "Name", "Due At", "Points", "Published"},
 			}
-			for _, a := range assignments {
+			for i := range assignments {
+				a := &assignments[i]
 				dueAt := "-"
 				if a.DueAt != nil {
 					dueAt = *a.DueAt
@@ -161,12 +162,12 @@ func newAssignmentsGetCmd() *cobra.Command {
 			assignment, err := canvas.GetAssignment(cmd.Context(), client, courseID, assignmentID)
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_API_ERROR",
 						Message:  err.Error(),
 						Category: "api",
 					}, "assignments.get")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return err
 			}
@@ -176,7 +177,7 @@ func newAssignmentsGetCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -219,12 +220,12 @@ func newAssignmentGroupsListCmd() *cobra.Command {
 			groups, err := canvas.ListAssignmentGroups(cmd.Context(), client, courseID)
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_API_ERROR",
 						Message:  err.Error(),
 						Category: "api",
 					}, "assignments.groups")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return err
 			}
@@ -234,7 +235,7 @@ func newAssignmentGroupsListCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -347,7 +348,7 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 				},
 			}
 
-			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), spec)
+			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), &spec)
 			if err != nil {
 				return err
 			}
@@ -371,18 +372,18 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 
 			result, err := canvas.SubmitAssignment(cmd.Context(), client, courseID, assignmentID, sub)
 			if err != nil {
-				RecordAudit(cfg, spec, 0, false)
+				RecordAudit(cfg, &spec, 0, false)
 				return writeError(cmd.OutOrStdout(), cfg, fmt.Errorf("submit assignment: %w", err), "assignments.submit", jsonMode)
 			}
 
-			RecordAudit(cfg, spec, 200, true)
+			RecordAudit(cfg, &spec, 200, true)
 
 			if jsonMode {
 				env := output.NewSuccess(result, "assignments.submit", canvas.Meta{
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Submission submitted (ID: %s, state: %s)\n",
@@ -440,7 +441,7 @@ func newAssignmentsUpdateCmd() *cobra.Command {
 				AuditBody:      payload,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					updates := map[string]any{"due_at": dueAt}
 					_, err := canvas.UpdateAssignment(ctx, client, courseID, assignmentID, updates)

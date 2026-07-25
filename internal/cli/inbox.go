@@ -41,7 +41,7 @@ func newInboxListCmd() *cobra.Command {
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			conversations, _, err := canvas.ListConversations(cmd.Context(), client, canvas.RequestOptions{PageSize: 100})
+			conversations, _, err := canvas.ListConversations(cmd.Context(), client, &canvas.RequestOptions{PageSize: 100})
 			if err != nil {
 				return writeError(cmd.OutOrStdout(), cfg, err, "inbox.list", jsonMode)
 			}
@@ -133,7 +133,7 @@ func newInboxSendCmd() *cobra.Command {
 				AuditBody:      body,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					conversation, err := canvas.SendMessage(ctx, client, []string{to}, subject, body)
 					if err != nil {
@@ -191,7 +191,7 @@ func newInboxReplyCmd() *cobra.Command {
 				AuditBody:      body,
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					_, err := canvas.ReplyToConversation(ctx, client, conversationID, body)
 					if err != nil {
@@ -241,7 +241,7 @@ func newInboxArchiveCmd() *cobra.Command {
 				AuditBody:      "archived",
 			}
 
-			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, spec,
+			return Run(cmd.Context(), cfg, cmd.OutOrStdout(), false, &spec,
 				func(ctx context.Context, client *canvas.Client) (any, int, error) {
 					if err := canvas.ArchiveConversation(ctx, client, conversationID); err != nil {
 						return nil, 0, err

@@ -61,7 +61,7 @@ func NewDoctorCmd() *cobra.Command {
 				}
 				env := output.NewSuccess(checks, "doctor")
 				env.OK = ok
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()

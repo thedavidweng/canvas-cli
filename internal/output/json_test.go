@@ -13,7 +13,7 @@ func TestWriteJSON_OutputsValidJSON(t *testing.T) {
 	env := NewSuccess([]string{"a", "b"}, "courses.list")
 	var buf bytes.Buffer
 
-	if err := WriteJSON(&buf, env, false); err != nil {
+	if err := WriteJSON(&buf, &env, false); err != nil {
 		t.Fatalf("WriteJSON error: %v", err)
 	}
 
@@ -27,7 +27,7 @@ func TestWriteJSON_CompactMode(t *testing.T) {
 	env := NewSuccess(map[string]string{"key": "value"}, "courses.list")
 	var buf bytes.Buffer
 
-	if err := WriteJSON(&buf, env, false); err != nil {
+	if err := WriteJSON(&buf, &env, false); err != nil {
 		t.Fatalf("WriteJSON error: %v", err)
 	}
 
@@ -43,7 +43,7 @@ func TestWriteJSON_PrettyMode(t *testing.T) {
 	env := NewSuccess(map[string]string{"key": "value"}, "courses.list")
 	var buf bytes.Buffer
 
-	if err := WriteJSON(&buf, env, true); err != nil {
+	if err := WriteJSON(&buf, &env, true); err != nil {
 		t.Fatalf("WriteJSON error: %v", err)
 	}
 
@@ -62,7 +62,7 @@ func TestWriteJSON_NeverContainsToken(t *testing.T) {
 	env.Meta.Profile = secretToken
 
 	var buf bytes.Buffer
-	if err := WriteJSON(&buf, env, true); err != nil {
+	if err := WriteJSON(&buf, &env, true); err != nil {
 		t.Fatalf("WriteJSON error: %v", err)
 	}
 
@@ -102,10 +102,10 @@ func TestWriteJSON_ErrorEnvelope(t *testing.T) {
 		Category: "api",
 		Status:   400,
 	}
-	env := NewError(errInfo, "assignments.list")
+	env := NewError(&errInfo, "assignments.list")
 	var buf bytes.Buffer
 
-	if err := WriteJSON(&buf, env, false); err != nil {
+	if err := WriteJSON(&buf, &env, false); err != nil {
 		t.Fatalf("WriteJSON error: %v", err)
 	}
 
@@ -137,7 +137,7 @@ func TestWriteJSON_PreservesAllMetaFields(t *testing.T) {
 	env := NewSuccess([]int{}, "modules.list", overrides)
 	var buf bytes.Buffer
 
-	if err := WriteJSON(&buf, env, true); err != nil {
+	if err := WriteJSON(&buf, &env, true); err != nil {
 		t.Fatalf("WriteJSON error: %v", err)
 	}
 

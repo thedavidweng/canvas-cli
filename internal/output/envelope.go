@@ -2,20 +2,26 @@
 // and human-readable table rendering for canvas-cli commands.
 package output
 
-import "github.com/thedavidweng/canvas-cli/internal/canvas"
+import (
+	"github.com/google/uuid"
+
+	"github.com/thedavidweng/canvas-cli/internal/canvas"
+)
 
 // SchemaVersion is re-exported from the canvas package for convenience.
 const SchemaVersion = canvas.SchemaVersion
 
-// NewSuccess builds a success Envelope with ok=true and the given data.
-// Optional meta overrides are merged into the base Meta (command and schema_version).
+// NewSuccess builds a success Envelope with ok=true and the given data. Every
+// envelope carries a fresh request_id (uuid v4). Optional meta overrides are
+// merged onto the base Meta.
 func NewSuccess(data any, command string, metaOverrides ...canvas.Meta) canvas.Envelope {
 	m := canvas.Meta{
 		SchemaVersion: SchemaVersion,
 		Command:       command,
+		RequestID:     uuid.NewString(),
 	}
 	if len(metaOverrides) > 0 {
-		m = mergeMeta(m, metaOverrides[0])
+		mergeMeta(&m, &metaOverrides[0])
 	}
 	return canvas.Envelope{
 		OK:   true,
@@ -24,25 +30,26 @@ func NewSuccess(data any, command string, metaOverrides ...canvas.Meta) canvas.E
 	}
 }
 
-// NewError builds an error Envelope with ok=false.
-// Optional meta overrides are merged into the base Meta.
-func NewError(err canvas.ErrorInfo, command string, metaOverrides ...canvas.Meta) canvas.Envelope {
+// NewError builds an error Envelope with ok=false. Every envelope carries a
+// fresh request_id (uuid v4). Optional meta overrides are merged onto the base Meta.
+func NewError(err *canvas.ErrorInfo, command string, metaOverrides ...canvas.Meta) canvas.Envelope {
 	m := canvas.Meta{
 		SchemaVersion: SchemaVersion,
 		Command:       command,
+		RequestID:     uuid.NewString(),
 	}
 	if len(metaOverrides) > 0 {
-		m = mergeMeta(m, metaOverrides[0])
+		mergeMeta(&m, &metaOverrides[0])
 	}
 	return canvas.Envelope{
 		OK:    false,
-		Error: &err,
+		Error: err,
 		Meta:  m,
 	}
 }
 
-// mergeMeta applies non-zero fields from override onto base.
-func mergeMeta(base, override canvas.Meta) canvas.Meta {
+// mergeMeta applies non-zero fields from override onto base in place.
+func mergeMeta(base, override *canvas.Meta) {
 	if override.Profile != "" {
 		base.Profile = override.Profile
 	}
@@ -70,5 +77,4 @@ func mergeMeta(base, override canvas.Meta) canvas.Meta {
 	if len(override.Warnings) > 0 {
 		base.Warnings = override.Warnings
 	}
-	return base
 }

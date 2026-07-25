@@ -8,9 +8,9 @@ import (
 )
 
 // ListConversations returns all conversations for the authenticated user.
-func ListConversations(ctx context.Context, client *Client, opts RequestOptions) ([]Conversation, PaginationMeta, error) {
+func ListConversations(ctx context.Context, client *Client, opts *RequestOptions) ([]Conversation, PaginationMeta, error) {
 	var conversations []Conversation
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/conversations",
 		Paginate:   true,
@@ -27,7 +27,7 @@ func ListConversations(ctx context.Context, client *Client, opts RequestOptions)
 // GetConversation returns a single conversation by ID.
 func GetConversation(ctx context.Context, client *Client, conversationID string) (Conversation, error) {
 	var conversation Conversation
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/conversations/%s", conversationID),
 		DecodeInto: &conversation,
@@ -53,7 +53,7 @@ func SendMessage(ctx context.Context, client *Client, recipients []string, subje
 	}
 
 	var conversation Conversation
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "POST",
 		PathOrURL:  "/api/v1/conversations",
 		Body:       bytes.NewReader(payloadBytes),
@@ -78,7 +78,7 @@ func ReplyToConversation(ctx context.Context, client *Client, conversationID, bo
 	}
 
 	var conversation Conversation
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "POST",
 		PathOrURL:  fmt.Sprintf("/api/v1/conversations/%s/add_message", conversationID),
 		Body:       bytes.NewReader(payloadBytes),
@@ -102,7 +102,7 @@ func ArchiveConversation(ctx context.Context, client *Client, conversationID str
 		return fmt.Errorf("marshal archive payload: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:    "PUT",
 		PathOrURL: fmt.Sprintf("/api/v1/conversations/%s", conversationID),
 		Body:      bytes.NewReader(payloadBytes),

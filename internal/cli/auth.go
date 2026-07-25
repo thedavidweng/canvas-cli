@@ -74,7 +74,7 @@ func newAuthStatusCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -108,12 +108,12 @@ func newAuthTestCmd() *cobra.Command {
 			resp, err := client.Do(cmd.Context(), "GET", "/api/v1/users/self", nil, nil)
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_NETWORK_ERROR",
 						Message:  err.Error(),
 						Category: "network",
 					}, "auth.test")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return fmt.Errorf("failed to reach API: %w", err)
 			}
@@ -122,7 +122,7 @@ func newAuthTestCmd() *cobra.Command {
 			if resp.StatusCode != 200 {
 				env := canvas.NormalizeError(resp, "auth.test", cookieAuthBaseURL(cfg)...)
 				if jsonMode {
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return fmt.Errorf("authentication failed: %s (status %d)", env.Error.Message, resp.StatusCode)
 			}
@@ -137,7 +137,7 @@ func newAuthTestCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -634,7 +634,7 @@ func newAuthProfilesCmd() *cobra.Command {
 					})
 				}
 				env := output.NewSuccess(profiles, "auth.profiles")
-				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 			}
 
 			w := cmd.OutOrStdout()

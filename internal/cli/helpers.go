@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/audit"
@@ -47,8 +48,15 @@ func isJSONMode(cmd *cobra.Command) bool {
 	return v
 }
 
-// writeEnvelope serializes a pre-built envelope, honoring --pretty from cfg.
-func writeEnvelope(w io.Writer, cfg *config.ResolvedConfig, env canvas.Envelope) error {
+// writeEnvelope stamps request-scoped meta (duration_ms) and serializes the
+// envelope, honoring --pretty from cfg. It is the single JSON emit chokepoint.
+func writeEnvelope(w io.Writer, cfg *config.ResolvedConfig, env *canvas.Envelope) error {
+	if env.Meta.RequestID == "" {
+		env.Meta.RequestID = uuid.NewString()
+	}
+	if env.Meta.DurationMS == 0 && !cfg.StartTime.IsZero() {
+		env.Meta.DurationMS = time.Since(cfg.StartTime).Milliseconds()
+	}
 	return output.WriteJSON(w, env, cfg.OutputJSONPretty)
 }
 
@@ -60,7 +68,7 @@ func writeOutput(w io.Writer, cfg *config.ResolvedConfig, data any, command stri
 			Profile: cfg.Profile,
 			BaseURL: cfg.BaseURL,
 		})
-		return output.WriteJSON(w, env, cfg.OutputJSONPretty)
+		return writeEnvelope(w, cfg, &env)
 	}
 	if len(humanFn) > 0 && humanFn[0] != nil {
 		return humanFn[0](w)
@@ -80,12 +88,12 @@ func writeNetworkError(w io.Writer, cfg *config.ResolvedConfig, err error, comma
 // it returns an *exitError carrying the process exit code mapped from category.
 func writeErrorWithCode(w io.Writer, cfg *config.ResolvedConfig, err error, command, code, category string, jsonMode bool) error {
 	if jsonMode {
-		env := output.NewError(canvas.ErrorInfo{
+		env := output.NewError(&canvas.ErrorInfo{
 			Code:     code,
 			Message:  err.Error(),
 			Category: category,
 		}, command)
-		return output.WriteJSON(w, env, cfg.OutputJSONPretty)
+		return writeEnvelope(w, cfg, &env)
 	}
 	return &exitError{msg: err.Error(), exitCode: output.ExitCodeForCategory(category)}
 }
@@ -125,7 +133,7 @@ func writeAuditWithResource(cfg *config.ResolvedConfig, command, method, path, b
 		resource = map[string]string{}
 	}
 	auditor := audit.NewAuditor(cfg.AuditPath, cfg.AuditEnabled)
-	_ = auditor.WriteEvent(canvas.AuditEvent{
+	_ = auditor.WriteEvent(&canvas.AuditEvent{
 		Time:           time.Now().UTC().Format(time.RFC3339),
 		SchemaVersion:  output.SchemaVersion,
 		Command:        command,

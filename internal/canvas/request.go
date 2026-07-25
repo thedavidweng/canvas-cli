@@ -17,7 +17,7 @@ type ResponseMeta struct {
 }
 
 // Request executes a Canvas API request with optional pagination and decoding.
-func Request(ctx context.Context, client *Client, opts RequestOptions) (*ResponseMeta, error) {
+func Request(ctx context.Context, client *Client, opts *RequestOptions) (*ResponseMeta, error) {
 	meta := &ResponseMeta{}
 
 	if opts.Paginate {

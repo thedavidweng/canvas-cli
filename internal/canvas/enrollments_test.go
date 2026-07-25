@@ -41,7 +41,7 @@ func TestListEnrollments(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	enrollments, meta, err := ListEnrollments(context.Background(), c, "42", RequestOptions{})
+	enrollments, meta, err := ListEnrollments(context.Background(), c, "42", &RequestOptions{})
 	if err != nil {
 		t.Fatalf("ListEnrollments() error: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestListEnrollmentsPagination(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	enrollments, meta, err := ListEnrollments(context.Background(), c, "42", RequestOptions{})
+	enrollments, meta, err := ListEnrollments(context.Background(), c, "42", &RequestOptions{})
 	if err != nil {
 		t.Fatalf("ListEnrollments() error: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestListEnrollmentsError(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	_, _, err := ListEnrollments(context.Background(), c, "42", RequestOptions{})
+	_, _, err := ListEnrollments(context.Background(), c, "42", &RequestOptions{})
 	if err == nil {
 		t.Fatal("expected error for 403, got nil")
 	}

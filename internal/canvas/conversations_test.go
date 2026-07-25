@@ -45,7 +45,7 @@ func TestConversationList(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 
-	conversations, meta, err := ListConversations(context.Background(), c, RequestOptions{PageSize: 100})
+	conversations, meta, err := ListConversations(context.Background(), c, &RequestOptions{PageSize: 100})
 	if err != nil {
 		t.Fatalf("ListConversations() error: %v", err)
 	}
@@ -331,7 +331,7 @@ func TestListConversationsError(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 
-	_, _, err := ListConversations(context.Background(), c, RequestOptions{})
+	_, _, err := ListConversations(context.Background(), c, &RequestOptions{})
 	if err == nil {
 		t.Fatal("expected error for 500, got nil")
 	}

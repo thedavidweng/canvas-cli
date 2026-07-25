@@ -11,7 +11,7 @@ import (
 // GetFile returns metadata for a single file by ID.
 func GetFile(ctx context.Context, client *Client, fileID string) (File, error) {
 	var file File
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/files/%s", fileID),
 		DecodeInto: &file,
@@ -31,7 +31,7 @@ func ListFiles(ctx context.Context, client *Client, courseID string, query url.V
 	}
 
 	var files []File
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/files", courseID),
 		Query:      query,

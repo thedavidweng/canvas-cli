@@ -718,12 +718,12 @@ error isolation — a failure in one section does not abort others.`,
 			})
 			if err != nil {
 				if jsonMode {
-					env := output.NewError(canvas.ErrorInfo{
+					env := output.NewError(&canvas.ErrorInfo{
 						Code:     "CANVAS_AUTH_ERROR",
 						Message:  err.Error(),
 						Category: "auth",
 					}, "courses.export-context")
-					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, &env)
 				}
 				return err
 			}
@@ -746,7 +746,7 @@ error isolation — a failure in one section does not abort others.`,
 					RequestCount: result.ExportMeta.RequestCount,
 					Warnings:     result.ExportMeta.Warnings,
 				})
-				return writeEnvelope(w, cfg, env)
+				return writeEnvelope(w, cfg, &env)
 			}
 
 			enc := json.NewEncoder(w)

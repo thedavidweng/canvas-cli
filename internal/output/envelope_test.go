@@ -3,6 +3,8 @@ package output
 import (
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
 )
 
@@ -29,6 +31,26 @@ func TestNewSuccess_SetsMetaFields(t *testing.T) {
 	}
 	if env.Meta.Command != "assignments.get" {
 		t.Errorf("command = %q, want %q", env.Meta.Command, "assignments.get")
+	}
+}
+
+func TestNewSuccess_GeneratesUniqueRequestID(t *testing.T) {
+	env1 := NewSuccess(nil, "courses.list")
+	env2 := NewSuccess(nil, "courses.list")
+
+	if _, err := uuid.Parse(env1.Meta.RequestID); err != nil {
+		t.Errorf("request_id %q is not a valid uuid: %v", env1.Meta.RequestID, err)
+	}
+	if env1.Meta.RequestID == env2.Meta.RequestID {
+		t.Error("expected a distinct request_id per invocation")
+	}
+}
+
+func TestNewError_GeneratesRequestID(t *testing.T) {
+	env := NewError(&canvas.ErrorInfo{Code: "X", Category: "api"}, "courses.list")
+
+	if _, err := uuid.Parse(env.Meta.RequestID); err != nil {
+		t.Errorf("request_id %q is not a valid uuid: %v", env.Meta.RequestID, err)
 	}
 }
 
@@ -88,7 +110,7 @@ func TestNewError_CreatesEnvelopeWithOKFalse(t *testing.T) {
 		Status:    400,
 	}
 
-	env := NewError(errInfo, "assignments.list")
+	env := NewError(&errInfo, "assignments.list")
 
 	if env.OK {
 		t.Fatal("expected ok=false")
@@ -111,7 +133,7 @@ func TestNewError_SetsMetaFields(t *testing.T) {
 		Category: "auth",
 	}
 
-	env := NewError(errInfo, "courses.list")
+	env := NewError(&errInfo, "courses.list")
 
 	if env.Meta.SchemaVersion != SchemaVersion {
 		t.Errorf("schema_version = %q, want %q", env.Meta.SchemaVersion, SchemaVersion)
@@ -129,7 +151,7 @@ func TestNewError_AppliesMetaOverrides(t *testing.T) {
 		RateLimit:    &canvas.RateLimit{RequestCost: 2.0, Remaining: 0},
 	}
 
-	env := NewError(errInfo, "submissions.list", overrides)
+	env := NewError(&errInfo, "submissions.list", overrides)
 
 	if env.Meta.DurationMS != 100 {
 		t.Errorf("duration_ms = %d, want 100", env.Meta.DurationMS)
@@ -181,7 +203,7 @@ func TestNewError_IncludesCanvasRequestID(t *testing.T) {
 		ResponseBody:    map[string]any{"errors": []any{}},
 	}
 
-	env := NewError(errInfo, "api.get")
+	env := NewError(&errInfo, "api.get")
 
 	if env.Error.CanvasRequestID != "req-abc-123" {
 		t.Errorf("canvas_request_id = %q, want %q", env.Error.CanvasRequestID, "req-abc-123")

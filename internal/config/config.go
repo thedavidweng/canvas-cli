@@ -45,6 +45,7 @@ type ResolvedConfig struct {
 	AuditEnabled     bool
 	AuditPath        string
 	Warnings         []string
+	StartTime        time.Time
 }
 
 // String returns a human-readable summary with sensitive values redacted.

@@ -353,6 +353,9 @@ func TestGolden_ExitCode_AuthError(t *testing.T) {
 	if env.Error.Category != "auth" {
 		t.Errorf("expected category %q, got %q", "auth", env.Error.Category)
 	}
+	if env.Meta.RequestID == "" {
+		t.Error("expected request_id in error envelope meta")
+	}
 
 	// In non-JSON mode, auth errors are returned as Go errors.
 	var buf2 bytes.Buffer

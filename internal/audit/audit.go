@@ -30,7 +30,7 @@ func NewAuditor(path string, enabled bool) *Auditor {
 }
 
 // WriteEvent appends a single JSONL line to the audit log file.
-func (a *Auditor) WriteEvent(event canvas.AuditEvent) error {
+func (a *Auditor) WriteEvent(event *canvas.AuditEvent) error {
 	if !a.enabled {
 		return nil
 	}

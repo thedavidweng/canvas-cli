@@ -15,7 +15,7 @@ func ListDiscussions(ctx context.Context, client *Client, courseID string, query
 	}
 
 	var discussions []DiscussionTopic
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/discussion_topics", courseID),
 		Query:      query,
@@ -33,7 +33,7 @@ func ListDiscussions(ctx context.Context, client *Client, courseID string, query
 // GetDiscussion returns a single discussion topic by ID.
 func GetDiscussion(ctx context.Context, client *Client, courseID, discussionID string) (DiscussionTopic, error) {
 	var topic DiscussionTopic
-	_, err := Request(ctx, client, RequestOptions{
+	_, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/discussion_topics/%s", courseID, discussionID),
 		DecodeInto: &topic,
@@ -52,7 +52,7 @@ func ListDiscussionEntries(ctx context.Context, client *Client, courseID, discus
 	}
 
 	var entries []DiscussionEntry
-	meta, err := Request(ctx, client, RequestOptions{
+	meta, err := Request(ctx, client, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/discussion_topics/%s/entries", courseID, discussionID),
 		Query:      query,
@@ -76,7 +76,7 @@ func ReplyToDiscussion(ctx context.Context, client *Client, courseID, discussion
 		return entry, fmt.Errorf("marshal reply request: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:    "POST",
 		PathOrURL: fmt.Sprintf("/api/v1/courses/%s/discussion_topics/%s/entries", courseID, discussionID),
 		Body:      bytes.NewReader(body),
@@ -103,7 +103,7 @@ func CreateDiscussion(ctx context.Context, client *Client, courseID, title, mess
 	if err != nil {
 		return topic, fmt.Errorf("marshal discussion request: %w", err)
 	}
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:     "POST",
 		PathOrURL:  fmt.Sprintf("/api/v1/courses/%s/discussion_topics", courseID),
 		Body:       bytes.NewReader(body),
@@ -124,7 +124,7 @@ func ReplyToEntry(ctx context.Context, client *Client, courseID, discussionID, e
 		return entry, fmt.Errorf("marshal reply request: %w", err)
 	}
 
-	_, err = Request(ctx, client, RequestOptions{
+	_, err = Request(ctx, client, &RequestOptions{
 		Method:    "POST",
 		PathOrURL: fmt.Sprintf("/api/v1/courses/%s/discussion_topics/%s/entries/%s/replies", courseID, discussionID, entryID),
 		Body:      bytes.NewReader(body),

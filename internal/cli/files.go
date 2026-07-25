@@ -53,7 +53,8 @@ func newFilesListCmd() *cobra.Command {
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, files, "files.list", jsonMode, func(w io.Writer) error {
-				for _, f := range files {
+				for i := range files {
+					f := &files[i]
 					fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", f.ID, f.DisplayName, f.Size, f.ContentType)
 				}
 				return nil
@@ -235,7 +236,7 @@ func newFilesUploadCmd() *cobra.Command {
 				AuditBody:      fmt.Sprintf(`{"file":%q,"folder":%q}`, filepath.Base(filePath), folder),
 			}
 
-			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), spec)
+			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), &spec)
 			if err != nil {
 				return err
 			}
@@ -251,11 +252,11 @@ func newFilesUploadCmd() *cobra.Command {
 			client := newClientFromCfg(cfg)
 			fileID, err := canvas.UploadFile(cmd.Context(), client, courseID, filePath, content)
 			if err != nil {
-				RecordAudit(cfg, spec, 0, false)
+				RecordAudit(cfg, &spec, 0, false)
 				return writeError(cmd.OutOrStdout(), cfg, fmt.Errorf("upload file: %w", err), "files.upload", jsonMode)
 			}
 
-			RecordAudit(cfg, spec, 200, true)
+			RecordAudit(cfg, &spec, 200, true)
 
 			result := map[string]string{
 				"id":   fileID,

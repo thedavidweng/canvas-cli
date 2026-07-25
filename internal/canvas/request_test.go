@@ -27,7 +27,7 @@ func TestRequestDecodesJSONResponse(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var result course
-	meta, err := Request(context.Background(), c, RequestOptions{
+	meta, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/courses/123",
 		DecodeInto: &result,
@@ -77,7 +77,7 @@ func TestRequestHandlesPagination(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var items []item
-	meta, err := Request(context.Background(), c, RequestOptions{
+	meta, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/items",
 		Paginate:   true,
@@ -113,7 +113,7 @@ func TestRequestCapturesRateLimitMeta(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var result map[string]string
-	meta, err := Request(context.Background(), c, RequestOptions{
+	meta, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/test",
 		DecodeInto: &result,
@@ -149,7 +149,7 @@ func TestRequestNoPaginationWhenPaginateFalse(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var items []item
-	meta, err := Request(context.Background(), c, RequestOptions{
+	meta, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/items",
 		Paginate:   false,
@@ -174,7 +174,7 @@ func TestRequestNoDecodeInto(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
-	meta, err := Request(context.Background(), c, RequestOptions{
+	meta, err := Request(context.Background(), c, &RequestOptions{
 		Method:    "GET",
 		PathOrURL: "/api/v1/test",
 	})
@@ -188,7 +188,7 @@ func TestRequestNoDecodeInto(t *testing.T) {
 
 func TestRequest_PaginateWithoutDecodeInto(t *testing.T) {
 	c := NewClient("https://example.com", "tok", "0.1.0", 5*time.Second, 0)
-	_, err := Request(context.Background(), c, RequestOptions{
+	_, err := Request(context.Background(), c, &RequestOptions{
 		Method:    "GET",
 		PathOrURL: "/api/v1/items",
 		Paginate:  true,
@@ -216,7 +216,7 @@ func TestRequest_PaginateDefaultPageSize(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var items []item
-	_, err := Request(context.Background(), c, RequestOptions{
+	_, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/items",
 		Paginate:   true,
@@ -238,7 +238,7 @@ func TestRequest_APIErrorStatus(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var result map[string]string
-	_, err := Request(context.Background(), c, RequestOptions{
+	_, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/courses/999",
 		DecodeInto: &result,
@@ -261,7 +261,7 @@ func TestRequest_DecodeError(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var result map[string]string
-	_, err := Request(context.Background(), c, RequestOptions{
+	_, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/test",
 		DecodeInto: &result,
@@ -285,7 +285,7 @@ func TestRequestPassesQueryParams(t *testing.T) {
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	var result map[string]string
-	_, err := Request(context.Background(), c, RequestOptions{
+	_, err := Request(context.Background(), c, &RequestOptions{
 		Method:     "GET",
 		PathOrURL:  "/api/v1/test",
 		Query:      map[string][]string{"search": {"test"}},
