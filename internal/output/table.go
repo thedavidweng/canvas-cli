@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -12,22 +13,21 @@ type Table struct {
 	Rows    [][]string
 }
 
-// Render writes a formatted ASCII table to w.
-// When noColor is true, no ANSI escape codes are emitted.
+// Render writes a formatted ASCII table to w. Headers are bold when the output
+// is a terminal and noColor is false; otherwise no ANSI escape codes are emitted.
 func (t Table) Render(w io.Writer, noColor bool) error {
 	if len(t.Headers) == 0 {
 		return nil
 	}
 
+	color := !noColor && isTerminalWriter(w)
 	numCols := len(t.Headers)
 	colWidths := make([]int, numCols)
 
-	// Compute column widths from headers
 	for i, h := range t.Headers {
 		colWidths[i] = len(h)
 	}
 
-	// Compute column widths from rows
 	for _, row := range t.Rows {
 		for i, cell := range row {
 			if i < numCols && len(cell) > colWidths[i] {
@@ -40,7 +40,11 @@ func (t Table) Render(w io.Writer, noColor bool) error {
 		if i > 0 {
 			fmt.Fprint(w, "  ")
 		}
-		fmt.Fprintf(w, "%-*s", colWidths[i], h)
+		if color {
+			fmt.Fprintf(w, "\033[1m%-*s\033[0m", colWidths[i], h)
+		} else {
+			fmt.Fprintf(w, "%-*s", colWidths[i], h)
+		}
 	}
 	fmt.Fprintln(w)
 
@@ -67,4 +71,16 @@ func (t Table) Render(w io.Writer, noColor bool) error {
 	}
 
 	return nil
+}
+
+func isTerminalWriter(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
 }

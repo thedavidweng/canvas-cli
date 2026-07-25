@@ -28,7 +28,7 @@ func TestUploadFile_RelativeUploadURL(t *testing.T) {
 			step1Path = r.URL.Path
 			step1Method = r.Method
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(uploadInitResponse{
+			_ = json.NewEncoder(w).Encode(uploadInitResponse{
 				UploadURL: "/uploads/123",
 				UploadParams: map[string]string{
 					"token": "abc123",
@@ -51,7 +51,7 @@ func TestUploadFile_RelativeUploadURL(t *testing.T) {
 			// Return 201 with file JSON.
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(File{
+			_ = json.NewEncoder(w).Encode(File{
 				ID:          "555",
 				DisplayName: "test.txt",
 				Filename:    "test.txt",
@@ -107,7 +107,7 @@ func TestUploadFile_WithRedirect(t *testing.T) {
 		case "/api/v1/courses/1/files":
 			// Step 1
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(uploadInitResponse{
+			_ = json.NewEncoder(w).Encode(uploadInitResponse{
 				UploadURL: "/uploads/456",
 				UploadParams: map[string]string{
 					"token": "def456",
@@ -125,7 +125,7 @@ func TestUploadFile_WithRedirect(t *testing.T) {
 			// Redirect target: return 201 with file JSON.
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(File{
+			_ = json.NewEncoder(w).Encode(File{
 				ID:          "999",
 				DisplayName: "redirected.txt",
 				Filename:    "redirected.txt",
@@ -196,7 +196,7 @@ func TestHandleUploadResponse_201(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(File{ID: "777"})
+		_ = json.NewEncoder(w).Encode(File{ID: "777"})
 	}))
 	defer srv.Close()
 
@@ -221,7 +221,7 @@ func TestHandleUploadResponse_Redirect(t *testing.T) {
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/files/888" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(File{ID: "888"})
+			_ = json.NewEncoder(w).Encode(File{ID: "888"})
 			return
 		}
 		// Return a redirect for any other path.
@@ -309,7 +309,7 @@ func TestHandleUploadResponse_UnexpectedStatus(t *testing.T) {
 func TestExtractFileID_ValidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(File{
+		_ = json.NewEncoder(w).Encode(File{
 			ID:          "321",
 			DisplayName: "photo.png",
 			Filename:    "photo.png",
@@ -384,14 +384,14 @@ func TestUploadFile_ExternalHost(t *testing.T) {
 	uploadSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(File{ID: "ext-123", DisplayName: "test.txt"})
+		_ = json.NewEncoder(w).Encode(File{ID: "ext-123", DisplayName: "test.txt"})
 	}))
 	defer uploadSrv.Close()
 
 	// Canvas server returns a full external URL.
 	canvasSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(uploadInitResponse{
+		_ = json.NewEncoder(w).Encode(uploadInitResponse{
 			UploadURL: uploadSrv.URL + "/upload",
 			UploadParams: map[string]string{
 				"token": "ext-token",
@@ -420,14 +420,14 @@ func TestUploadFile_UnknownContentType(t *testing.T) {
 			_ = r.ParseForm()
 			gotContentType = r.FormValue("content_type")
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(uploadInitResponse{
+			_ = json.NewEncoder(w).Encode(uploadInitResponse{
 				UploadURL:    "/uploads/999",
 				UploadParams: map[string]string{"token": "tok"},
 			})
 		} else {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(File{ID: "999"})
+			_ = json.NewEncoder(w).Encode(File{ID: "999"})
 		}
 	}))
 	defer srv.Close()
@@ -449,7 +449,7 @@ func TestUploadFile_InitDecodeError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`not valid json`))
+		_, _ = w.Write([]byte(`not valid json`))
 	}))
 	defer srv.Close()
 
@@ -470,7 +470,7 @@ func TestHandleUploadResponse_RedirectFollowFailure(t *testing.T) {
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/files/bad" {
 			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(`{"message":"Forbidden"}`))
+			_, _ = w.Write([]byte(`{"message":"Forbidden"}`))
 			return
 		}
 		w.Header().Set("Location", srv.URL+"/api/v1/files/bad")

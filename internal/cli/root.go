@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,11 +16,8 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/output"
 )
 
-// contextKey is an unexported type for context keys in this package,
-// avoiding collisions with keys from other packages.
 type contextKey struct{}
 
-// configKey is the context key for the resolved configuration.
 var configKey = contextKey{}
 
 // WithConfig returns a new context with the given ResolvedConfig attached.
@@ -33,8 +31,6 @@ func GetConfig(ctx context.Context) *config.ResolvedConfig {
 	return cfg
 }
 
-// NewRootCmd constructs the root cobra.Command with all global persistent flags,
-// config-loading PersistentPreRunE, and built-in subcommands (version, completion).
 func NewRootCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "canvas",
@@ -44,13 +40,9 @@ func NewRootCmd(version string) *cobra.Command {
 		SilenceErrors: true,
 	}
 
-	// Register all global persistent flags.
 	flags := cmd.PersistentFlags()
 	flags.Bool("json", false, "output JSON envelope")
 	flags.Bool("pretty", false, "pretty-print JSON output")
-	flags.Bool("compact", false, "compact JSON output")
-	flags.Bool("ndjson", false, "output newline-delimited JSON")
-	flags.Bool("full", false, "include full Canvas response fields")
 	flags.Int("limit", 0, "max items to return (0 = no limit)")
 	flags.Int("page-size", 100, "items per page for paginated requests")
 	flags.Bool("no-paginate", false, "disable auto-pagination")
@@ -59,17 +51,11 @@ func NewRootCmd(version string) *cobra.Command {
 	flags.Bool("dry-run", false, "preview mutations without sending")
 	flags.Bool("confirm", false, "confirm write operations")
 	flags.Bool("read-only", false, "block all write operations")
-	flags.Bool("events", false, "emit NDJSON progress events on stderr")
-	flags.Bool("verbose", false, "enable verbose output")
-	flags.Bool("debug", false, "enable debug output")
-	flags.Bool("quiet", false, "suppress non-essential output")
 	flags.Bool("no-color", false, "disable color output")
-	flags.Bool("confirm-delete", false, "confirm destructive operations")
 	flags.String("config", "", "config file path (default: OS config dir/canvas-cli/config.yaml)")
 	flags.String("profile", "", "config profile name")
 	flags.String("base-url", "", "Canvas instance base URL")
 
-	// PersistentPreRunE: resolve config from flags + env + file.
 	cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
 		configPath, _ := c.Flags().GetString("config")
 		profileName, _ := c.Flags().GetString("profile")
@@ -92,7 +78,6 @@ func NewRootCmd(version string) *cobra.Command {
 
 		resolved, err := config.Resolve(opts, cfg)
 		if err != nil {
-			// Commands that tolerate missing config get a best-effort resolution.
 			if commandSkipsFullConfig(c) {
 				resolved = &config.ResolvedConfig{
 					Profile: cfg.CurrentProfile,
@@ -105,7 +90,6 @@ func NewRootCmd(version string) *cobra.Command {
 			}
 		}
 
-		// Merge global flags into the resolved config.
 		if timeoutStr, _ := c.Flags().GetString("timeout"); timeoutStr != "" {
 			if d, parseErr := time.ParseDuration(timeoutStr); parseErr == nil {
 				resolved.TimeoutDuration = d
@@ -163,7 +147,6 @@ func NewRootCmd(version string) *cobra.Command {
 	return cmd
 }
 
-// newVersionCmd returns the `version` subcommand.
 func newVersionCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
@@ -171,6 +154,7 @@ func newVersionCmd(version string) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			if jsonMode {
+				pretty, _ := cmd.Flags().GetBool("pretty")
 				env := canvas.Envelope{
 					OK: true,
 					Data: map[string]string{
@@ -180,7 +164,7 @@ func newVersionCmd(version string) *cobra.Command {
 					},
 					Meta: canvas.Meta{SchemaVersion: output.SchemaVersion, Command: "version"},
 				}
-				_ = output.WriteJSON(cmd.OutOrStdout(), env, false)
+				_ = output.WriteJSON(cmd.OutOrStdout(), env, pretty)
 				return
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "canvas %s (commit: %s, built: %s)\n", version, Commit, Date)
@@ -190,7 +174,6 @@ func newVersionCmd(version string) *cobra.Command {
 	return cmd
 }
 
-// newCompletionCmd returns the `completion` subcommand with bash/zsh/fish/powershell support.
 func newCompletionCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion [bash|zsh|fish|powershell]",
@@ -246,9 +229,8 @@ PowerShell:
 	return cmd
 }
 
-// commandSkipsFullConfig returns true for commands that can run without a
-// fully resolved config (base URL + token). These commands either manage
-// credentials, diagnose configuration, or are built-in shell helpers.
+// commandSkipsFullConfig reports whether a command can run without a fully
+// resolved config (base URL + token): credential, diagnostic, and shell helpers.
 func commandSkipsFullConfig(cmd *cobra.Command) bool {
 	path := commandPath(cmd)
 	switch path {
@@ -265,7 +247,6 @@ func commandSkipsFullConfig(cmd *cobra.Command) bool {
 	return false
 }
 
-// commandPath returns the full command path (e.g. "canvas auth login").
 func commandPath(cmd *cobra.Command) string {
 	parts := []string{cmd.Name()}
 	for p := cmd.Parent(); p != nil; p = p.Parent() {
@@ -274,17 +255,28 @@ func commandPath(cmd *cobra.Command) string {
 	return strings.Join(parts, " ")
 }
 
-// Execute is the top-level entry point used by main.go.
-// It constructs the root command and runs it, returning an exit code.
+// Execute is the top-level entry point used by main.go. It runs the root
+// command and maps any error to a process exit code per docs/json-contract.md.
 func Execute(version string) int {
 	cmd := NewRootCmd(version)
-
 	if err := cmd.Execute(); err != nil {
-		if exitErr, ok := err.(interface{ ExitCode() int }); ok {
-			return exitErr.ExitCode()
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return 1
+		return reportExit(err)
 	}
 	return 0
+}
+
+// reportExit maps an error to an exit code. An *exitError carries no prior
+// output, so its message is printed to stderr; errors that already emitted
+// their own output (e.g. a JSON envelope) implement ExitCode() and stay silent.
+func reportExit(err error) int {
+	var ee *exitError
+	if errors.As(err, &ee) {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", ee.msg)
+		return ee.exitCode
+	}
+	if ec, ok := err.(interface{ ExitCode() int }); ok {
+		return ec.ExitCode()
+	}
+	fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	return output.CodeGenericError
 }

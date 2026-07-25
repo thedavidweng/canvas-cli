@@ -393,7 +393,7 @@ func TestGradeImport_DryRunShowsPreviewWithAffectedCount(t *testing.T) {
 
 	csvDir := t.TempDir()
 	csvPath := filepath.Join(csvDir, "grades.csv")
-	os.WriteFile(csvPath, []byte("user_id,score\n42,95\n43,88\n"), 0644)
+	_ = os.WriteFile(csvPath, []byte("user_id,score\n42,95\n43,88\n"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL: mock.URL(),
@@ -441,7 +441,7 @@ func TestGradeImport_ConfirmSendsPOST(t *testing.T) {
 
 	csvDir := t.TempDir()
 	csvPath := filepath.Join(csvDir, "grades.csv")
-	os.WriteFile(csvPath, []byte("user_id,score\n42,95\n43,88\n"), 0644)
+	_ = os.WriteFile(csvPath, []byte("user_id,score\n42,95\n43,88\n"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -490,7 +490,7 @@ func TestGradeImport_ConfirmWithoutDryRunMayWarn(t *testing.T) {
 
 	csvDir := t.TempDir()
 	csvPath := filepath.Join(csvDir, "grades.csv")
-	os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0644)
+	_ = os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -534,7 +534,7 @@ func TestGradeImport_PartialFailureReturnsExit8(t *testing.T) {
 
 	csvDir := t.TempDir()
 	csvPath := filepath.Join(csvDir, "grades.csv")
-	os.WriteFile(csvPath, []byte("user_id,score\n42,95\n43,88\n"), 0644)
+	_ = os.WriteFile(csvPath, []byte("user_id,score\n42,95\n43,88\n"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -576,7 +576,7 @@ func TestGradeImport_WritesAuditLog(t *testing.T) {
 
 	csvDir := t.TempDir()
 	csvPath := filepath.Join(csvDir, "grades.csv")
-	os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0644)
+	_ = os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0o644)
 
 	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
 	cfg := &config.ResolvedConfig{
@@ -722,7 +722,7 @@ func TestGradeImport_JSONMode(t *testing.T) {
 
 	csvDir := t.TempDir()
 	csvPath := filepath.Join(csvDir, "grades.csv")
-	os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0644)
+	_ = os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -771,7 +771,7 @@ func TestGradeMutations_AllWriteAuditLog(t *testing.T) {
 
 	csvDir := t.TempDir()
 	csvPath := filepath.Join(csvDir, "grades.csv")
-	os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0644)
+	_ = os.WriteFile(csvPath, []byte("user_id,score\n42,95\n"), 0o644)
 
 	tests := []struct {
 		name    string
@@ -878,7 +878,7 @@ func TestGradeRubric_DryRunShowsPreview(t *testing.T) {
 	defer mock.Close()
 
 	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
-	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10,"comments":"good"}}`), 0644)
+	_ = os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10,"comments":"good"}}`), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL: mock.URL(),
@@ -928,7 +928,7 @@ func TestGradeRubric_ConfirmSendsPUT(t *testing.T) {
 	})
 
 	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
-	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10,"comments":"good"}}`), 0644)
+	_ = os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10,"comments":"good"}}`), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -982,7 +982,7 @@ func TestGradeRubric_JSONMode(t *testing.T) {
 	})
 
 	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
-	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0644)
+	_ = os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -1031,7 +1031,7 @@ func TestGradeRubric_ReadOnlyReturnsExit7(t *testing.T) {
 	defer mock.Close()
 
 	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
-	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0644)
+	_ = os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:  mock.URL(),
@@ -1075,7 +1075,7 @@ func TestGradeRubric_WritesAuditLog(t *testing.T) {
 	})
 
 	rubricFile := filepath.Join(t.TempDir(), "rubric.json")
-	os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0644)
+	_ = os.WriteFile(rubricFile, []byte(`{"criterion_1":{"points":10}}`), 0o644)
 
 	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
 	cfg := &config.ResolvedConfig{

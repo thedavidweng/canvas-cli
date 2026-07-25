@@ -17,7 +17,7 @@ func TestListUsers(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]User{
+		_ = json.NewEncoder(w).Encode([]User{
 			{ID: "789", Name: "Alice Smith", SortableName: "Smith, Alice", LoginID: "alice@example.edu"},
 			{ID: "790", Name: "Bob Jones", SortableName: "Jones, Bob", LoginID: "bob@example.edu"},
 		})
@@ -72,11 +72,11 @@ func TestListUsersPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/42/users?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]User{
+			_ = json.NewEncoder(w).Encode([]User{
 				{ID: "789", Name: "Alice"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]User{
+			_ = json.NewEncoder(w).Encode([]User{
 				{ID: "790", Name: "Bob"},
 			})
 		}
@@ -101,7 +101,7 @@ func TestListUsersError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message":"unauthorized"}`))
+		_, _ = w.Write([]byte(`{"message":"unauthorized"}`))
 	}))
 	defer srv.Close()
 

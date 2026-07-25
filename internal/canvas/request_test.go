@@ -21,7 +21,7 @@ func TestRequestDecodesJSONResponse(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Request-Cost", "0.8")
 		w.Header().Set("X-Rate-Limit-Remaining", "999.2")
-		json.NewEncoder(w).Encode(course{ID: "123", Name: "Test Course"})
+		_ = json.NewEncoder(w).Encode(course{ID: "123", Name: "Test Course"})
 	}))
 	defer srv.Close()
 
@@ -67,10 +67,10 @@ func TestRequestHandlesPagination(t *testing.T) {
 		case 1:
 			items := []item{{ID: "1"}, {ID: "2"}}
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/items?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode(items)
+			_ = json.NewEncoder(w).Encode(items)
 		case 2:
 			items := []item{{ID: "3"}}
-			json.NewEncoder(w).Encode(items)
+			_ = json.NewEncoder(w).Encode(items)
 		}
 	}))
 	defer srv.Close()
@@ -107,7 +107,7 @@ func TestRequestCapturesRateLimitMeta(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Request-Cost", "2.0")
 		w.Header().Set("X-Rate-Limit-Remaining", "995.0")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer srv.Close()
 
@@ -143,7 +143,7 @@ func TestRequestNoPaginationWhenPaginateFalse(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// Set a Link header that would normally trigger pagination
 		w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/items?page=2>; rel="next"`, srv.URL))
-		json.NewEncoder(w).Encode([]item{{ID: "1"}})
+		_ = json.NewEncoder(w).Encode([]item{{ID: "1"}})
 	}))
 	defer srv.Close()
 
@@ -210,7 +210,7 @@ func TestRequest_PaginateDefaultPageSize(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]item{{ID: "1"}})
+		_ = json.NewEncoder(w).Encode([]item{{ID: "1"}})
 	}))
 	defer srv.Close()
 
@@ -232,7 +232,7 @@ func TestRequest_APIErrorStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -255,7 +255,7 @@ func TestRequest_DecodeError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`not valid json`))
+		_, _ = w.Write([]byte(`not valid json`))
 	}))
 	defer srv.Close()
 
@@ -279,7 +279,7 @@ func TestRequestPassesQueryParams(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{})
+		_ = json.NewEncoder(w).Encode(map[string]string{})
 	}))
 	defer srv.Close()
 

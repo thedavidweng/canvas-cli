@@ -43,12 +43,12 @@ func (m *MockCookieReader) ReadCookies(ctx context.Context, filters ...kooky.Fil
 }
 
 // Helper to create a test cookie.
-func makeCookie(name, value, domain string) *kooky.Cookie {
+func makeCookie(name, value string) *kooky.Cookie {
 	return &kooky.Cookie{
 		Cookie: http.Cookie{
 			Name:   name,
 			Value:  value,
-			Domain: domain,
+			Domain: "canvas.school.edu",
 		},
 		Creation: time.Now(),
 	}
@@ -57,8 +57,8 @@ func makeCookie(name, value, domain string) *kooky.Cookie {
 func TestExtractCookies_ExactHost(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookie("_instructure_session", "session123", "canvas.school.edu"),
-			makeCookie("_csrf_token", "csrf456", "canvas.school.edu"),
+			makeCookie("_instructure_session", "session123"),
+			makeCookie("_csrf_token", "csrf456"),
 		},
 	}
 	Reader = mock
@@ -78,8 +78,8 @@ func TestExtractCookies_ExactHost(t *testing.T) {
 func TestExtractCookies_CanvasSession(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookie("canvas_session", "canvas123", "canvas.school.edu"),
-			makeCookie("_csrf_token", "csrf456", "canvas.school.edu"),
+			makeCookie("canvas_session", "canvas123"),
+			makeCookie("_csrf_token", "csrf456"),
 		},
 	}
 	Reader = mock
@@ -99,7 +99,7 @@ func TestExtractCookies_CanvasSession(t *testing.T) {
 func TestExtractCookies_NoSessionCookie(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookie("_csrf_token", "csrf456", "canvas.school.edu"),
+			makeCookie("_csrf_token", "csrf456"),
 		},
 	}
 	Reader = mock
@@ -113,7 +113,7 @@ func TestExtractCookies_NoSessionCookie(t *testing.T) {
 func TestExtractCookies_NoCSRFToken(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookie("_instructure_session", "session123", "canvas.school.edu"),
+			makeCookie("_instructure_session", "session123"),
 		},
 	}
 	Reader = mock
@@ -134,8 +134,8 @@ func TestExtractCookies_UnknownSessionCookieIgnored(t *testing.T) {
 	// Unknown cookie names should be ignored.
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookie("some_other_cookie", "value123", "canvas.school.edu"),
-			makeCookie("_csrf_token", "csrf456", "canvas.school.edu"),
+			makeCookie("some_other_cookie", "value123"),
+			makeCookie("_csrf_token", "csrf456"),
 		},
 	}
 	Reader = mock
@@ -212,8 +212,8 @@ func (b *mockBrowserInfo) IsDefaultProfile() bool { return true }
 func (b *mockBrowserInfo) FilePath() string       { return "" }
 
 // makeCookieWithBrowser creates a test cookie with BrowserInfo set.
-func makeCookieWithBrowser(name, value, domain, browserName string) *kooky.Cookie {
-	c := makeCookie(name, value, domain)
+func makeCookieWithBrowser(name, value, browserName string) *kooky.Cookie {
+	c := makeCookie(name, value)
 	if browserName != "" {
 		c.Browser = &mockBrowserInfo{name: browserName}
 	}
@@ -225,8 +225,8 @@ func makeCookieWithBrowser(name, value, domain, browserName string) *kooky.Cooki
 func TestExtractCookiesForBrowser_MatchingBrowser(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookieWithBrowser("_instructure_session", "chrome-sess", "canvas.school.edu", "chrome"),
-			makeCookieWithBrowser("_csrf_token", "chrome-csrf", "canvas.school.edu", "chrome"),
+			makeCookieWithBrowser("_instructure_session", "chrome-sess", "chrome"),
+			makeCookieWithBrowser("_csrf_token", "chrome-csrf", "chrome"),
 		},
 	}
 	Reader = mock
@@ -246,8 +246,8 @@ func TestExtractCookiesForBrowser_MatchingBrowser(t *testing.T) {
 func TestExtractCookiesForBrowser_NonMatchingBrowser(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookieWithBrowser("_instructure_session", "firefox-sess", "canvas.school.edu", "firefox"),
-			makeCookieWithBrowser("_csrf_token", "firefox-csrf", "canvas.school.edu", "firefox"),
+			makeCookieWithBrowser("_instructure_session", "firefox-sess", "firefox"),
+			makeCookieWithBrowser("_csrf_token", "firefox-csrf", "firefox"),
 		},
 	}
 	Reader = mock
@@ -261,8 +261,8 @@ func TestExtractCookiesForBrowser_NonMatchingBrowser(t *testing.T) {
 func TestExtractCookiesForBrowser_CaseInsensitiveBrowserMatch(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookieWithBrowser("_instructure_session", "sess", "canvas.school.edu", "Chrome"),
-			makeCookieWithBrowser("_csrf_token", "csrf", "canvas.school.edu", "Chrome"),
+			makeCookieWithBrowser("_instructure_session", "sess", "Chrome"),
+			makeCookieWithBrowser("_csrf_token", "csrf", "Chrome"),
 		},
 	}
 	Reader = mock
@@ -279,7 +279,7 @@ func TestExtractCookiesForBrowser_CaseInsensitiveBrowserMatch(t *testing.T) {
 func TestExtractCookiesForBrowser_NoSessionCookie(t *testing.T) {
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookieWithBrowser("_csrf_token", "csrf456", "canvas.school.edu", "chrome"),
+			makeCookieWithBrowser("_csrf_token", "csrf456", "chrome"),
 		},
 	}
 	Reader = mock
@@ -312,7 +312,7 @@ func TestExtractCookiesForBrowser_NilBrowserInfo(t *testing.T) {
 	// Cookies without BrowserInfo should be rejected by the browser filter.
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookie("_instructure_session", "sess", "canvas.school.edu"),
+			makeCookie("_instructure_session", "sess"),
 		},
 	}
 	Reader = mock
@@ -327,9 +327,9 @@ func TestExtractCookiesForBrowser_MultipleBrowsers(t *testing.T) {
 	// Cookies from different browsers; only chrome should match.
 	mock := &MockCookieReader{
 		cookies: []*kooky.Cookie{
-			makeCookieWithBrowser("_instructure_session", "firefox-sess", "canvas.school.edu", "firefox"),
-			makeCookieWithBrowser("_instructure_session", "chrome-sess", "canvas.school.edu", "chrome"),
-			makeCookieWithBrowser("_csrf_token", "chrome-csrf", "canvas.school.edu", "chrome"),
+			makeCookieWithBrowser("_instructure_session", "firefox-sess", "firefox"),
+			makeCookieWithBrowser("_instructure_session", "chrome-sess", "chrome"),
+			makeCookieWithBrowser("_csrf_token", "chrome-csrf", "chrome"),
 		},
 	}
 	Reader = mock

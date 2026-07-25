@@ -1,8 +1,6 @@
 package output
 
-// Exit codes matching the JSON contract in docs/json-contract.md.
-// All codes are defined here for the contract spec and external consumers,
-// even if not all are currently referenced in production code.
+// Exit codes matching the taxonomy in docs/json-contract.md.
 const (
 	CodeSuccess          = 0
 	CodeGenericError     = 1
@@ -13,5 +11,25 @@ const (
 	CodeNetworkError     = 6
 	CodeSafetyBlocked    = 7
 	CodePartialFailure   = 8
-	CodeInterrupted      = 130
 )
+
+// ExitCodeForCategory maps a JSON error category to a process exit code.
+// Unknown categories map to CodeGenericError.
+func ExitCodeForCategory(category string) int {
+	switch category {
+	case "validation":
+		return CodeValidationError
+	case "auth":
+		return CodeAuthError
+	case "permission":
+		return CodePermissionDenied
+	case "rate_limit":
+		return CodeRateLimit
+	case "network":
+		return CodeNetworkError
+	case "partial_failure":
+		return CodePartialFailure
+	default:
+		return CodeGenericError
+	}
+}

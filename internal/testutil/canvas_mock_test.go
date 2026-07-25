@@ -64,10 +64,10 @@ func TestDefaultRoutes(t *testing.T) {
 			}
 
 			body, _ := io.ReadAll(resp.Body)
-			if len(tt.wantKey) > 0 && !json.Valid(body) {
+			if tt.wantKey != "" && !json.Valid(body) {
 				t.Errorf("response is not valid JSON: %s", body)
 			}
-			if len(tt.wantKey) > 0 && !contains(string(body), tt.wantKey) {
+			if tt.wantKey != "" && !contains(string(body), tt.wantKey) {
 				t.Errorf("response body does not contain %q: %s", tt.wantKey, body)
 			}
 		})
@@ -79,8 +79,8 @@ func TestRequestLogging(t *testing.T) {
 	defer m.Close()
 
 	// Make two requests.
-	http.Get(m.URL() + "/api/v1/users/self")
-	http.Get(m.URL() + "/api/v1/courses")
+	_, _ = http.Get(m.URL() + "/api/v1/users/self")
+	_, _ = http.Get(m.URL() + "/api/v1/courses")
 
 	if m.RequestCount() != 2 {
 		t.Fatalf("RequestCount() = %d, want 2", m.RequestCount())
@@ -105,10 +105,10 @@ func TestRequestLoggingHeaders(t *testing.T) {
 	m := NewMockCanvas()
 	defer m.Close()
 
-	req, _ := http.NewRequest("GET", m.URL()+"/api/v1/users/self", nil)
+	req, _ := http.NewRequest("GET", m.URL()+"/api/v1/users/self", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-token-123")
 	req.Header.Set("Accept", "application/json+canvas-string-ids")
-	http.DefaultClient.Do(req)
+	_, _ = http.DefaultClient.Do(req)
 
 	if m.RequestCount() != 1 {
 		t.Fatalf("RequestCount() = %d, want 1", m.RequestCount())
@@ -275,8 +275,8 @@ func TestReset(t *testing.T) {
 	m := NewMockCanvas()
 	defer m.Close()
 
-	http.Get(m.URL() + "/api/v1/users/self")
-	http.Get(m.URL() + "/api/v1/courses")
+	_, _ = http.Get(m.URL() + "/api/v1/users/self")
+	_, _ = http.Get(m.URL() + "/api/v1/courses")
 
 	if m.RequestCount() != 2 {
 		t.Fatalf("before reset: RequestCount() = %d, want 2", m.RequestCount())
@@ -386,7 +386,7 @@ func TestOnUploadRedirect(t *testing.T) {
 		},
 	}
 
-	req, _ := http.NewRequest("POST", m.URL()+"/api/v1/uploads", nil)
+	req, _ := http.NewRequest("POST", m.URL()+"/api/v1/uploads", http.NoBody)
 	resp, err := noRedirectClient.Do(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -413,7 +413,7 @@ func TestReset_WithPagination(t *testing.T) {
 	})
 
 	// Request page 1 (advances pagination index).
-	http.Get(m.URL() + "/api/v1/items")
+	_, _ = http.Get(m.URL() + "/api/v1/items")
 
 	if m.RequestCount() != 1 {
 		t.Fatalf("before reset: RequestCount() = %d, want 1", m.RequestCount())
@@ -478,9 +478,9 @@ func TestRequestLog(t *testing.T) {
 	m := NewMockCanvas()
 	defer m.Close()
 
-	http.Get(m.URL() + "/api/v1/users/self")
-	http.Get(m.URL() + "/api/v1/courses")
-	http.Get(m.URL() + "/api/v1/courses/1")
+	_, _ = http.Get(m.URL() + "/api/v1/users/self")
+	_, _ = http.Get(m.URL() + "/api/v1/courses")
+	_, _ = http.Get(m.URL() + "/api/v1/courses/1")
 
 	log := m.RequestLog()
 	if len(log) != 3 {
@@ -510,7 +510,7 @@ func TestRequestLog_ReturnsCopy(t *testing.T) {
 	m := NewMockCanvas()
 	defer m.Close()
 
-	http.Get(m.URL() + "/api/v1/users/self")
+	_, _ = http.Get(m.URL() + "/api/v1/users/self")
 
 	log1 := m.RequestLog()
 	log2 := m.RequestLog()
@@ -535,7 +535,7 @@ func TestRecordedRequest_Query(t *testing.T) {
 	m := NewMockCanvas()
 	defer m.Close()
 
-	http.Get(m.URL() + "/api/v1/test?foo=bar&baz=1")
+	_, _ = http.Get(m.URL() + "/api/v1/test?foo=bar&baz=1")
 
 	last := m.LastRequest()
 	if last == nil {
@@ -558,7 +558,7 @@ func TestRecordedRequest_Body(t *testing.T) {
 
 	req, _ := http.NewRequest("POST", m.URL()+"/api/v1/test", strings.NewReader(`{"name":"test"}`))
 	req.Header.Set("Content-Type", "application/json")
-	http.DefaultClient.Do(req)
+	_, _ = http.DefaultClient.Do(req)
 
 	last := m.LastRequest()
 	if last == nil {
@@ -572,7 +572,7 @@ func TestRecordedRequest_Body(t *testing.T) {
 
 // contains is a simple substring check helper.
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstr(s, substr))
+	return len(s) >= len(substr) && (s == substr || s != "" && containsSubstr(s, substr))
 }
 
 func containsSubstr(s, substr string) bool {

@@ -39,7 +39,7 @@ type FileDownloadResult struct {
 // DownloadCourseFiles lists all files for a course, downloads each one into
 // outDir, and writes manifest.json + manifest.ndjson alongside them. Files
 // that already exist are skipped when noOverwrite is true. The returned
-// FileDownloadResult summarises the operation; its Entries slice holds
+// FileDownloadResult summarizes the operation; its Entries slice holds
 // per-file status for callers that need the detail.
 func DownloadCourseFiles(ctx context.Context, client *Client, opts DownloadCourseFilesOptions) (*FileDownloadResult, error) {
 	files, _, err := ListFiles(ctx, client, opts.CourseID, nil)
@@ -62,8 +62,6 @@ func DownloadCourseFiles(ctx context.Context, client *Client, opts DownloadCours
 			Size:        f.Size,
 		}
 
-		// Sanitize the filename to prevent path traversal — Canvas filenames
-		// are untrusted and may contain "../" or absolute paths.
 		safeName := filepath.Base(f.Filename)
 		if safeName == "." || safeName == string(filepath.Separator) {
 			safeName = fmt.Sprintf("file_%s", f.ID)
@@ -104,7 +102,6 @@ func DownloadCourseFiles(ctx context.Context, client *Client, opts DownloadCours
 		result.Downloaded++
 	}
 
-	// Write manifest.json
 	manifestJSONPath := filepath.Join(opts.OutDir, "manifest.json")
 	jsonData, jsonErr := json.MarshalIndent(result.Entries, "", "  ")
 	if jsonErr != nil {
@@ -115,7 +112,6 @@ func DownloadCourseFiles(ctx context.Context, client *Client, opts DownloadCours
 	}
 	result.ManifestPath = manifestJSONPath
 
-	// Write manifest.ndjson
 	manifestNDJSONPath := filepath.Join(opts.OutDir, "manifest.ndjson")
 	ndjsonFile, ndErr := os.Create(manifestNDJSONPath)
 	if ndErr != nil {

@@ -69,7 +69,6 @@ func DownloadFile(ctx context.Context, client *Client, fileID string, w io.Write
 		return fmt.Errorf("file %s: download URL is empty", fileID)
 	}
 
-	// Canvas returns a full URL; extract path so client.Do does not double-prefix.
 	parsed, err := url.Parse(file.URL)
 	if err != nil {
 		return fmt.Errorf("parse file URL %s: %w", fileID, err)

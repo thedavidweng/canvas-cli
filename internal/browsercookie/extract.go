@@ -10,17 +10,11 @@ import (
 	"github.com/browserutils/kooky"
 )
 
-// Available indicates whether browser cookie extraction is compiled in.
-// Always true when the kooky dependency is present.
-const Available = true
-
-// Known session cookie names for Canvas LMS.
 var sessionCookieNames = []string{
 	"_instructure_session",
 	"canvas_session",
 }
 
-// CSRF cookie name.
 const csrfCookieName = "_csrf_token"
 
 // CookieReader abstracts cookie reading for testability.
@@ -28,95 +22,17 @@ type CookieReader interface {
 	ReadCookies(ctx context.Context, filters ...kooky.Filter) (kooky.Cookies, error)
 }
 
-// DefaultReader uses kooky's built-in cookie reading.
 type DefaultReader struct{}
 
 func (r *DefaultReader) ReadCookies(ctx context.Context, filters ...kooky.Filter) (kooky.Cookies, error) {
 	return kooky.ReadCookies(ctx, filters...)
 }
 
-// Package-level reader variable for dependency injection.
+// Reader is the package-level cookie reader, overridable for dependency injection.
 var Reader CookieReader = &DefaultReader{}
 
-// ExtractCookies reads browser cookies for the given host.
-// Returns sessionCookie in "name=value" format suitable for the HTTP Cookie header,
-// and csrfToken as the raw value.
-// Filters by exact host match only (no parent domain matching to avoid
-// over-broad results with ccTLDs like *.ac.uk, *.edu.au, *.co.uk).
-func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken string, err error) {
-	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host))
-	if err != nil {
-		return "", "", err
-	}
-
-	for _, cookie := range cookies {
-		if cookie == nil {
-			continue
-		}
-
-		name := cookie.Name
-		value := cookie.Value
-
-		// Check for CSRF token.
-		if name == csrfCookieName && csrfToken == "" {
-			csrfToken = value
-			continue
-		}
-
-		// Check for session cookie by known names.
-		if sessionCookie == "" {
-			for _, sessionName := range sessionCookieNames {
-				if name == sessionName {
-					sessionCookie = name + "=" + value
-					break
-				}
-			}
-		}
-	}
-
-	if sessionCookie == "" {
-		return "", csrfToken, ErrNoSessionCookie
-	}
-
-	return sessionCookie, csrfToken, nil
-}
-
-// IsSessionCookie checks if a cookie is a known session cookie.
-func IsSessionCookie(cookie *http.Cookie) bool {
-	if cookie == nil {
-		return false
-	}
-	for _, name := range sessionCookieNames {
-		if cookie.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
-// IsCSRFCookie checks if a cookie is the CSRF token cookie.
-func IsCSRFCookie(cookie *http.Cookie) bool {
-	if cookie == nil {
-		return false
-	}
-	return cookie.Name == csrfCookieName
-}
-
-// ExtractCookiesForBrowser reads browser cookies for the given host,
-// filtering to a specific browser by name (e.g. "chrome", "firefox", "safari").
-func ExtractCookiesForBrowser(ctx context.Context, host, browserName string) (sessionCookie, csrfToken string, err error) {
-	browserFilter := kooky.FilterFunc(func(c *kooky.Cookie) bool {
-		if c.Browser == nil {
-			return false
-		}
-		return strings.EqualFold(c.Browser.Browser(), browserName)
-	})
-
-	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host), browserFilter)
-	if err != nil {
-		return "", "", err
-	}
-
+// scanCookies returns the Canvas session cookie ("name=value") and raw CSRF
+func scanCookies(cookies kooky.Cookies) (sessionCookie, csrfToken string) {
 	for _, cookie := range cookies {
 		if cookie == nil {
 			continue
@@ -134,14 +50,64 @@ func ExtractCookiesForBrowser(ctx context.Context, host, browserName string) (se
 			}
 		}
 	}
+	return sessionCookie, csrfToken
+}
 
+// ExtractCookies reads Canvas cookies for host. It filters by exact host match
+func ExtractCookies(ctx context.Context, host string) (sessionCookie, csrfToken string, err error) {
+	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host))
+	if err != nil {
+		return "", "", err
+	}
+	sessionCookie, csrfToken = scanCookies(cookies)
 	if sessionCookie == "" {
 		return "", csrfToken, ErrNoSessionCookie
 	}
 	return sessionCookie, csrfToken, nil
 }
 
-// AvailableBrowsers returns browser names available on the current OS for cookie extraction.
+// IsSessionCookie reports whether cookie is a known Canvas session cookie.
+func IsSessionCookie(cookie *http.Cookie) bool {
+	if cookie == nil {
+		return false
+	}
+	for _, name := range sessionCookieNames {
+		if cookie.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// IsCSRFCookie reports whether cookie is the Canvas CSRF token cookie.
+func IsCSRFCookie(cookie *http.Cookie) bool {
+	if cookie == nil {
+		return false
+	}
+	return cookie.Name == csrfCookieName
+}
+
+// ExtractCookiesForBrowser is like ExtractCookies but restricted to a single
+func ExtractCookiesForBrowser(ctx context.Context, host, browserName string) (sessionCookie, csrfToken string, err error) {
+	browserFilter := kooky.FilterFunc(func(c *kooky.Cookie) bool {
+		if c.Browser == nil {
+			return false
+		}
+		return strings.EqualFold(c.Browser.Browser(), browserName)
+	})
+
+	cookies, err := Reader.ReadCookies(ctx, kooky.Domain(host), browserFilter)
+	if err != nil {
+		return "", "", err
+	}
+	sessionCookie, csrfToken = scanCookies(cookies)
+	if sessionCookie == "" {
+		return "", csrfToken, ErrNoSessionCookie
+	}
+	return sessionCookie, csrfToken, nil
+}
+
+// AvailableBrowsers returns browser names supported on the current OS.
 func AvailableBrowsers() []string {
 	switch runtime.GOOS {
 	case "darwin":

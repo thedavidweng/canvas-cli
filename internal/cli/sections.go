@@ -44,11 +44,10 @@ func newSectionsListCmd() *cobra.Command {
 
 			sections, err := canvas.ListSections(ctx, client, courseID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "sections.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "sections.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, sections, "sections.list", jsonMode, func(w io.Writer) error {
-				// Human mode: table output
 				tbl := output.Table{
 					Headers: []string{"ID", "Name", "Course ID", "Total Students"},
 				}
@@ -59,7 +58,7 @@ func newSectionsListCmd() *cobra.Command {
 					}
 					tbl.Rows = append(tbl.Rows, []string{s.ID, s.Name, s.CourseID, total})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}

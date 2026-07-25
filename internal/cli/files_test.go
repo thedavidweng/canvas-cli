@@ -209,7 +209,7 @@ func TestFilesDownload_RespectsNoOverwrite(t *testing.T) {
 	outPath := filepath.Join(tmpDir, "existing.pdf")
 
 	// Create an existing file
-	if err := os.WriteFile(outPath, []byte("existing"), 0644); err != nil {
+	if err := os.WriteFile(outPath, []byte("existing"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -338,7 +338,7 @@ func TestFilesUpload_DryRunShowsPreview(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test.txt")
-	os.WriteFile(filePath, []byte("hello"), 0644)
+	_ = os.WriteFile(filePath, []byte("hello"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL: mock.URL(),
@@ -388,7 +388,7 @@ func TestFilesUpload_ConfirmUploads(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test.txt")
-	os.WriteFile(filePath, []byte("hello world"), 0644)
+	_ = os.WriteFile(filePath, []byte("hello world"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -435,7 +435,7 @@ func TestFilesUpload_JSONMode(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test.txt")
-	os.WriteFile(filePath, []byte("hello world"), 0644)
+	_ = os.WriteFile(filePath, []byte("hello world"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -605,7 +605,7 @@ func TestFilesDownloadCourse_NoOverwrite(t *testing.T) {
 
 	outDir := t.TempDir()
 	// Pre-create the file
-	os.WriteFile(filepath.Join(outDir, "syllabus.pdf"), []byte("original"), 0644)
+	_ = os.WriteFile(filepath.Join(outDir, "syllabus.pdf"), []byte("original"), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL: mock.URL(),

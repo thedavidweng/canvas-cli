@@ -144,7 +144,7 @@ func TestWaitForComplete_ContextCancelled(t *testing.T) {
 	var buf bytes.Buffer
 	err := waitForComplete(ctx, client, "/api/v1/progress/789", &buf)
 	if err == nil {
-		t.Fatal("expected error on cancelled context, got nil")
+		t.Fatal("expected error on canceled context, got nil")
 	}
 	if !strings.Contains(err.Error(), "context canceled") {
 		t.Errorf("expected 'context canceled' in error, got: %v", err)

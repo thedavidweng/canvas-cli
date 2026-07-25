@@ -22,7 +22,6 @@ type Auditor struct {
 }
 
 // NewAuditor creates an Auditor that writes to path when enabled is true.
-// When enabled is false, all WriteEvent calls are no-ops.
 func NewAuditor(path string, enabled bool) *Auditor {
 	return &Auditor{
 		path:    path,
@@ -31,7 +30,6 @@ func NewAuditor(path string, enabled bool) *Auditor {
 }
 
 // WriteEvent appends a single JSONL line to the audit log file.
-// If the auditor is disabled, this is a no-op and returns nil.
 func (a *Auditor) WriteEvent(event canvas.AuditEvent) error {
 	if !a.enabled {
 		return nil
@@ -40,7 +38,6 @@ func (a *Auditor) WriteEvent(event canvas.AuditEvent) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Ensure parent directory exists.
 	dir := filepath.Dir(a.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("audit: create dir: %w", err)
@@ -66,19 +63,11 @@ func (a *Auditor) WriteEvent(event canvas.AuditEvent) error {
 }
 
 // defaultPath returns the default audit log file path using the OS-appropriate
-// state directory:
-//
-//	Linux:   $XDG_STATE_HOME/canvas-cli/audit.jsonl  (default ~/.local/state)
-//	macOS:   ~/Library/Application Support/canvas-cli/audit.jsonl
-//	Windows: %LOCALAPPDATA%\canvas-cli\audit.jsonl
 func defaultPath() string {
 	return filepath.Join(stateDir(), "canvas-cli", "audit.jsonl")
 }
 
 // stateDir returns the OS-appropriate state directory.
-// On Linux:   $XDG_STATE_HOME, falling back to ~/.local/state
-// On macOS:   ~/Library/Application Support (same as config dir)
-// On Windows: %LOCALAPPDATA%
 func stateDir() string {
 	switch runtime.GOOS {
 	case "windows":

@@ -20,7 +20,7 @@ func TestListFiles(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.Query()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]File{
+		_ = json.NewEncoder(w).Encode([]File{
 			{
 				ID:          "101",
 				DisplayName: "syllabus.pdf",
@@ -86,12 +86,12 @@ func TestListFilesPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/42/files?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]File{
+			_ = json.NewEncoder(w).Encode([]File{
 				{ID: "1", DisplayName: "a.pdf"},
 				{ID: "2", DisplayName: "b.pdf"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]File{
+			_ = json.NewEncoder(w).Encode([]File{
 				{ID: "3", DisplayName: "c.pdf"},
 			})
 		}
@@ -123,7 +123,7 @@ func TestGetFile(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(File{
+		_ = json.NewEncoder(w).Encode(File{
 			ID:          "55",
 			DisplayName: "syllabus.pdf",
 			Filename:    "syllabus.pdf",
@@ -164,7 +164,7 @@ func TestGetFileNotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -190,7 +190,7 @@ func TestDownloadFile(t *testing.T) {
 			fmt.Fprintf(w, `{"id":"55","display_name":"report.pdf","url":"%s/files/report.pdf","size":1024}`, srv.URL)
 		case "/files/report.pdf":
 			w.Header().Set("Content-Type", "application/pdf")
-			w.Write([]byte("file-content-here"))
+			_, _ = w.Write([]byte("file-content-here"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -224,7 +224,7 @@ func TestListFilesError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -240,7 +240,7 @@ func TestDownloadFileMetadataError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -262,7 +262,7 @@ func TestDownloadFileDownloadError(t *testing.T) {
 			fmt.Fprintf(w, `{"id":"55","display_name":"report.pdf","url":"%s/files/report.pdf","size":1024}`, srv.URL)
 		case "/files/report.pdf":
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"message":"download failed"}`))
+			_, _ = w.Write([]byte(`{"message":"download failed"}`))
 		default:
 			http.NotFound(w, r)
 		}

@@ -352,9 +352,9 @@ func TestSubmissionsDownload_NoOverwrite(t *testing.T) {
 
 	// Pre-create the file with different content
 	dirPath := filepath.Join(outDir, "10", "Smith, Alice_42")
-	os.MkdirAll(dirPath, 0755)
+	_ = os.MkdirAll(dirPath, 0o755)
 	existingPath := filepath.Join(dirPath, "500_essay.pdf")
-	os.WriteFile(existingPath, []byte("original content"), 0644)
+	_ = os.WriteFile(existingPath, []byte("original content"), 0o644)
 
 	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
 
@@ -381,7 +381,7 @@ func TestSubmissionsDownload_NoOverwrite(t *testing.T) {
 	manifestPath := filepath.Join(outDir, "10", "manifest.json")
 	manifestData, _ := os.ReadFile(manifestPath)
 	var entries []ManifestEntry
-	json.Unmarshal(manifestData, &entries)
+	_ = json.Unmarshal(manifestData, &entries)
 	if len(entries) != 1 {
 		t.Fatalf("manifest has %d entries, want 1", len(entries))
 	}
@@ -458,7 +458,7 @@ func TestSubmissionsDownload_PartialFailure(t *testing.T) {
 	manifestPath := filepath.Join(outDir, "10", "manifest.json")
 	manifestData, _ := os.ReadFile(manifestPath)
 	var entries []ManifestEntry
-	json.Unmarshal(manifestData, &entries)
+	_ = json.Unmarshal(manifestData, &entries)
 	if len(entries) != 2 {
 		t.Fatalf("manifest has %d entries, want 2", len(entries))
 	}

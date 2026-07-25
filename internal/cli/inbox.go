@@ -43,11 +43,10 @@ func newInboxListCmd() *cobra.Command {
 
 			conversations, _, err := canvas.ListConversations(cmd.Context(), client, canvas.RequestOptions{PageSize: 100})
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "inbox.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "inbox.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, conversations, "inbox.list", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, c := range conversations {
 					fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, c.WorkflowState, c.Subject)
 				}
@@ -76,11 +75,10 @@ func newInboxGetCmd() *cobra.Command {
 
 			conversation, err := canvas.GetConversation(cmd.Context(), client, conversationID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "inbox.get", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "inbox.get", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, conversation, "inbox.get", jsonMode, func(w io.Writer) error {
-				// Human output
 				fmt.Fprintf(w, "ID:       %s\n", conversation.ID)
 				fmt.Fprintf(w, "Subject:  %s\n", conversation.Subject)
 				fmt.Fprintf(w, "State:    %s\n", conversation.WorkflowState)
@@ -144,7 +142,7 @@ func newInboxSendCmd() *cobra.Command {
 					return &conversation, 200, nil
 				},
 				func(w io.Writer, data any) error {
-					conversation := data.(*canvas.Conversation)
+					conversation, _ := data.(*canvas.Conversation)
 					fmt.Fprintf(w, "Message sent (conversation %s)\n", conversation.ID)
 					return nil
 				},

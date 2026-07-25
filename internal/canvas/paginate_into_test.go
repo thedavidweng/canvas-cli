@@ -31,7 +31,7 @@ func TestPaginateInto_LimitStopsEarly(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]item{
+		_ = json.NewEncoder(w).Encode([]item{
 			{ID: "1"}, {ID: "2"}, {ID: "3"},
 		})
 	}))
@@ -60,7 +60,7 @@ func TestPaginateInto_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -79,7 +79,7 @@ func TestPaginateInto_APIError(t *testing.T) {
 func TestPaginateInto_DecodeError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`not valid json`))
+		_, _ = w.Write([]byte(`not valid json`))
 	}))
 	defer srv.Close()
 
@@ -99,7 +99,7 @@ func TestPaginateInto_ItemDecodeError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// Array with an element that can't decode into a string field.
-		json.NewEncoder(w).Encode([]map[string]any{
+		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{"id": 123},
 		})
 	}))
@@ -133,9 +133,9 @@ func TestPaginateInto_RelativeNextURL(t *testing.T) {
 		case 1:
 			// Relative next URL (no scheme/host).
 			w.Header().Set("Link", `</api/v1/items?page=2>; rel="next"`)
-			json.NewEncoder(w).Encode([]item{{ID: "1"}})
+			_ = json.NewEncoder(w).Encode([]item{{ID: "1"}})
 		case 2:
-			json.NewEncoder(w).Encode([]item{{ID: "2"}})
+			_ = json.NewEncoder(w).Encode([]item{{ID: "2"}})
 		}
 	}))
 	defer srv.Close()
@@ -169,9 +169,9 @@ func TestPaginateInto_AbsoluteNextURL(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/items?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]item{{ID: "1"}})
+			_ = json.NewEncoder(w).Encode([]item{{ID: "1"}})
 		case 2:
-			json.NewEncoder(w).Encode([]item{{ID: "2"}})
+			_ = json.NewEncoder(w).Encode([]item{{ID: "2"}})
 		}
 	}))
 	defer srv.Close()
@@ -195,7 +195,7 @@ func TestPaginateInto_AbsoluteNextURL(t *testing.T) {
 func TestPaginateInto_ContextCancelled(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]map[string]string{{"id": "1"}})
+		_ = json.NewEncoder(w).Encode([]map[string]string{{"id": "1"}})
 	}))
 	defer srv.Close()
 
@@ -207,7 +207,7 @@ func TestPaginateInto_ContextCancelled(t *testing.T) {
 	var items []map[string]string
 	_, err := paginateInto(ctx, c, "/api/v1/items", nil, 0, 100, &items)
 	if err == nil {
-		t.Fatal("expected error for cancelled context, got nil")
+		t.Fatal("expected error for canceled context, got nil")
 	}
 }
 
@@ -219,7 +219,7 @@ func TestPaginateInto_NoLinkHeaderStops(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// No Link header — should stop after first page.
-		json.NewEncoder(w).Encode([]item{{ID: "1"}, {ID: "2"}})
+		_ = json.NewEncoder(w).Encode([]item{{ID: "1"}, {ID: "2"}})
 	}))
 	defer srv.Close()
 
@@ -248,7 +248,7 @@ func TestPaginateInto_LimitReachedAfterPage(t *testing.T) {
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/items?page=2>; rel="next"`, srv.URL))
-		json.NewEncoder(w).Encode([]item{{ID: "1"}, {ID: "2"}})
+		_ = json.NewEncoder(w).Encode([]item{{ID: "1"}, {ID: "2"}})
 	}))
 	defer srv.Close()
 

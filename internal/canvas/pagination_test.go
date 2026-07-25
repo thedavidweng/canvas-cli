@@ -54,7 +54,7 @@ func TestPaginateFollowsNextUntilExhausted(t *testing.T) {
 	}
 
 	page := 0
-	var srv *httptest.Server //nolint:staticcheck // self-referential closure
+	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		page++
 		var items []item
@@ -69,7 +69,7 @@ func TestPaginateFollowsNextUntilExhausted(t *testing.T) {
 			items = []item{}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(items)
+		_ = json.NewEncoder(w).Encode(items)
 	}))
 	defer srv.Close()
 
@@ -101,7 +101,7 @@ func TestPaginateRespectsLimit(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		items := []item{{ID: "1"}, {ID: "2"}, {ID: "3"}}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(items)
+		_ = json.NewEncoder(w).Encode(items)
 	}))
 	defer srv.Close()
 
@@ -129,7 +129,7 @@ func TestPaginateEmptyFirstPage(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]item{})
+		_ = json.NewEncoder(w).Encode([]item{})
 	}))
 	defer srv.Close()
 
@@ -160,7 +160,7 @@ func TestPaginateMissingLinkHeaderIsSinglePage(t *testing.T) {
 		reqCount++
 		items := []item{{ID: "a"}, {ID: "b"}}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(items)
+		_ = json.NewEncoder(w).Encode(items)
 	}))
 	defer srv.Close()
 
@@ -191,7 +191,7 @@ func TestPaginatePassesPageSizeQuery(t *testing.T) {
 		gotQuery = r.URL.RawQuery
 		items := []item{{ID: "1"}}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(items)
+		_ = json.NewEncoder(w).Encode(items)
 	}))
 	defer srv.Close()
 
@@ -215,7 +215,7 @@ func TestPaginate_APIErrorResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"message":"invalid parameter"}`))
+		_, _ = w.Write([]byte(`{"message":"invalid parameter"}`))
 	}))
 	defer srv.Close()
 
@@ -237,7 +237,7 @@ func TestPaginate_APIErrorWithCookieAuth(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message":"Unauthorized"}`))
+		_, _ = w.Write([]byte(`{"message":"Unauthorized"}`))
 	}))
 	defer srv.Close()
 
@@ -259,7 +259,7 @@ func TestPaginate_LimitTruncatesPageItems(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		items := []item{{ID: "1"}, {ID: "2"}, {ID: "3"}, {ID: "4"}, {ID: "5"}}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(items)
+		_ = json.NewEncoder(w).Encode(items)
 	}))
 	defer srv.Close()
 
@@ -283,8 +283,7 @@ func TestPaginate_RelativeNextURL(t *testing.T) {
 	}
 
 	page := 0
-	var srv *httptest.Server //nolint:staticcheck // self-referential closure
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		page++
 		var items []item
 		switch page {
@@ -299,7 +298,7 @@ func TestPaginate_RelativeNextURL(t *testing.T) {
 			items = []item{}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(items)
+		_ = json.NewEncoder(w).Encode(items)
 	}))
 	defer srv.Close()
 
@@ -338,12 +337,12 @@ func TestPaginateContextCancellation(t *testing.T) {
 		ID string `json:"id"`
 	}
 
-	var srv *httptest.Server //nolint:staticcheck // self-referential closure
+	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		items := []item{{ID: "1"}}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/items?page=2>; rel="next"`, srv.URL))
-		json.NewEncoder(w).Encode(items)
+		_ = json.NewEncoder(w).Encode(items)
 	}))
 	defer srv.Close()
 
@@ -353,6 +352,6 @@ func TestPaginateContextCancellation(t *testing.T) {
 
 	_, _, err := Paginate[item](ctx, c, "/api/v1/items", nil, 0, 100)
 	if err == nil {
-		t.Fatal("expected error from cancelled context, got nil")
+		t.Fatal("expected error from canceled context, got nil")
 	}
 }

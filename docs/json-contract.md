@@ -95,10 +95,11 @@ Not all Canvas instances support this header. If the response returns numeric ID
 4   permission denied
 5   rate limit exhausted after retries
 6   network or timeout error
-7   safety policy blocked operation
+7   safety policy blocked operation (read-only, or missing --confirm)
 8   partial failure in bulk operation
-130 interrupted or cancelled
 ```
+
+Error `code` strings map to categories, which `cli.Execute` maps to the exit codes above: `auth` → 3, `permission` → 4, `rate_limit` → 5, `network` → 6, `validation` → 2, `partial_failure` → 8; `api`, `not_found`, and `server` fall through to 1. Emitted error codes: `CANVAS_API_ERROR`, `CANVAS_AUTH_ERROR`, `CANVAS_SESSION_EXPIRED`, `CANVAS_PERMISSION_DENIED`, `CANVAS_NOT_FOUND`, `CANVAS_VALIDATION_ERROR`, `CANVAS_RATE_LIMIT`, `CANVAS_SERVER_ERROR`, `CANVAS_NETWORK_ERROR`, `PARTIAL_FAILURE`.
 
 ## Compatibility rules
 

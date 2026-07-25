@@ -27,15 +27,12 @@ type uploadInitResponse struct {
 func UploadFile(ctx context.Context, client *Client, courseID, filePath string, content []byte) (string, error) {
 	filename := filepath.Base(filePath)
 
-	// Determine content type from extension, falling back to application/octet-stream.
 	contentType := mime.TypeByExtension(filepath.Ext(filePath))
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
 
-	// --- Step 1: Notify Canvas ---
 	// Use client.DoWithHeaders so CSRF, redirect classification, and
-	// cookie auth all go through the standard client path.
 	initBody := url.Values{}
 	initBody.Set("name", filename)
 	initBody.Set("size", fmt.Sprintf("%d", len(content)))
@@ -88,10 +85,8 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 	}
 
 	if parsedURL.Scheme != "" && parsedURL.Host != "" {
-		// Full URL: may point to an external host (e.g. S3).
 		// DoURL only sends auth headers to same-host URLs automatically.
 		// Use DoURL for same-host (handles CSRF, redirect classification);
-		// for external hosts, send a bare request with no Canvas credentials.
 		canvasHost := ""
 		if parsed, pErr := url.Parse(client.baseURL); pErr == nil {
 			canvasHost = parsed.Host
@@ -106,7 +101,6 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 				return "", fmt.Errorf("upload file: %w", err)
 			}
 		} else {
-			// External host: send no Canvas credentials.
 			req, reqErr := http.NewRequestWithContext(ctx, "POST", init.UploadURL, &buf)
 			if reqErr != nil {
 				return "", fmt.Errorf("create upload request: %w", reqErr)
@@ -121,7 +115,6 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 		return handleUploadResponse(ctx, uploadResp, client)
 	}
 
-	// Relative URL: use client.Do with the path.
 	// client.Do handles CSRF, redirect classification, and cookie auth.
 	uploadPath := parsedURL.Path
 	uploadQuery := parsedURL.Query()
@@ -141,7 +134,6 @@ func UploadFile(ctx context.Context, client *Client, courseID, filePath string, 
 func handleUploadResponse(ctx context.Context, resp *http.Response, client *Client) (string, error) {
 	defer resp.Body.Close()
 
-	// 201 Created: response body contains file JSON.
 	if resp.StatusCode == http.StatusCreated {
 		return extractFileID(resp)
 	}
@@ -187,12 +179,10 @@ func extractFileID(resp *http.Response) (string, error) {
 // header. The format is typically: /api/v1/files/{fileID} or a full URL ending
 // with /api/v1/files/{fileID}.
 func extractFileIDFromLocation(location string) (string, error) {
-	// Strip query parameters.
 	if idx := strings.Index(location, "?"); idx >= 0 {
 		location = location[:idx]
 	}
 
-	// Handle full URLs by extracting the path.
 	if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
 		if idx := strings.Index(location, "://"); idx >= 0 {
 			rest := location[idx+3:]
@@ -202,7 +192,6 @@ func extractFileIDFromLocation(location string) (string, error) {
 		}
 	}
 
-	// Look for /files/{id} pattern.
 	parts := strings.Split(location, "/")
 	for i, part := range parts {
 		if part == "files" && i+1 < len(parts) && parts[i+1] != "" {

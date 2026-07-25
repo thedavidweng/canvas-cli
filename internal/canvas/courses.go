@@ -33,7 +33,6 @@ func ListCourses(ctx context.Context, client *Client, query url.Values) ([]Cours
 // GetCourse returns a single course by ID.
 // It sends GET /api/v1/courses/{courseID} with include[]=term by default.
 func GetCourse(ctx context.Context, client *Client, courseID string, query url.Values) (Course, error) {
-	// Copy the caller's query to avoid mutation.
 	copied := url.Values{}
 	for k, vs := range query {
 		for _, v := range vs {
@@ -42,7 +41,6 @@ func GetCourse(ctx context.Context, client *Client, courseID string, query url.V
 	}
 	query = copied
 
-	// Always include term unless caller already has include[] set
 	includes := query["include[]"]
 	hasTerm := false
 	for _, inc := range includes {

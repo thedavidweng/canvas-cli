@@ -21,7 +21,7 @@ func TestGetSubmission(t *testing.T) {
 		grade := "B+"
 		submittedAt := "2026-06-10T23:55:00Z"
 		attempt := 2
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:            "501",
 			UserID:        "789",
 			AssignmentID:  "301",
@@ -82,7 +82,7 @@ func TestGetSubmissionLate(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		submittedAt := "2026-06-12T01:30:00Z"
 		score := 70.0
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:            "502",
 			UserID:        "790",
 			AssignmentID:  "301",
@@ -123,10 +123,10 @@ func TestSubmitAssignmentText(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 
 		// Decode the request body
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		submittedAt := "2026-06-11T14:30:00Z"
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:            "503",
 			UserID:        "789",
 			AssignmentID:  "301",
@@ -173,10 +173,10 @@ func TestSubmitAssignmentURL(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		submittedAt := "2026-06-11T15:00:00Z"
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:            "504",
 			UserID:        "789",
 			AssignmentID:  "301",
@@ -213,10 +213,10 @@ func TestSubmitAssignmentFile(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		submittedAt := "2026-06-11T15:30:00Z"
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:            "505",
 			UserID:        "789",
 			AssignmentID:  "301",
@@ -278,7 +278,7 @@ func TestListSubmissions(t *testing.T) {
 		score := 88.0
 		grade := "B+"
 		submittedAt := "2026-06-10T23:55:00Z"
-		json.NewEncoder(w).Encode([]Submission{
+		_ = json.NewEncoder(w).Encode([]Submission{
 			{
 				ID:           "501",
 				UserID:       "789",
@@ -349,11 +349,11 @@ func TestListSubmissionsPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/42/assignments/301/submissions?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]Submission{
+			_ = json.NewEncoder(w).Encode([]Submission{
 				{ID: "501", UserID: "789", User: &User{ID: "789", Name: "Alice"}},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]Submission{
+			_ = json.NewEncoder(w).Encode([]Submission{
 				{ID: "502", UserID: "790", User: &User{ID: "790", Name: "Bob"}},
 			})
 		}
@@ -378,7 +378,7 @@ func TestListSubmissionsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message":"unauthorized"}`))
+		_, _ = w.Write([]byte(`{"message":"unauthorized"}`))
 	}))
 	defer srv.Close()
 
@@ -393,7 +393,7 @@ func TestGetSubmissionError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -409,7 +409,7 @@ func TestSubmitAssignmentServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

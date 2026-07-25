@@ -17,7 +17,7 @@ func TestListCourses(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Course{
+		_ = json.NewEncoder(w).Encode([]Course{
 			{ID: "1", Name: "Course A", CourseCode: "CA101", WorkflowState: "available"},
 			{ID: "2", Name: "Course B", CourseCode: "CB201", WorkflowState: "available"},
 		})
@@ -73,11 +73,11 @@ func TestListCoursesPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]Course{
+			_ = json.NewEncoder(w).Encode([]Course{
 				{ID: "1", Name: "Course A"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]Course{
+			_ = json.NewEncoder(w).Encode([]Course{
 				{ID: "2", Name: "Course B"},
 			})
 		}
@@ -107,7 +107,7 @@ func TestGetCourse(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Course{
+		_ = json.NewEncoder(w).Encode(Course{
 			ID:               "42",
 			Name:             "Advanced Go",
 			CourseCode:       "CS401",
@@ -152,7 +152,7 @@ func TestGetCourseWithExtraQuery(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Course{ID: "42", Name: "Test"})
+		_ = json.NewEncoder(w).Encode(Course{ID: "42", Name: "Test"})
 	}))
 	defer srv.Close()
 
@@ -203,7 +203,7 @@ func TestListCourseTabs(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Tab{
+		_ = json.NewEncoder(w).Encode([]Tab{
 			{ID: "home", Label: "Home", Type: "internal", HTMLURL: "/courses/1", FullURL: "https://canvas.example.com/courses/1", Position: 1, Visibility: "public"},
 			{ID: "modules", Label: "Modules", Type: "internal", HTMLURL: "/courses/1/modules", FullURL: "https://canvas.example.com/courses/1/modules", Position: 2, Visibility: "public"},
 		})
@@ -262,7 +262,7 @@ func TestListCoursesError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

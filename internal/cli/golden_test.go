@@ -610,15 +610,15 @@ func TestGolden_DryRun_ShowsPreviewNoRequest(t *testing.T) {
 		t.Fatalf("expected no error for --dry-run, got: %v", err)
 	}
 
-	output := stdout.String()
-	if !strings.Contains(output, "DRY RUN") {
-		t.Errorf("expected 'DRY RUN' in preview output, got: %s", output)
+	out := stdout.String()
+	if !strings.Contains(out, "DRY RUN") {
+		t.Errorf("expected 'DRY RUN' in preview output, got: %s", out)
 	}
-	if !strings.Contains(output, "No mutation sent") {
-		t.Errorf("expected 'No mutation sent' in preview output, got: %s", output)
+	if !strings.Contains(out, "No mutation sent") {
+		t.Errorf("expected 'No mutation sent' in preview output, got: %s", out)
 	}
-	if !strings.Contains(output, "POST") {
-		t.Errorf("expected HTTP method 'POST' in preview, got: %s", output)
+	if !strings.Contains(out, "POST") {
+		t.Errorf("expected HTTP method 'POST' in preview, got: %s", out)
 	}
 
 	// Verify no mutation (POST) was sent.
@@ -672,9 +672,9 @@ func TestGolden_Confirm_ExecutesMutation(t *testing.T) {
 	}
 
 	// Verify success output.
-	output := stdout.String()
-	if !strings.Contains(output, "submitted") && !strings.Contains(output, "500") {
-		t.Errorf("expected success message in output, got: %s", output)
+	out := stdout.String()
+	if !strings.Contains(out, "submitted") && !strings.Contains(out, "500") {
+		t.Errorf("expected success message in output, got: %s", out)
 	}
 }
 
@@ -932,21 +932,18 @@ func TestGolden_StdoutStderr_JSONMode_OnlyJSONOnStdout(t *testing.T) {
 	}
 
 	// Stdout should contain only valid JSON.
-	output := strings.TrimSpace(stdout.String())
-	if output == "" {
+	out := strings.TrimSpace(stdout.String())
+	if out == "" {
 		t.Fatal("expected JSON on stdout, got empty")
 	}
 
 	var raw json.RawMessage
-	if err := json.Unmarshal([]byte(output), &raw); err != nil {
-		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, output)
+	if err := json.Unmarshal([]byte(out), &raw); err != nil {
+		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, out)
 	}
 
-	// There should be no extra text before or after the JSON envelope.
-	// The JSON encoder adds a trailing newline, which we trimmed.
-	// Verify it starts with '{'.
-	if !strings.HasPrefix(output, "{") {
-		t.Errorf("expected JSON to start with '{', got: %s", output[:min(20, len(output))])
+	if !strings.HasPrefix(out, "{") {
+		t.Errorf("expected JSON to start with '{', got: %s", out[:min(20, len(out))])
 	}
 }
 

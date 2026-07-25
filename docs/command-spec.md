@@ -10,9 +10,6 @@ Global flags:
 --base-url URL
 --json
 --pretty
---compact
---ndjson
---full
 --limit N
 --page-size N
 --no-paginate
@@ -21,12 +18,7 @@ Global flags:
 --dry-run
 --confirm
 --read-only
---events
---verbose
---debug
---quiet
 --no-color
---confirm-delete
 ```
 
 Environment variables:

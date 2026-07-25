@@ -89,7 +89,7 @@ func newCoursesExportsCmd() *cobra.Command {
 
 			exports, _, err := canvas.ListContentExports(cmd.Context(), client, courseID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "courses.exports", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "courses.exports", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, exports, "courses.exports", jsonMode, func(w io.Writer) error {
@@ -99,7 +99,7 @@ func newCoursesExportsCmd() *cobra.Command {
 				for _, e := range exports {
 					tbl.Rows = append(tbl.Rows, []string{e.ID, e.ExportType, e.WorkflowState, e.CreatedAt})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}
@@ -126,13 +126,11 @@ func exportEpub(ctx context.Context, client *canvas.Client, w io.Writer, courseI
 		})
 	}
 
-	// Wait for completion
 	fmt.Fprintf(w, "Waiting for export to complete")
 	if err := waitForComplete(ctx, client, export.ProgressURL, w); err != nil {
 		return err
 	}
 
-	// Re-fetch to get attachment
 	export, err = canvas.GetEpubExport(ctx, client, courseID, export.ID)
 	if err != nil {
 		return err
@@ -142,7 +140,6 @@ func exportEpub(ctx context.Context, client *canvas.Client, w io.Writer, courseI
 		return fmt.Errorf("export completed but no download URL available")
 	}
 
-	// Download
 	if outPath == "" {
 		outPath = fmt.Sprintf("course-%s.epub", courseID)
 	}
@@ -172,13 +169,11 @@ func exportContent(ctx context.Context, client *canvas.Client, w io.Writer, cour
 		})
 	}
 
-	// Wait for completion
 	fmt.Fprintf(w, "Waiting for export to complete")
 	if err := waitForComplete(ctx, client, export.ProgressURL, w); err != nil {
 		return err
 	}
 
-	// Re-fetch to get attachment
 	export, err = canvas.GetContentExport(ctx, client, courseID, export.ID)
 	if err != nil {
 		return err
@@ -188,7 +183,6 @@ func exportContent(ctx context.Context, client *canvas.Client, w io.Writer, cour
 		return fmt.Errorf("export completed but no download URL available")
 	}
 
-	// Determine file extension
 	ext := ".zip"
 	switch format {
 	case "common_cartridge":

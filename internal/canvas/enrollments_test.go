@@ -18,7 +18,7 @@ func TestListEnrollments(t *testing.T) {
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
 		score := 92.5
-		json.NewEncoder(w).Encode([]Enrollment{
+		_ = json.NewEncoder(w).Encode([]Enrollment{
 			{
 				ID:       "100",
 				UserID:   "789",
@@ -97,11 +97,11 @@ func TestListEnrollmentsPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/42/enrollments?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]Enrollment{
+			_ = json.NewEncoder(w).Encode([]Enrollment{
 				{ID: "100", UserID: "789", User: &User{ID: "789", Name: "Alice"}},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]Enrollment{
+			_ = json.NewEncoder(w).Encode([]Enrollment{
 				{ID: "101", UserID: "790", User: &User{ID: "790", Name: "Bob"}},
 			})
 		}
@@ -126,7 +126,7 @@ func TestListEnrollmentsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message":"unauthorized"}`))
+		_, _ = w.Write([]byte(`{"message":"unauthorized"}`))
 	}))
 	defer srv.Close()
 

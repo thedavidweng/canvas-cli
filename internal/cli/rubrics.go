@@ -44,18 +44,17 @@ func newRubricsListCmd() *cobra.Command {
 
 			rubrics, err := canvas.ListRubrics(ctx, client, courseID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "rubrics.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "rubrics.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, rubrics, "rubrics.list", jsonMode, func(w io.Writer) error {
-				// Human mode: table output
 				tbl := output.Table{
 					Headers: []string{"ID", "Title", "Points Possible"},
 				}
 				for _, r := range rubrics {
 					tbl.Rows = append(tbl.Rows, []string{r.ID, r.Title, fmt.Sprintf("%.0f", r.PointsPossible)})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}

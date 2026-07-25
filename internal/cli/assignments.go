@@ -49,7 +49,6 @@ func newAssignmentsListCmd() *cobra.Command {
 				return fmt.Errorf("--course is required")
 			}
 
-			// Build query parameters from flags
 			query := url.Values{}
 			if bucket, _ := cmd.Flags().GetString("bucket"); bucket != "" {
 				query.Set("bucket", bucket)
@@ -83,12 +82,11 @@ func newAssignmentsListCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "api",
 					}, "assignments.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return err
 			}
 
-			// Client-side filter: --published is not a Canvas API parameter.
 			if publishedFilter != "" {
 				wantPublished := publishedFilter == "true"
 				filtered := make([]canvas.Assignment, 0, len(assignments))
@@ -105,10 +103,9 @@ func newAssignmentsListCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human mode
 			w := cmd.OutOrStdout()
 			tbl := output.Table{
 				Headers: []string{"ID", "Name", "Due At", "Points", "Published"},
@@ -126,7 +123,7 @@ func newAssignmentsListCmd() *cobra.Command {
 					a.ID, a.Name, dueAt, formatFloat(a.PointsPossible), published,
 				})
 			}
-			return tbl.Render(w, false)
+			return tbl.Render(w, cfg.OutputNoColor)
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -169,7 +166,7 @@ func newAssignmentsGetCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "api",
 					}, "assignments.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return err
 			}
@@ -179,10 +176,9 @@ func newAssignmentsGetCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human mode
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "ID:        %s\n", assignment.ID)
 			fmt.Fprintf(w, "Name:      %s\n", assignment.Name)
@@ -228,7 +224,7 @@ func newAssignmentGroupsListCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "api",
 					}, "assignments.groups")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return err
 			}
@@ -238,10 +234,9 @@ func newAssignmentGroupsListCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human mode
 			w := cmd.OutOrStdout()
 			tbl := output.Table{
 				Headers: []string{"ID", "Name", "Position", "Weight"},
@@ -251,7 +246,7 @@ func newAssignmentGroupsListCmd() *cobra.Command {
 					g.ID, g.Name, fmt.Sprintf("%d", g.Position), formatFloat(g.GroupWeight),
 				})
 			}
-			return tbl.Render(w, false)
+			return tbl.Render(w, cfg.OutputNoColor)
 		},
 	}
 	cmd.Flags().Bool("json", false, "output JSON envelope")
@@ -283,17 +278,14 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 			confirm, _ := cmd.Flags().GetBool("confirm")
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			// Accept body as second positional arg for text submissions.
 			if textBody == "" && urlFlag == "" && filePath == "" && len(args) > 1 {
 				textBody = args[1]
 			}
 
-			// Validate that a submission body is provided.
 			if textBody == "" && urlFlag == "" && filePath == "" {
 				return fmt.Errorf("submit requires one of: --text, --url, or --file")
 			}
 
-			// Determine submission type from flags.
 			var submissionType string
 			switch {
 			case textBody != "":
@@ -306,13 +298,11 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 
 			client := newClientFromCfg(cfg)
 
-			// Fetch assignment to validate submission type.
 			assignment, err := canvas.GetAssignment(cmd.Context(), client, courseID, assignmentID)
 			if err != nil {
 				return fmt.Errorf("get assignment: %w", err)
 			}
 
-			// Validate submission type matches assignment.
 			if len(assignment.SubmissionTypes) > 0 {
 				allowed := false
 				for _, t := range assignment.SubmissionTypes {
@@ -327,7 +317,6 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 				}
 			}
 
-			// Build submission request for preview.
 			sub := canvas.SubmissionRequest{
 				SubmissionType: submissionType,
 			}
@@ -366,7 +355,6 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 				return nil
 			}
 
-			// Handle file upload for online_upload type.
 			if submissionType == "online_upload" {
 				content, err := os.ReadFile(filePath)
 				if err != nil {
@@ -381,11 +369,10 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 				sub.FileIDs = []string{fileID}
 			}
 
-			// Submit the assignment.
 			result, err := canvas.SubmitAssignment(cmd.Context(), client, courseID, assignmentID, sub)
 			if err != nil {
 				RecordAudit(cfg, spec, 0, false)
-				return writeError(cmd.OutOrStdout(), fmt.Errorf("submit assignment: %w", err), "assignments.submit", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, fmt.Errorf("submit assignment: %w", err), "assignments.submit", jsonMode)
 			}
 
 			RecordAudit(cfg, spec, 200, true)
@@ -395,7 +382,7 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Submission submitted (ID: %s, state: %s)\n",
@@ -439,7 +426,7 @@ func newAssignmentsUpdateCmd() *cobra.Command {
 			assignmentID := args[0]
 
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s", courseID, assignmentID)
-			payload := fmt.Sprintf(`{"assignment":{"due_at":"%s"}}`, dueAt)
+			payload := fmt.Sprintf(`{"assignment":{"due_at":%q}}`, dueAt)
 
 			spec := MutationSpec{
 				Command:        "assignments.update",

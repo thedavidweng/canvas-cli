@@ -1,7 +1,9 @@
 version: "2"
 
 linters:
+  default: none
   enable:
+    - errcheck
     - govet
     - ineffassign
     - staticcheck
@@ -10,27 +12,32 @@ linters:
     - misspell
     - unconvert
     - prealloc
+    - unparam
+    - godox
+    - whitespace
+    - nolintlint
   settings:
     errcheck:
-      exclude-functions:
-        - (io.Closer).Close
-        - (net/http.ResponseWriter).Write
-        - fmt.Fprint
-        - fmt.Fprintf
-        - fmt.Fprintln
-        - encoding/json.Unmarshal
-        - encoding/json.NewEncoder.Encode
-        - encoding/json.NewDecoder.Decode
-        - (*os.File).Close
-        - os.Unsetenv
-        - os.Setenv
-        - os.WriteFile
-        - os.MkdirAll
-        - net/http.Get
-        - (*net/http.Client).Do
-        - (*encoding/json.Encoder).Encode
-        - (*encoding/json.Decoder).Decode
-        - (*io.ReadCloser).Read
+      check-type-assertions: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        # DEVIATION from canonical: pass-by-value of JSON-envelope, audit, and
+        # mutation DTOs is intentional in this one-shot CLI (no hot loops);
+        # pointer-threading them for a micro-optimization is not worth the churn.
+        - hugeParam
+        - rangeValCopy
+    misspell:
+      locale: US
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    presets:
+      - std-error-handling
 
 formatters:
   enable:
@@ -40,3 +47,6 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/thedavidweng/canvas-cli
+
+run:
+  timeout: 5m

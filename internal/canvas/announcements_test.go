@@ -19,7 +19,7 @@ func TestListAnnouncements(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.Query()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]DiscussionTopic{
+		_ = json.NewEncoder(w).Encode([]DiscussionTopic{
 			{
 				ID:             "10",
 				Title:          "Exam moved to Friday",
@@ -29,7 +29,7 @@ func TestListAnnouncements(t *testing.T) {
 			},
 			{
 				ID:             "11",
-				Title:          "Office hours cancelled",
+				Title:          "Office hours canceled",
 				Message:        "No office hours this week.",
 				PostedAt:       strPtr("2026-06-10T09:00:00Z"),
 				IsAnnouncement: true,
@@ -85,7 +85,7 @@ func TestListAnnouncementsIncludesContextCodes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rawQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]DiscussionTopic{})
+		_ = json.NewEncoder(w).Encode([]DiscussionTopic{})
 	}))
 	defer srv.Close()
 
@@ -109,7 +109,7 @@ func TestGetAnnouncement(t *testing.T) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		postedAt := "2026-06-01T10:00:00Z"
-		json.NewEncoder(w).Encode(DiscussionTopic{
+		_ = json.NewEncoder(w).Encode(DiscussionTopic{
 			ID:             "10",
 			Title:          "Exam moved to Friday",
 			Message:        "The midterm has been rescheduled.",
@@ -153,7 +153,7 @@ func TestGetAnnouncementError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -176,10 +176,10 @@ func TestCreateAnnouncement(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		postedAt := "2026-06-12T10:00:00Z"
-		json.NewEncoder(w).Encode(DiscussionTopic{
+		_ = json.NewEncoder(w).Encode(DiscussionTopic{
 			ID:             "200",
 			Title:          "Final exam details",
 			Message:        "The final will be held in Room 101.",
@@ -225,7 +225,7 @@ func TestListAnnouncementsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -241,7 +241,7 @@ func TestCreateAnnouncementError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

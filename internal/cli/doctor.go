@@ -41,28 +41,15 @@ func NewDoctorCmd() *cobra.Command {
 				}
 			}
 
-			checks := make([]DoctorCheck, 0, 7)
-
-			// 1. Config file check
-			checks = append(checks, checkConfigFile())
-
-			// 2. Config permissions check
-			checks = append(checks, checkConfigPermissions())
-
-			// 3. Token present check
-			checks = append(checks, checkTokenPresent(cfg))
-
-			// 3.5. Session cookie check
-			checks = append(checks, checkSessionCookie(cfg))
-
-			// 4. Base URL check
-			checks = append(checks, checkBaseURL(cfg))
-
-			// 5. API connectivity and token validity check
-			checks = append(checks, checkAPIAndToken(cmd.Context(), cfg, timeout))
-
-			// 6. Write safety check
-			checks = append(checks, checkWriteSafety(cfg))
+			checks := []DoctorCheck{
+				checkConfigFile(),
+				checkConfigPermissions(),
+				checkTokenPresent(cfg),
+				checkSessionCookie(cfg),
+				checkBaseURL(cfg),
+				checkAPIAndToken(cmd.Context(), cfg, timeout),
+				checkWriteSafety(cfg),
+			}
 
 			if jsonMode {
 				ok := true
@@ -74,10 +61,9 @@ func NewDoctorCmd() *cobra.Command {
 				}
 				env := output.NewSuccess(checks, "doctor")
 				env.OK = ok
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human output
 			w := cmd.OutOrStdout()
 			for _, c := range checks {
 				var icon string
@@ -144,7 +130,7 @@ func checkConfigPermissions() DoctorCheck {
 		return DoctorCheck{
 			Check:   "config_permissions",
 			Status:  "warn",
-			Message: fmt.Sprintf("config file has permissions %o (expected 0600)", perm),
+			Message: fmt.Sprintf("config file has permissions %o (expected 0o600)", perm),
 		}
 	}
 	return DoctorCheck{

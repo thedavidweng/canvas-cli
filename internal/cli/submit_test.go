@@ -42,12 +42,12 @@ func TestSubmit_DryRun_ShowsPreviewNoRequest(t *testing.T) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	output := buf.String()
-	if !strings.Contains(output, "DRY RUN") {
-		t.Errorf("expected 'DRY RUN' in output, got: %s", output)
+	out := buf.String()
+	if !strings.Contains(out, "DRY RUN") {
+		t.Errorf("expected 'DRY RUN' in output, got: %s", out)
 	}
-	if !strings.Contains(output, "No mutation sent") {
-		t.Errorf("expected 'No mutation sent' in output, got: %s", output)
+	if !strings.Contains(out, "No mutation sent") {
+		t.Errorf("expected 'No mutation sent' in output, got: %s", out)
 	}
 
 	// Should NOT have sent a POST request.
@@ -257,8 +257,8 @@ func TestSubmit_NoConfirm_InNonInteractiveMode_ReturnsError(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected error with ExitCode(), got %T: %v", err, err)
 	}
-	if exitErr.ExitCode() != 0 {
-		t.Errorf("expected exit code 0, got %d", exitErr.ExitCode())
+	if exitErr.ExitCode() != output.CodeSafetyBlocked {
+		t.Errorf("expected exit code %d (safety blocked), got %d", output.CodeSafetyBlocked, exitErr.ExitCode())
 	}
 	if !strings.Contains(err.Error(), "--confirm") {
 		t.Errorf("expected error to mention --confirm, got: %s", err.Error())

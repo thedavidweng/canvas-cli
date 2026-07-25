@@ -1271,7 +1271,7 @@ func TestFetchListRaw_CancelledContext(t *testing.T) {
 	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
 	_, _, err := fetchListRaw(ctx, client, "/api/v1/test", nil, 100)
 	if err == nil {
-		t.Fatal("expected error for cancelled context, got nil")
+		t.Fatal("expected error for canceled context, got nil")
 	}
 }
 

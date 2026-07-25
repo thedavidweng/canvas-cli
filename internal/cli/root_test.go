@@ -48,12 +48,10 @@ func TestRootCmd_AllGlobalFlagsRegistered(t *testing.T) {
 	cmd := NewRootCmd("dev")
 
 	expectedFlags := []string{
-		"json", "pretty", "compact", "ndjson", "full",
+		"json", "pretty",
 		"limit", "page-size", "no-paginate",
 		"timeout", "retries",
-		"dry-run", "confirm", "read-only",
-		"events", "verbose", "debug", "quiet", "no-color",
-		"confirm-delete",
+		"dry-run", "confirm", "read-only", "no-color",
 		"config", "profile", "base-url",
 	}
 
@@ -244,7 +242,7 @@ func TestCompletionCmd_Bash(t *testing.T) {
 	}
 
 	output := buf.String()
-	if len(output) == 0 {
+	if output == "" {
 		t.Fatal("expected non-empty bash completion output")
 	}
 	if !strings.Contains(output, "bash") && !strings.Contains(output, "complete") {
@@ -265,7 +263,7 @@ func TestCompletionCmd_Zsh(t *testing.T) {
 	}
 
 	output := buf.String()
-	if len(output) == 0 {
+	if output == "" {
 		t.Fatal("expected non-empty zsh completion output")
 	}
 }
@@ -282,7 +280,7 @@ func TestCompletionCmd_Fish(t *testing.T) {
 	}
 
 	output := buf.String()
-	if len(output) == 0 {
+	if output == "" {
 		t.Fatal("expected non-empty fish completion output")
 	}
 }
@@ -299,7 +297,7 @@ func TestCompletionCmd_Powershell(t *testing.T) {
 	}
 
 	output := buf.String()
-	if len(output) == 0 {
+	if output == "" {
 		t.Fatal("expected non-empty powershell completion output")
 	}
 }

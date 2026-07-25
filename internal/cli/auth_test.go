@@ -240,7 +240,7 @@ profiles:
     base_url: https://school.instructure.com
     token: old-token
 `
-	if err := os.WriteFile(configPath, []byte(initialConfig), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0o600); err != nil {
 		t.Fatalf("failed to write initial config: %v", err)
 	}
 
@@ -286,7 +286,7 @@ profiles:
     base_url: https://prod.instructure.com
     token: env:PROD_TOKEN
 `
-	if err := os.WriteFile(configPath, []byte(initialConfig), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0o600); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
@@ -329,7 +329,7 @@ profiles:
     base_url: https://prod.instructure.com
     token: tok2
 `
-	if err := os.WriteFile(configPath, []byte(initialConfig), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0o600); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
@@ -367,7 +367,7 @@ func TestAuthTest_UnauthorizedResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"errors": []map[string]any{{"message": "Invalid access token"}},
 		})
 	}))
@@ -492,7 +492,7 @@ func TestAuthTest_WithCookieAuth(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id":   "1",
 			"name": "Cookie User",
 		})
@@ -680,7 +680,7 @@ func TestAuthLogin_CookieFile(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	cookieFilePath := filepath.Join(tmpDir, "cookie.txt")
 
-	if err := os.WriteFile(cookieFilePath, []byte("file-cookie-value\n"), 0600); err != nil {
+	if err := os.WriteFile(cookieFilePath, []byte("file-cookie-value\n"), 0o600); err != nil {
 		t.Fatalf("failed to write cookie file: %v", err)
 	}
 
@@ -727,7 +727,7 @@ func TestAuthLogin_CookieFile_BadPermissions(t *testing.T) {
 	cookieFilePath := filepath.Join(tmpDir, "cookie.txt")
 
 	// Create file with world-readable permissions
-	if err := os.WriteFile(cookieFilePath, []byte("secret-cookie"), 0644); err != nil {
+	if err := os.WriteFile(cookieFilePath, []byte("secret-cookie"), 0o644); err != nil {
 		t.Fatalf("failed to write cookie file: %v", err)
 	}
 
@@ -759,10 +759,10 @@ func TestAuthLogin_CSRFTokenFile(t *testing.T) {
 	cookieFilePath := filepath.Join(tmpDir, "cookie.txt")
 	csrfFilePath := filepath.Join(tmpDir, "csrf.txt")
 
-	if err := os.WriteFile(cookieFilePath, []byte("session-cookie\n"), 0600); err != nil {
+	if err := os.WriteFile(cookieFilePath, []byte("session-cookie\n"), 0o600); err != nil {
 		t.Fatalf("failed to write cookie file: %v", err)
 	}
-	if err := os.WriteFile(csrfFilePath, []byte("csrf-token-value\n"), 0600); err != nil {
+	if err := os.WriteFile(csrfFilePath, []byte("csrf-token-value\n"), 0o600); err != nil {
 		t.Fatalf("failed to write csrf file: %v", err)
 	}
 
@@ -805,11 +805,11 @@ func TestAuthLogin_CSRFTokenFile_BadPermissions(t *testing.T) {
 	cookieFilePath := filepath.Join(tmpDir, "cookie.txt")
 	csrfFilePath := filepath.Join(tmpDir, "csrf.txt")
 
-	if err := os.WriteFile(cookieFilePath, []byte("session-cookie\n"), 0600); err != nil {
+	if err := os.WriteFile(cookieFilePath, []byte("session-cookie\n"), 0o600); err != nil {
 		t.Fatalf("failed to write cookie file: %v", err)
 	}
 	// CSRF file with group-readable permissions
-	if err := os.WriteFile(csrfFilePath, []byte("csrf-token-value"), 0640); err != nil {
+	if err := os.WriteFile(csrfFilePath, []byte("csrf-token-value"), 0o640); err != nil {
 		t.Fatalf("failed to write csrf file: %v", err)
 	}
 
@@ -848,7 +848,7 @@ profiles:
     cookie: old-session-cookie
     csrf_token: old-csrf-token
 `
-	if err := os.WriteFile(configPath, []byte(initialConfig), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0o600); err != nil {
 		t.Fatalf("failed to write initial config: %v", err)
 	}
 
@@ -891,7 +891,7 @@ func TestReadSecretFile_ValidPermissions(t *testing.T) {
 	tmpDir := t.TempDir()
 	secretPath := filepath.Join(tmpDir, "secret.txt")
 
-	if err := os.WriteFile(secretPath, []byte("  secret-value  \n"), 0600); err != nil {
+	if err := os.WriteFile(secretPath, []byte("  secret-value  \n"), 0o600); err != nil {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
@@ -911,7 +911,7 @@ func TestReadSecretFile_TooPermissive(t *testing.T) {
 	tmpDir := t.TempDir()
 	secretPath := filepath.Join(tmpDir, "secret.txt")
 
-	if err := os.WriteFile(secretPath, []byte("secret"), 0644); err != nil {
+	if err := os.WriteFile(secretPath, []byte("secret"), 0o644); err != nil {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
@@ -931,7 +931,7 @@ func TestReadSecretFile_GroupReadable(t *testing.T) {
 	tmpDir := t.TempDir()
 	secretPath := filepath.Join(tmpDir, "secret.txt")
 
-	if err := os.WriteFile(secretPath, []byte("secret"), 0640); err != nil {
+	if err := os.WriteFile(secretPath, []byte("secret"), 0o640); err != nil {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
@@ -948,7 +948,7 @@ func TestReadSecretFile_WorldReadable(t *testing.T) {
 	tmpDir := t.TempDir()
 	secretPath := filepath.Join(tmpDir, "secret.txt")
 
-	if err := os.WriteFile(secretPath, []byte("secret"), 0604); err != nil {
+	if err := os.WriteFile(secretPath, []byte("secret"), 0o604); err != nil {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
@@ -1022,7 +1022,7 @@ func TestAuthTest_CookieAuth_EndToEnd_FullFlow(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id":"42","name":"Test Student","login_id":"student@school.edu"}`))
+		_, _ = w.Write([]byte(`{"id":"42","name":"Test Student","login_id":"student@school.edu"}`))
 	}))
 	defer srv.Close()
 
@@ -1065,7 +1065,7 @@ func TestAuthTest_CookieAuth_EndToEnd_ExpiryFlow(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"errors":[{"message":"Invalid access token"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Invalid access token"}]}`))
 	}))
 	defer srv.Close()
 
@@ -1096,7 +1096,7 @@ func TestAuthTest_CookieAuth_EndToEnd_ExpiryFlow_JSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"errors":[{"message":"Invalid access token"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Invalid access token"}]}`))
 	}))
 	defer srv.Close()
 
@@ -1148,12 +1148,12 @@ func TestAuthTest_CookieAuth_EndToEnd_CSRFCached(t *testing.T) {
 			w.Header().Set("X-CSRF-Token", "cached-from-response")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id":"42","name":"CSRF User"}`))
+			_, _ = w.Write([]byte(`{"id":"42","name":"CSRF User"}`))
 		case http.MethodPost:
 			postCSRF = r.Header.Get("X-CSRF-Token")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		}
 	}))
 	defer srv.Close()
@@ -1247,7 +1247,7 @@ func TestAuthTest_TokenAndCookie_EndToEnd_TokenPrecedence(t *testing.T) {
 		gotCookie = r.Header.Get("Cookie")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id":"1","name":"Precedence User"}`))
+		_, _ = w.Write([]byte(`{"id":"1","name":"Precedence User"}`))
 	}))
 	defer srv.Close()
 
@@ -1599,7 +1599,7 @@ func TestPromptBrowserSelection_NumericChoice(t *testing.T) {
 	}
 	redirectStdin(t, "1")
 	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf, "school.instructure.com")
+	result := promptBrowserSelection(&buf)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 browser, got %d", len(result))
 	}
@@ -1615,7 +1615,7 @@ func TestPromptBrowserSelection_NameChoice(t *testing.T) {
 	}
 	redirectStdin(t, available[0])
 	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf, "school.instructure.com")
+	result := promptBrowserSelection(&buf)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 browser, got %d", len(result))
 	}
@@ -1632,7 +1632,7 @@ func TestPromptBrowserSelection_CaseInsensitiveName(t *testing.T) {
 	// Use uppercase version of first browser name.
 	redirectStdin(t, strings.ToUpper(available[0]))
 	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf, "school.instructure.com")
+	result := promptBrowserSelection(&buf)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 browser, got %d", len(result))
 	}
@@ -1644,7 +1644,7 @@ func TestPromptBrowserSelection_CaseInsensitiveName(t *testing.T) {
 func TestPromptBrowserSelection_EmptyChoice(t *testing.T) {
 	redirectStdin(t, "")
 	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf, "school.instructure.com")
+	result := promptBrowserSelection(&buf)
 	if result != nil {
 		t.Errorf("expected nil for empty choice, got %v", result)
 	}
@@ -1657,7 +1657,7 @@ func TestPromptBrowserSelection_OutOfRange(t *testing.T) {
 	}
 	redirectStdin(t, "999")
 	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf, "school.instructure.com")
+	result := promptBrowserSelection(&buf)
 	if result != nil {
 		t.Errorf("expected nil for out-of-range choice, got %v", result)
 	}
@@ -1666,7 +1666,7 @@ func TestPromptBrowserSelection_OutOfRange(t *testing.T) {
 func TestPromptBrowserSelection_InvalidName(t *testing.T) {
 	redirectStdin(t, "nonexistent-browser")
 	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf, "school.instructure.com")
+	result := promptBrowserSelection(&buf)
 	if result != nil {
 		t.Errorf("expected nil for invalid name, got %v", result)
 	}

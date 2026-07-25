@@ -9,8 +9,6 @@ import (
 )
 
 // ListDiscussions returns all discussion topics for a course.
-// It sends GET /api/v1/courses/{courseID}/discussion_topics.
-// The per_page parameter defaults to 100.
 func ListDiscussions(ctx context.Context, client *Client, courseID string, query url.Values) ([]DiscussionTopic, PaginationMeta, error) {
 	if query == nil {
 		query = url.Values{}
@@ -33,7 +31,6 @@ func ListDiscussions(ctx context.Context, client *Client, courseID string, query
 }
 
 // GetDiscussion returns a single discussion topic by ID.
-// It sends GET /api/v1/courses/{courseID}/discussion_topics/{discussionID}.
 func GetDiscussion(ctx context.Context, client *Client, courseID, discussionID string) (DiscussionTopic, error) {
 	var topic DiscussionTopic
 	_, err := Request(ctx, client, RequestOptions{
@@ -49,8 +46,6 @@ func GetDiscussion(ctx context.Context, client *Client, courseID, discussionID s
 }
 
 // ListDiscussionEntries returns all entries (replies) for a discussion topic.
-// It sends GET /api/v1/courses/{courseID}/discussion_topics/{discussionID}/entries.
-// The per_page parameter defaults to 100.
 func ListDiscussionEntries(ctx context.Context, client *Client, courseID, discussionID string, query url.Values) ([]DiscussionEntry, PaginationMeta, error) {
 	if query == nil {
 		query = url.Values{}
@@ -73,7 +68,6 @@ func ListDiscussionEntries(ctx context.Context, client *Client, courseID, discus
 }
 
 // ReplyToDiscussion posts a new top-level entry to a discussion topic.
-// It sends POST /api/v1/courses/{courseID}/discussion_topics/{discussionID}/entries.
 func ReplyToDiscussion(ctx context.Context, client *Client, courseID, discussionID, message string) (DiscussionEntry, error) {
 	var entry DiscussionEntry
 
@@ -122,7 +116,6 @@ func CreateDiscussion(ctx context.Context, client *Client, courseID, title, mess
 }
 
 // ReplyToEntry posts a reply to an existing discussion entry.
-// It sends POST /api/v1/courses/{courseID}/discussion_topics/{discussionID}/entries/{entryID}/replies.
 func ReplyToEntry(ctx context.Context, client *Client, courseID, discussionID, entryID, message string) (DiscussionEntry, error) {
 	var entry DiscussionEntry
 

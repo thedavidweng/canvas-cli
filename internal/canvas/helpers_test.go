@@ -14,7 +14,7 @@ import (
 func TestListDecodesSliceOfItems(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Course{
+		_ = json.NewEncoder(w).Encode([]Course{
 			{ID: "1", Name: "Algebra 101", CourseCode: "MATH101"},
 			{ID: "2", Name: "History 201", CourseCode: "HIST201"},
 		})
@@ -53,9 +53,9 @@ func TestListHandlesPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]Course{{ID: "1", Name: "Page1 Course"}})
+			_ = json.NewEncoder(w).Encode([]Course{{ID: "1", Name: "Page1 Course"}})
 		case 2:
-			json.NewEncoder(w).Encode([]Course{{ID: "2", Name: "Page2 Course"}})
+			_ = json.NewEncoder(w).Encode([]Course{{ID: "2", Name: "Page2 Course"}})
 		}
 	}))
 	defer srv.Close()
@@ -82,7 +82,7 @@ func TestListPassesQueryParams(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Course{})
+		_ = json.NewEncoder(w).Encode([]Course{})
 	}))
 	defer srv.Close()
 
@@ -109,7 +109,7 @@ func TestListPassesQueryParams(t *testing.T) {
 func TestListReturnsEmptySliceForEmptyResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Course{})
+		_ = json.NewEncoder(w).Encode([]Course{})
 	}))
 	defer srv.Close()
 
@@ -128,7 +128,7 @@ func TestListHandlesAPIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid access token"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Invalid access token"})
 	}))
 	defer srv.Close()
 
@@ -143,7 +143,7 @@ func TestListHandlesAPIError(t *testing.T) {
 func TestGetDecodesSingleItem(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Course{ID: "42", Name: "Advanced Go", CourseCode: "CS301"})
+		_ = json.NewEncoder(w).Encode(Course{ID: "42", Name: "Advanced Go", CourseCode: "CS301"})
 	}))
 	defer srv.Close()
 
@@ -168,7 +168,7 @@ func TestGetHandlesAPIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Course not found"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Course not found"})
 	}))
 	defer srv.Close()
 
@@ -185,7 +185,7 @@ func TestGetSendsCorrectPath(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Course{ID: "5", Name: "Physics"})
+		_ = json.NewEncoder(w).Encode(Course{ID: "5", Name: "Physics"})
 	}))
 	defer srv.Close()
 
@@ -203,7 +203,7 @@ func TestGetSendsCorrectPath(t *testing.T) {
 func TestListWorksWithDifferentTypes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Assignment{
+		_ = json.NewEncoder(w).Encode([]Assignment{
 			{ID: "10", Name: "Homework 1", CourseID: "5"},
 			{ID: "20", Name: "Midterm", CourseID: "5"},
 		})
@@ -230,7 +230,7 @@ func TestListWorksWithDifferentTypes(t *testing.T) {
 func TestGetWorksWithDifferentTypes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Assignment{ID: "10", Name: "Homework 1", CourseID: "5", PointsPossible: 100})
+		_ = json.NewEncoder(w).Encode(Assignment{ID: "10", Name: "Homework 1", CourseID: "5", PointsPossible: 100})
 	}))
 	defer srv.Close()
 

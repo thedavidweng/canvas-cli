@@ -17,7 +17,7 @@ func TestListAssignments(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Assignment{
+		_ = json.NewEncoder(w).Encode([]Assignment{
 			{ID: "10", CourseID: "1", Name: "Homework 1", PointsPossible: 100, SubmissionTypes: []string{"online_text_entry"}},
 			{ID: "11", CourseID: "1", Name: "Homework 2", PointsPossible: 50, SubmissionTypes: []string{"online_upload"}},
 		})
@@ -65,13 +65,13 @@ func TestListAssignmentsWithQuery(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Assignment{})
+		_ = json.NewEncoder(w).Encode([]Assignment{})
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	opts := url.Values{"order_by": {"due_at"}}
-	ListAssignments(context.Background(), c, "1", opts) //nolint:errcheck
+	ListAssignments(context.Background(), c, "1", opts) //nolint:errcheck // return value irrelevant to this test
 
 	parsed, _ := url.ParseQuery(gotQuery)
 	if parsed.Get("order_by") != "due_at" {
@@ -88,11 +88,11 @@ func TestListAssignmentsPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/1/assignments?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]Assignment{
+			_ = json.NewEncoder(w).Encode([]Assignment{
 				{ID: "10", Name: "HW 1"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]Assignment{
+			_ = json.NewEncoder(w).Encode([]Assignment{
 				{ID: "11", Name: "HW 2"},
 			})
 		}
@@ -119,7 +119,7 @@ func TestGetAssignment(t *testing.T) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		dueAt := "2025-12-15T23:59:00Z"
-		json.NewEncoder(w).Encode(Assignment{
+		_ = json.NewEncoder(w).Encode(Assignment{
 			ID:              "42",
 			CourseID:        "1",
 			Name:            "Final Project",
@@ -181,7 +181,7 @@ func TestListAssignmentGroups(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]AssignmentGroup{
+		_ = json.NewEncoder(w).Encode([]AssignmentGroup{
 			{
 				ID:          "1",
 				Name:        "Homework",

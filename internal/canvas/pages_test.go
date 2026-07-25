@@ -16,7 +16,7 @@ func TestListPages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Page{
+		_ = json.NewEncoder(w).Encode([]Page{
 			{
 				URL:       "syllabus",
 				Title:     "Syllabus",
@@ -74,12 +74,12 @@ func TestListPagesPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/42/pages?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]Page{
+			_ = json.NewEncoder(w).Encode([]Page{
 				{URL: "page-1", Title: "Page 1"},
 				{URL: "page-2", Title: "Page 2"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]Page{
+			_ = json.NewEncoder(w).Encode([]Page{
 				{URL: "page-3", Title: "Page 3"},
 			})
 		}
@@ -107,7 +107,7 @@ func TestGetPage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			URL:       "syllabus",
 			Title:     "Syllabus",
 			Body:      "<h1>Course Syllabus</h1><p>Welcome to the course.</p>",
@@ -150,7 +150,7 @@ func TestGetPageURLPathEncoding(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			URL:   "week-1/notes",
 			Title: "Week 1 Notes",
 			Body:  "Notes content",
@@ -179,7 +179,7 @@ func TestListPagesError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

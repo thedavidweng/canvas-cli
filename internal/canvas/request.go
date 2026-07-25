@@ -121,7 +121,6 @@ func paginateInto(ctx context.Context, client *Client, path string, query url.Va
 			return meta, fmt.Errorf("api error (status %d): %s", env.Error.Status, env.Error.Message)
 		}
 
-		// Decode the page as raw JSON elements to preserve the caller's type.
 		var rawItems []json.RawMessage
 		if err := json.NewDecoder(resp.Body).Decode(&rawItems); err != nil {
 			resp.Body.Close()

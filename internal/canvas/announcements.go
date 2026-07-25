@@ -16,7 +16,6 @@ func ListAnnouncements(ctx context.Context, client *Client, courseID string, que
 		query = url.Values{}
 	}
 
-	// Set the context_codes parameter required by the announcements endpoint
 	query.Set("context_codes[]", fmt.Sprintf("course_%s", courseID))
 
 	var announcements []DiscussionTopic

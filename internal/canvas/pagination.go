@@ -30,20 +30,17 @@ func ParseLinkHeader(header string) map[string]string {
 	parts := strings.Split(header, ",")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		// Split into URL and rel
 		sections := strings.Split(part, ";")
 		if len(sections) < 2 {
 			continue
 		}
 
-		// Extract URL from <...>
 		urlPart := strings.TrimSpace(sections[0])
 		if !strings.HasPrefix(urlPart, "<") || !strings.HasSuffix(urlPart, ">") {
 			continue
 		}
 		linkURL := urlPart[1 : len(urlPart)-1]
 
-		// Extract rel value
 		for _, s := range sections[1:] {
 			s = strings.TrimSpace(s)
 			if strings.HasPrefix(s, "rel=") {
@@ -90,7 +87,6 @@ func Paginate[T any](ctx context.Context, client *Client, path string, query url
 		var err error
 
 		// If we have an absolute next URL from a Link header, use DoURL
-		// to treat it as opaque (no base URL prepending).
 		if nextAbsoluteURL != "" {
 			resp, err = client.DoURL(ctx, "GET", nextAbsoluteURL, nil)
 		} else {
@@ -102,8 +98,6 @@ func Paginate[T any](ctx context.Context, client *Client, path string, query url
 
 		meta.RequestCount++
 
-		// Check for error status before decoding body. Canvas may return
-		// a JSON error object that would fail to decode as an array.
 		if resp.StatusCode >= 400 {
 			var baseURL string
 			if client.cookie != "" && client.token == "" {
@@ -138,7 +132,6 @@ func Paginate[T any](ctx context.Context, client *Client, path string, query url
 			break
 		}
 
-		// Check for next page link
 		linkHeader := resp.Header.Get("Link")
 		if linkHeader == "" {
 			break
@@ -151,7 +144,6 @@ func Paginate[T any](ctx context.Context, client *Client, path string, query url
 		}
 
 		// Treat the Link URL as opaque. If it's an absolute URL, use DoURL
-		// directly. If it's a relative path, extract path+query for client.Do.
 		parsed, err := url.Parse(nextURL)
 		if err != nil {
 			return allItems, meta, fmt.Errorf("failed to parse next URL: %w", err)

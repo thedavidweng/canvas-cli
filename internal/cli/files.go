@@ -49,7 +49,7 @@ func newFilesListCmd() *cobra.Command {
 
 			files, _, err := canvas.ListFiles(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "files.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "files.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, files, "files.list", jsonMode, func(w io.Writer) error {
@@ -82,7 +82,7 @@ func newFilesGetCmd() *cobra.Command {
 
 			file, err := canvas.GetFile(cmd.Context(), client, fileID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "files.get", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "files.get", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, file, "files.get", jsonMode, func(w io.Writer) error {
@@ -120,7 +120,6 @@ func newFilesDownloadCmd() *cobra.Command {
 				return fmt.Errorf("--out is required")
 			}
 
-			// Check --no-overwrite
 			if noOverwrite {
 				if _, err := os.Stat(outPath); err == nil {
 					return fmt.Errorf("file already exists: %s", outPath)
@@ -177,7 +176,7 @@ func newFilesDownloadCourseCmd() *cobra.Command {
 				NoOverwrite: noOverwrite,
 			})
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "files.download-course", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "files.download-course", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, result, "files.download-course", jsonMode, func(w io.Writer) error {
@@ -233,7 +232,7 @@ func newFilesUploadCmd() *cobra.Command {
 				Confirm:        confirm,
 				ResourceIDs:    []string{courseID},
 				PayloadSummary: fmt.Sprintf("file=%s folder=%s", filePath, folder),
-				AuditBody:      fmt.Sprintf(`{"file":"%s","folder":"%s"}`, filepath.Base(filePath), folder),
+				AuditBody:      fmt.Sprintf(`{"file":%q,"folder":%q}`, filepath.Base(filePath), folder),
 			}
 
 			dryRunShortCircuit, err := CheckAndPreview(cfg, cmd.OutOrStdout(), spec)
@@ -244,7 +243,6 @@ func newFilesUploadCmd() *cobra.Command {
 				return nil
 			}
 
-			// Read file content
 			content, err := os.ReadFile(filePath)
 			if err != nil {
 				return fmt.Errorf("read file %s: %w", filePath, err)
@@ -254,7 +252,7 @@ func newFilesUploadCmd() *cobra.Command {
 			fileID, err := canvas.UploadFile(cmd.Context(), client, courseID, filePath, content)
 			if err != nil {
 				RecordAudit(cfg, spec, 0, false)
-				return writeError(cmd.OutOrStdout(), fmt.Errorf("upload file: %w", err), "files.upload", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, fmt.Errorf("upload file: %w", err), "files.upload", jsonMode)
 			}
 
 			RecordAudit(cfg, spec, 200, true)

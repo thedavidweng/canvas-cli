@@ -76,7 +76,7 @@ func newCoursesListCmd() *cobra.Command {
 
 			courses, _, err := canvas.ListCourses(cmd.Context(), client, query)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "courses.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "courses.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, courses, "courses.list", jsonMode, func(w io.Writer) error {
@@ -86,7 +86,7 @@ func newCoursesListCmd() *cobra.Command {
 				for _, c := range courses {
 					tbl.Rows = append(tbl.Rows, []string{c.ID, c.Name, c.CourseCode, c.WorkflowState})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}
@@ -116,7 +116,7 @@ func newCoursesGetCmd() *cobra.Command {
 
 			course, err := canvas.GetCourse(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "courses.get", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "courses.get", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, course, "courses.get", jsonMode, func(w io.Writer) error {
@@ -154,7 +154,7 @@ func newCoursesTabsCmd() *cobra.Command {
 
 			tabs, err := canvas.ListCourseTabs(cmd.Context(), client, courseID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "courses.tabs", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "courses.tabs", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, tabs, "courses.tabs", jsonMode, func(w io.Writer) error {
@@ -164,7 +164,7 @@ func newCoursesTabsCmd() *cobra.Command {
 				for _, t := range tabs {
 					tbl.Rows = append(tbl.Rows, []string{t.ID, t.Label, t.Type, fmt.Sprintf("%d", t.Position)})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}

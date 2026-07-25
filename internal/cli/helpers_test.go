@@ -108,7 +108,7 @@ func TestWriteError_JSONMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("something went wrong")
 
-	err := writeError(&buf, inputErr, "courses.list", true)
+	err := writeError(&buf, &config.ResolvedConfig{}, inputErr, "courses.list", true)
 	if err != nil {
 		t.Fatalf("writeError in JSON mode returned error: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestWriteError_HumanMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("something went wrong")
 
-	err := writeError(&buf, inputErr, "courses.list", false)
+	err := writeError(&buf, &config.ResolvedConfig{}, inputErr, "courses.list", false)
 	if err == nil {
 		t.Fatal("expected error to be returned")
 	}
@@ -174,38 +174,6 @@ func TestTruncateString(t *testing.T) {
 	}
 }
 
-func TestCheckSafety_Allowed(t *testing.T) {
-	cfg := &config.ResolvedConfig{}
-	err := checkSafety(cfg, false, true)
-	if err != nil {
-		t.Fatalf("expected allowed, got: %v", err)
-	}
-}
-
-func TestCheckSafety_DryRun(t *testing.T) {
-	cfg := &config.ResolvedConfig{}
-	err := checkSafety(cfg, true, false)
-	if err != nil {
-		t.Fatalf("dry run should be allowed, got: %v", err)
-	}
-}
-
-func TestCheckHighRiskSafety_Allowed(t *testing.T) {
-	cfg := &config.ResolvedConfig{}
-	err := checkHighRiskSafety(cfg, false, true)
-	if err != nil {
-		t.Fatalf("expected allowed, got: %v", err)
-	}
-}
-
-func TestCheckHighRiskSafety_DryRun(t *testing.T) {
-	cfg := &config.ResolvedConfig{}
-	err := checkHighRiskSafety(cfg, true, false)
-	if err != nil {
-		t.Fatalf("dry run should be allowed, got: %v", err)
-	}
-}
-
 func TestExitError_Error(t *testing.T) {
 	e := &exitError{msg: "something broke", exitCode: 42}
 	if e.Error() != "something broke" {
@@ -241,7 +209,7 @@ func TestWriteNetworkError_JSONMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("connection refused")
 
-	err := writeNetworkError(&buf, inputErr, "api.get", true)
+	err := writeNetworkError(&buf, &config.ResolvedConfig{}, inputErr, "api.get", true)
 	if err != nil {
 		t.Fatalf("writeNetworkError in JSON mode returned error: %v", err)
 	}
@@ -268,7 +236,7 @@ func TestWriteNetworkError_HumanMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("connection refused")
 
-	err := writeNetworkError(&buf, inputErr, "api.get", false)
+	err := writeNetworkError(&buf, &config.ResolvedConfig{}, inputErr, "api.get", false)
 	if err == nil {
 		t.Fatal("expected error to be returned")
 	}
@@ -284,7 +252,7 @@ func TestWriteErrorWithCode_JSONMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("not found")
 
-	err := writeErrorWithCode(&buf, inputErr, "courses.get", "CANVAS_NOT_FOUND", "api", true)
+	err := writeErrorWithCode(&buf, &config.ResolvedConfig{}, inputErr, "courses.get", "CANVAS_NOT_FOUND", "api", true)
 	if err != nil {
 		t.Fatalf("writeErrorWithCode in JSON mode returned error: %v", err)
 	}
@@ -305,7 +273,7 @@ func TestWriteErrorWithCode_HumanMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("not found")
 
-	err := writeErrorWithCode(&buf, inputErr, "courses.get", "CANVAS_NOT_FOUND", "api", false)
+	err := writeErrorWithCode(&buf, &config.ResolvedConfig{}, inputErr, "courses.get", "CANVAS_NOT_FOUND", "api", false)
 	if err == nil {
 		t.Fatal("expected error to be returned")
 	}

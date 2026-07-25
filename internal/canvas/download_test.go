@@ -18,7 +18,7 @@ func TestDownloadCourseFiles_Success(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v1/courses/42/files":
-			json.NewEncoder(w).Encode([]File{
+			_ = json.NewEncoder(w).Encode([]File{
 				{ID: "101", Filename: "a.txt", DisplayName: "a.txt", Size: 5, ContentType: "text/plain"},
 				{ID: "102", Filename: "b.txt", DisplayName: "b.txt", Size: 5, ContentType: "text/plain"},
 			})
@@ -27,9 +27,9 @@ func TestDownloadCourseFiles_Success(t *testing.T) {
 		case "/api/v1/files/102":
 			fmt.Fprintf(w, `{"id":"102","url":"%s/raw/102","size":5}`, srv.URL)
 		case "/raw/101":
-			w.Write([]byte("hello"))
+			_, _ = w.Write([]byte("hello"))
 		case "/raw/102":
-			w.Write([]byte("world"))
+			_, _ = w.Write([]byte("world"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -103,7 +103,7 @@ func TestDownloadCourseFiles_NoOverwrite_SkipsExisting(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v1/courses/42/files":
-			json.NewEncoder(w).Encode([]File{
+			_ = json.NewEncoder(w).Encode([]File{
 				{ID: "101", Filename: "a.txt", DisplayName: "a.txt", Size: 5, ContentType: "text/plain"},
 			})
 		default:
@@ -156,14 +156,14 @@ func TestDownloadCourseFiles_DownloadError(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v1/courses/42/files":
-			json.NewEncoder(w).Encode([]File{
+			_ = json.NewEncoder(w).Encode([]File{
 				{ID: "101", Filename: "a.txt", DisplayName: "a.txt", Size: 5, ContentType: "text/plain"},
 			})
 		case "/api/v1/files/101":
 			fmt.Fprintf(w, `{"id":"101","url":"%s/raw/101","size":5}`, srv.URL)
 		case "/raw/101":
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"message":"download failed"}`))
+			_, _ = w.Write([]byte(`{"message":"download failed"}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -202,7 +202,7 @@ func TestDownloadCourseFiles_ListError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"server error"}`))
+		_, _ = w.Write([]byte(`{"message":"server error"}`))
 	}))
 	defer srv.Close()
 
@@ -221,7 +221,7 @@ func TestDownloadCourseFiles_ListError(t *testing.T) {
 func TestDownloadCourseFiles_EmptyFileList(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]File{})
+		_ = json.NewEncoder(w).Encode([]File{})
 	}))
 	defer srv.Close()
 
@@ -250,7 +250,7 @@ func TestDownloadCourseFiles_PathTraversalSanitized(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v1/courses/42/files":
-			json.NewEncoder(w).Encode([]File{
+			_ = json.NewEncoder(w).Encode([]File{
 				{ID: "101", Filename: "../../.bashrc", DisplayName: "evil", Size: 5, ContentType: "text/plain"},
 				{ID: "102", Filename: "/etc/passwd", DisplayName: "absolute", Size: 5, ContentType: "text/plain"},
 			})
@@ -259,9 +259,9 @@ func TestDownloadCourseFiles_PathTraversalSanitized(t *testing.T) {
 		case "/api/v1/files/102":
 			fmt.Fprintf(w, `{"id":"102","url":"%s/raw/102","size":5}`, srv.URL)
 		case "/raw/101":
-			w.Write([]byte("hello"))
+			_, _ = w.Write([]byte("hello"))
 		case "/raw/102":
-			w.Write([]byte("world"))
+			_, _ = w.Write([]byte("world"))
 		default:
 			http.NotFound(w, r)
 		}

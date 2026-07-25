@@ -51,11 +51,10 @@ func newDiscussionsListCmd() *cobra.Command {
 
 			discussions, _, err := canvas.ListDiscussions(ctx, client, courseID, nil)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "discussions.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "discussions.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, discussions, "discussions.list", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, d := range discussions {
 					fmt.Fprintf(w, "%s\t%s\n", d.ID, d.Title)
 				}
@@ -91,11 +90,10 @@ func newDiscussionsGetCmd() *cobra.Command {
 
 			topic, err := canvas.GetDiscussion(ctx, client, courseID, discussionID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "discussions.get", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "discussions.get", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, topic, "discussions.get", jsonMode, func(w io.Writer) error {
-				// Human output
 				fmt.Fprintf(w, "ID:    %s\n", topic.ID)
 				fmt.Fprintf(w, "Title: %s\n", topic.Title)
 				if topic.Message != "" {
@@ -133,11 +131,10 @@ func newDiscussionsEntriesCmd() *cobra.Command {
 
 			entries, _, err := canvas.ListDiscussionEntries(ctx, client, courseID, discussionID, nil)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "discussions.entries", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "discussions.entries", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, entries, "discussions.entries", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, e := range entries {
 					name := e.UserName
 					if name == "" {
@@ -203,7 +200,7 @@ func newDiscussionsReplyCmd() *cobra.Command {
 					return &entry, 200, nil
 				},
 				func(w io.Writer, data any) error {
-					entry := data.(*canvas.DiscussionEntry)
+					entry, _ := data.(*canvas.DiscussionEntry)
 					fmt.Fprintf(w, "Reply posted (entry %s)\n", entry.ID)
 					return nil
 				},
@@ -271,7 +268,7 @@ func newDiscussionsReplyEntryCmd() *cobra.Command {
 					return &entry, 200, nil
 				},
 				func(w io.Writer, data any) error {
-					entry := data.(*canvas.DiscussionEntry)
+					entry, _ := data.(*canvas.DiscussionEntry)
 					fmt.Fprintf(w, "Reply posted (entry %s)\n", entry.ID)
 					return nil
 				},
@@ -340,7 +337,7 @@ func newDiscussionsCreateCmd() *cobra.Command {
 					return &topic, 200, nil
 				},
 				func(w io.Writer, data any) error {
-					topic := data.(*canvas.DiscussionTopic)
+					topic, _ := data.(*canvas.DiscussionTopic)
 					fmt.Fprintf(w, "Discussion created (ID: %s, title: %s)\n", topic.ID, topic.Title)
 					return nil
 				},

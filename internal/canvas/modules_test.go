@@ -17,7 +17,7 @@ func TestListModules(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Module{
+		_ = json.NewEncoder(w).Encode([]Module{
 			{ID: "1", Name: "Week 1", Position: 1, Published: true, ItemsCount: 5},
 			{ID: "2", Name: "Week 2", Position: 2, Published: true, ItemsCount: 3},
 		})
@@ -66,7 +66,7 @@ func TestGetModule(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Module{
+		_ = json.NewEncoder(w).Encode(Module{
 			ID:         "1",
 			Name:       "Week 1",
 			Position:   1,
@@ -106,7 +106,7 @@ func TestGetModuleError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -124,7 +124,7 @@ func TestGetModuleItem(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ModuleItem{
+		_ = json.NewEncoder(w).Encode(ModuleItem{
 			ID:       "10",
 			ModuleID: "1",
 			Title:    "Read Chapter 1",
@@ -161,7 +161,7 @@ func TestGetModuleItemError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -178,13 +178,13 @@ func TestListModulesWithQuery(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Module{})
+		_ = json.NewEncoder(w).Encode([]Module{})
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "tok", "0.1.0", 5*time.Second, 0)
 	opts := url.Values{"include[]": {"items"}}
-	ListModules(context.Background(), c, "1", opts) //nolint:errcheck
+	ListModules(context.Background(), c, "1", opts) //nolint:errcheck // return value irrelevant to this test
 
 	parsed, _ := url.ParseQuery(gotQuery)
 	if parsed.Get("include[]") != "items" {
@@ -201,11 +201,11 @@ func TestListModulesPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/1/modules?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]Module{
+			_ = json.NewEncoder(w).Encode([]Module{
 				{ID: "1", Name: "Module 1"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]Module{
+			_ = json.NewEncoder(w).Encode([]Module{
 				{ID: "2", Name: "Module 2"},
 			})
 		}
@@ -232,7 +232,7 @@ func TestListModuleItems(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]ModuleItem{
+		_ = json.NewEncoder(w).Encode([]ModuleItem{
 			{ID: "10", ModuleID: "1", Title: "Read Chapter 1", Type: "Page", Position: 1},
 			{ID: "11", ModuleID: "1", Title: "Quiz 1", Type: "Quiz", Position: 2},
 		})
@@ -284,11 +284,11 @@ func TestListModuleItemsPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/1/modules/1/items?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]ModuleItem{
+			_ = json.NewEncoder(w).Encode([]ModuleItem{
 				{ID: "10", Title: "Item 1"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]ModuleItem{
+			_ = json.NewEncoder(w).Encode([]ModuleItem{
 				{ID: "11", Title: "Item 2"},
 			})
 		}
@@ -328,7 +328,7 @@ func TestListModulesError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

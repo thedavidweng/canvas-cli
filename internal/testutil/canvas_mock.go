@@ -13,7 +13,6 @@ import (
 )
 
 // RecordedRequest captures the details of a single HTTP request
-// received by the mock server for assertion in tests.
 type RecordedRequest struct {
 	Method  string
 	Path    string
@@ -35,36 +34,24 @@ type paginationConfig struct {
 }
 
 // MockCanvas is a test HTTP server that simulates Canvas API endpoints.
-// It records incoming requests and allows tests to configure responses
-// for specific routes, including paginated and rate-limited responses.
 type MockCanvas struct {
 	Server     *httptest.Server
 	routes     map[string]map[string]route // method -> path -> route
 	requestLog []RecordedRequest
 	mu         sync.Mutex
 
-	// rateLimitCost is the value returned in X-Request-Cost header.
-	rateLimitCost float64
-	// rateLimitRemaining is the value returned in X-Rate-Limit-Remaining header.
+	rateLimitCost      float64
 	rateLimitRemaining float64
-	// hasRateLimit controls whether rate limit headers are included.
-	hasRateLimit bool
+	hasRateLimit       bool
 
-	// retryAfterSeconds, when > 0, causes all requests to return 429 with Retry-After.
 	retryAfterSeconds int
 
-	// pagination holds per-path pagination configurations.
 	pagination map[string]*paginationConfig
 
-	// redirects stores path -> redirectURL for routes that return 302.
 	redirects map[string]string
 }
 
 // NewMockCanvas creates and starts a new mock Canvas HTTP server.
-// It registers default routes for common endpoints:
-//   - GET /api/v1/users/self
-//   - GET /api/v1/courses
-//   - GET /api/v1/courses/1
 func NewMockCanvas() *MockCanvas {
 	m := &MockCanvas{
 		routes:     make(map[string]map[string]route),
@@ -74,7 +61,6 @@ func NewMockCanvas() *MockCanvas {
 
 	m.Server = httptest.NewServer(http.HandlerFunc(m.handler))
 
-	// Register default routes.
 	m.On("GET", "/api/v1/users/self", http.StatusOK, map[string]any{
 		"id":            "1",
 		"name":          "Test User",
@@ -101,9 +87,7 @@ func NewMockCanvas() *MockCanvas {
 }
 
 // handler is the central HTTP handler that dispatches to registered routes
-// and records each request for later assertion.
 func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
-	// Record the request.
 	bodyBytes, _ := io.ReadAll(r.Body)
 	m.mu.Lock()
 	m.requestLog = append(m.requestLog, RecordedRequest{
@@ -115,7 +99,6 @@ func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
 	})
 	m.mu.Unlock()
 
-	// If retry-after is configured, always return 429.
 	m.mu.Lock()
 	retryAfter := m.retryAfterSeconds
 	m.mu.Unlock()
@@ -127,7 +110,6 @@ func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set rate limit headers if configured.
 	m.mu.Lock()
 	hasRL := m.hasRateLimit
 	rlCost := m.rateLimitCost
@@ -139,7 +121,6 @@ func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Rate-Limit-Remaining", fmt.Sprintf("%g", rlRem))
 	}
 
-	// Check for pagination configuration.
 	m.mu.Lock()
 	pgCfg, hasPagination := m.pagination[r.URL.Path]
 	m.mu.Unlock()
@@ -151,7 +132,6 @@ func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
 		pgCfg.nextIndex++
 		m.mu.Unlock()
 
-		// Set Link header for non-last pages.
 		if !isLast {
 			nextURL := fmt.Sprintf("%s%s?page=%d", m.Server.URL, r.URL.Path, pgCfg.nextIndex+1)
 			w.Header().Set("Link", fmt.Sprintf(`<%s>; rel="next"`, nextURL))
@@ -159,11 +139,10 @@ func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(pageData)
+		_ = json.NewEncoder(w).Encode(pageData)
 		return
 	}
 
-	// Check for redirect configuration.
 	m.mu.Lock()
 	redirectURL, hasRedirect := m.redirects[r.Method+":"+r.URL.Path]
 	m.mu.Unlock()
@@ -174,7 +153,6 @@ func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Look up registered route.
 	m.mu.Lock()
 	methodRoutes, ok := m.routes[r.Method]
 	var rt route
@@ -194,19 +172,17 @@ func (m *MockCanvas) handler(w http.ResponseWriter, r *http.Request) {
 	switch b := rt.body.(type) {
 	case []byte:
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Write(b)
+		_, _ = w.Write(b)
 	case string:
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Write([]byte(b))
+		_, _ = w.Write([]byte(b))
 	default:
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(b)
+		_ = json.NewEncoder(w).Encode(b)
 	}
 }
 
 // On registers a handler for the given HTTP method and path.
-// When the mock receives a matching request it will respond with
-// the given status code and JSON-serialized body.
 func (m *MockCanvas) On(method, path string, statusCode int, body any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -222,9 +198,6 @@ func (m *MockCanvas) On(method, path string, statusCode int, body any) {
 }
 
 // SetPagination configures paginated responses for the given path.
-// Each entry in pages is one page of results. The mock will serve
-// pages sequentially, including Link headers with rel="next" for
-// all pages except the last.
 func (m *MockCanvas) SetPagination(path string, pages [][]map[string]any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -236,8 +209,6 @@ func (m *MockCanvas) SetPagination(path string, pages [][]map[string]any) {
 }
 
 // SetRateLimitHeaders configures the mock to include rate limit
-// response headers (X-Request-Cost and X-Rate-Limit-Remaining)
-// on every response.
 func (m *MockCanvas) SetRateLimitHeaders(cost, remaining float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -248,7 +219,6 @@ func (m *MockCanvas) SetRateLimitHeaders(cost, remaining float64) {
 }
 
 // SetRetryAfter configures the mock to return HTTP 429 with a
-// Retry-After header on every request. Pass 0 to disable.
 func (m *MockCanvas) SetRetryAfter(seconds int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -257,7 +227,6 @@ func (m *MockCanvas) SetRetryAfter(seconds int) {
 }
 
 // LastRequest returns the most recent RecordedRequest, or nil if
-// no requests have been received.
 func (m *MockCanvas) LastRequest() *RecordedRequest {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -289,8 +258,6 @@ func (m *MockCanvas) Reset() {
 }
 
 // OnUploadRedirect registers a route that responds with HTTP 302 and a
-// Location header pointing to redirectPath. This is used to simulate
-// Canvas file upload initiation which redirects to the actual upload URL.
 func (m *MockCanvas) OnUploadRedirect(method, path, redirectPath string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -299,8 +266,6 @@ func (m *MockCanvas) OnUploadRedirect(method, path, redirectPath string) {
 }
 
 // OnUploadInit registers a route that returns a 200 with upload_url and
-// upload_params, simulating step 1 of the Canvas 3-step file upload flow.
-// uploadPath is the path the client should POST the file content to.
 func (m *MockCanvas) OnUploadInit(method, path, uploadPath string, params map[string]string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

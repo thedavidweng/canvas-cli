@@ -23,7 +23,7 @@ func TestStartEpubExport(t *testing.T) {
 		gotPath = r.URL.Path
 		gotMethod = r.Method
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(EpubExport{
+		_ = json.NewEncoder(w).Encode(EpubExport{
 			ID:            "42",
 			CreatedAt:     "2026-06-15T10:00:00Z",
 			WorkflowState: "created",
@@ -73,7 +73,7 @@ func TestStartEpubExport(t *testing.T) {
 func TestStartEpubExportError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"errors":[{"message":"Unauthorized"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Unauthorized"}]}`))
 	}))
 	defer srv.Close()
 
@@ -96,7 +96,7 @@ func TestGetEpubExport(t *testing.T) {
 		gotPath = r.URL.Path
 		gotMethod = r.Method
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(EpubExport{
+		_ = json.NewEncoder(w).Encode(EpubExport{
 			ID:            "42",
 			WorkflowState: "exporting",
 			ProgressURL:   "/api/v1/progress/1",
@@ -129,7 +129,7 @@ func TestGetEpubExport(t *testing.T) {
 func TestGetEpubExportError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"errors":[{"message":"Not Found"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Not Found"}]}`))
 	}))
 	defer srv.Close()
 
@@ -153,7 +153,7 @@ func TestListEpubExports(t *testing.T) {
 		gotPerPage = r.URL.Query().Get("per_page")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Link", `<https://canvas.example.com/api/v1/epub_exports?page=1>; rel="current"`)
-		json.NewEncoder(w).Encode([]CourseEpubExport{
+		_ = json.NewEncoder(w).Encode([]CourseEpubExport{
 			{
 				ID:   "1",
 				Name: "Math 101",
@@ -209,7 +209,7 @@ func TestListEpubExports(t *testing.T) {
 func TestListEpubExportsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"errors":[{"message":"Internal Server Error"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Internal Server Error"}]}`))
 	}))
 	defer srv.Close()
 
@@ -237,7 +237,7 @@ func TestStartContentExport(t *testing.T) {
 		bodyBytes, _ := io.ReadAll(r.Body)
 		gotBody = string(bodyBytes)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ContentExport{
+		_ = json.NewEncoder(w).Encode(ContentExport{
 			ID:            "55",
 			ExportType:    "qti",
 			WorkflowState: "created",
@@ -281,7 +281,7 @@ func TestStartContentExport(t *testing.T) {
 func TestStartContentExportError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"errors":[{"message":"Forbidden"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Forbidden"}]}`))
 	}))
 	defer srv.Close()
 
@@ -304,7 +304,7 @@ func TestGetContentExport(t *testing.T) {
 		gotPath = r.URL.Path
 		gotMethod = r.Method
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ContentExport{
+		_ = json.NewEncoder(w).Encode(ContentExport{
 			ID:            "55",
 			ExportType:    "qti",
 			WorkflowState: "exporting",
@@ -348,7 +348,7 @@ func TestGetContentExport(t *testing.T) {
 func TestGetContentExportError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"errors":[{"message":"Not Found"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Not Found"}]}`))
 	}))
 	defer srv.Close()
 
@@ -372,7 +372,7 @@ func TestListContentExports(t *testing.T) {
 		gotPerPage = r.URL.Query().Get("per_page")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Link", `<https://canvas.example.com/api/v1/courses/10/content_exports?page=1>; rel="current"`)
-		json.NewEncoder(w).Encode([]ContentExport{
+		_ = json.NewEncoder(w).Encode([]ContentExport{
 			{
 				ID:            "1",
 				ExportType:    "qti",
@@ -420,7 +420,7 @@ func TestListContentExports(t *testing.T) {
 func TestListContentExportsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"errors":[{"message":"Internal Server Error"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Internal Server Error"}]}`))
 	}))
 	defer srv.Close()
 
@@ -442,7 +442,7 @@ func TestGetProgress(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		completion := 75.0
-		json.NewEncoder(w).Encode(Progress{
+		_ = json.NewEncoder(w).Encode(Progress{
 			ID:            "1",
 			ContextID:     "10",
 			ContextType:   "Course",
@@ -482,7 +482,7 @@ func TestGetProgress(t *testing.T) {
 func TestGetProgressError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"errors":[{"message":"Not Found"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Not Found"}]}`))
 	}))
 	defer srv.Close()
 
@@ -519,7 +519,7 @@ func TestDownloadExport(t *testing.T) {
 		gotPath = r.URL.Path
 		gotMethod = r.Method
 		w.Header().Set("Content-Type", "application/zip")
-		w.Write([]byte("PK\x03\x04fake-zip-content"))
+		_, _ = w.Write([]byte("PK\x03\x04fake-zip-content"))
 	}))
 	defer srv.Close()
 
@@ -546,7 +546,7 @@ func TestDownloadExport(t *testing.T) {
 func TestDownloadExport4xxError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("Forbidden"))
+		_, _ = w.Write([]byte("Forbidden"))
 	}))
 	defer srv.Close()
 
@@ -586,7 +586,7 @@ func TestWaitForExportCompleted(t *testing.T) {
 		if n >= 2 {
 			state = "completed"
 		}
-		json.NewEncoder(w).Encode(Progress{
+		_ = json.NewEncoder(w).Encode(Progress{
 			ID:            "1",
 			WorkflowState: state,
 		})
@@ -609,7 +609,7 @@ func TestWaitForExportCompleted(t *testing.T) {
 func TestWaitForExportFailed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Progress{
+		_ = json.NewEncoder(w).Encode(Progress{
 			ID:            "1",
 			WorkflowState: "failed",
 		})
@@ -631,7 +631,7 @@ func TestWaitForExportFailed(t *testing.T) {
 func TestWaitForExportContextCancelled(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Progress{
+		_ = json.NewEncoder(w).Encode(Progress{
 			ID:            "1",
 			WorkflowState: "running",
 		})
@@ -648,7 +648,7 @@ func TestWaitForExportContextCancelled(t *testing.T) {
 	progressURL := srv.URL + "/api/v1/progress/1"
 	err := WaitForExport(ctx, c, progressURL, 10*time.Millisecond)
 	if err == nil {
-		t.Fatal("WaitForExport() expected error for cancelled context, got nil")
+		t.Fatal("WaitForExport() expected error for canceled context, got nil")
 	}
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("error = %v, want context.Canceled", err)
@@ -658,7 +658,7 @@ func TestWaitForExportContextCancelled(t *testing.T) {
 func TestWaitForExportProgressError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"errors":[{"message":"Internal Server Error"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Internal Server Error"}]}`))
 	}))
 	defer srv.Close()
 
@@ -705,7 +705,7 @@ func TestFormReaderEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAll() error: %v", err)
 	}
-	if string(body) != "" {
+	if len(body) != 0 {
 		t.Errorf("body = %q, want empty string", string(body))
 	}
 }

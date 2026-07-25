@@ -264,7 +264,7 @@ func TestResolveData_FilePath(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "data.json")
 	content := `{"hello":"world"}`
-	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 
@@ -502,7 +502,7 @@ func TestApiPost_DataFromFile(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	dataPath := filepath.Join(tmpDir, "data.json")
-	os.WriteFile(dataPath, []byte(`{"name":"File Assignment"}`), 0644)
+	_ = os.WriteFile(dataPath, []byte(`{"name":"File Assignment"}`), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),

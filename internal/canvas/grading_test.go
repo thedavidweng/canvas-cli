@@ -20,11 +20,11 @@ func TestSetGrade(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		score := 92.0
 		grade := "A-"
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:           "501",
 			UserID:       "789",
 			AssignmentID: "301",
@@ -70,10 +70,10 @@ func TestAddComment(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		score := 85.0
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:           "502",
 			UserID:       "790",
 			AssignmentID: "301",
@@ -115,11 +115,11 @@ func TestGradeRubric(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		score := 95.0
 		grade := "A"
-		json.NewEncoder(w).Encode(Submission{
+		_ = json.NewEncoder(w).Encode(Submission{
 			ID:           "503",
 			UserID:       "789",
 			AssignmentID: "301",
@@ -186,7 +186,7 @@ func TestGradeRubricError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -209,11 +209,11 @@ func TestImportGrades(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		score1 := 88.0
 		score2 := 72.0
-		json.NewEncoder(w).Encode([]Submission{
+		_ = json.NewEncoder(w).Encode([]Submission{
 			{ID: "601", UserID: "789", AssignmentID: "301", Score: &score1, Grade: strPtr("B+")},
 			{ID: "602", UserID: "790", AssignmentID: "301", Score: &score2, Grade: strPtr("C-")},
 		})
@@ -270,7 +270,7 @@ func TestSetGradeError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -286,7 +286,7 @@ func TestAddCommentError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -302,7 +302,7 @@ func TestImportGradesError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

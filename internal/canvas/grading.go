@@ -8,8 +8,6 @@ import (
 )
 
 // SetGrade sets a posted grade for a specific user's submission.
-// It sends PUT /api/v1/courses/{courseID}/assignments/{assignmentID}/submissions/{userID}
-// with submission.posted_grade set to the given score.
 func SetGrade(ctx context.Context, client *Client, courseID, assignmentID, userID, score string) (Submission, error) {
 	var sub Submission
 
@@ -40,8 +38,6 @@ func SetGrade(ctx context.Context, client *Client, courseID, assignmentID, userI
 }
 
 // AddComment adds a text comment to a specific user's submission.
-// It sends PUT /api/v1/courses/{courseID}/assignments/{assignmentID}/submissions/{userID}
-// with comment.text_comment set to the given comment.
 func AddComment(ctx context.Context, client *Client, courseID, assignmentID, userID, comment string) (Submission, error) {
 	var sub Submission
 
@@ -72,8 +68,6 @@ func AddComment(ctx context.Context, client *Client, courseID, assignmentID, use
 }
 
 // GradeRubric submits a rubric assessment for a specific user's submission.
-// It sends PUT /api/v1/courses/{courseID}/assignments/{assignmentID}/submissions/{userID}
-// with rubric_assessment data.
 func GradeRubric(ctx context.Context, client *Client, courseID, assignmentID, userID string, rubricAssessment map[string]any) (Submission, error) {
 	var sub Submission
 	payload := map[string]any{
@@ -104,8 +98,6 @@ type GradeImportResult struct {
 }
 
 // ImportGrades posts a batch of grades for an assignment.
-// It sends POST /api/v1/courses/{courseID}/assignments/{assignmentID}/submissions/update_grades
-// with grade_data mapping user IDs to posted_grade values.
 func ImportGrades(ctx context.Context, client *Client, courseID, assignmentID string, gradeData map[string]string) ([]Submission, error) {
 	payload := map[string]any{
 		"grade_data": gradeData,

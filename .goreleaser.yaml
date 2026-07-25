@@ -35,33 +35,7 @@ checksum:
   algorithm: sha256
 
 changelog:
-  sort: asc
-  use: github
-  groups:
-    - title: "Features"
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 0
-    - title: "Bug Fixes"
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
-      order: 1
-    - title: "Documentation"
-      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
-      order: 2
-    - title: "Maintenance"
-      regexp: '^.*?(chore|refactor|style|test|ci)(\([[:word:]]+\))??!?:.+$'
-      order: 3
-    - title: "Dependencies"
-      regexp: '^.*?(build|deps)(\([[:word:]]+\))??!?:.+$'
-      order: 4
-    - title: "Other"
-      order: 999
-  filters:
-    exclude:
-      - "^test:"
-      - "^chore: release"
-      - "^ci:"
-      - "Merge pull request"
-      - "Merge branch"
+  disable: true
 
 release:
   github:
@@ -110,6 +84,19 @@ sboms:
   - artifacts: archive
     documents:
       - "${artifact}.sbom.json"
+
+nfpms:
+  - package_name: canvas
+    vendor: thedavidweng
+    maintainer: thedavidweng <noreply@github.com>
+    homepage: https://github.com/thedavidweng/canvas-cli
+    description: "Agent-friendly CLI for Canvas LMS course management, assignments, submissions, and more"
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
 
 homebrew_casks:
   - name: canvas

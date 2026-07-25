@@ -18,7 +18,7 @@ Requires Go 1.26.4 or later.
 
 1. Fork the repository and create a feature branch.
 2. Make your changes with tests.
-3. Run `make check` (runs gofmt, go vet, go test, go build).
+3. Run `mise run check` (runs fmt, build, test, lint, conventions).
 4. Open a pull request against `main`.
 
 ## Document precedence
@@ -50,7 +50,7 @@ These are fixed and should not be revisited in pull requests:
 
 - Standard Go formatting (`gofmt`).
 - Use `goimports` with local prefix `github.com/thedavidweng/canvas-cli`.
-- All exported functions must have doc comments.
+- Comments only for constraints the code cannot express; CI enforces a comment budget of 5% of non-test lines. See `AGENTS.md`.
 - Error messages are lowercase, no trailing punctuation.
 - Wrap errors with `fmt.Errorf("context: %w", err)`.
 - Commands stay thin: parsing flags, calling shared packages, formatting output.
@@ -62,7 +62,7 @@ Every change must include tests. Required categories:
 
 - **Unit tests**: pure logic, no HTTP. Test helpers, parsers, formatters.
 - **Integration tests**: use `testutil.MockCanvas` to simulate Canvas API responses. Cover success path, error path, pagination, rate limiting.
-- **Golden file tests**: for human-readable output. Store expected output in `testdata/` and compare with `testutil` helpers.
+- **Output tests**: for human-readable and JSON output, capture the command's writer and assert on the string or decoded envelope inline (see `internal/cli/golden_test.go`). There is no `testdata/` fixture directory.
 - **Redaction tests**: verify tokens never appear in stdout, stderr, JSON output, or error messages.
 
 Run before submitting:

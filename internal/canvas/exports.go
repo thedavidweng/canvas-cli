@@ -184,7 +184,6 @@ func DownloadExport(ctx context.Context, client *Client, attachmentURL string, w
 }
 
 // WaitForExport polls a progress URL until completion or failure.
-// It returns nil when the export is complete, or an error if it fails.
 func WaitForExport(ctx context.Context, client *Client, progressURL string, pollInterval time.Duration) error {
 	for {
 		progress, err := GetProgress(ctx, client, progressURL)
@@ -203,7 +202,6 @@ func WaitForExport(ctx context.Context, client *Client, progressURL string, poll
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(pollInterval):
-			// continue polling
 		}
 	}
 }

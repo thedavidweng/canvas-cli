@@ -47,11 +47,10 @@ func newPagesListCmd() *cobra.Command {
 
 			pages, _, err := canvas.ListPages(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "pages.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "pages.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, pages, "pages.list", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, p := range pages {
 					fmt.Fprintf(w, "%s\t%s\n", p.URL, p.Title)
 				}
@@ -86,11 +85,10 @@ func newPagesGetCmd() *cobra.Command {
 
 			page, err := canvas.GetPage(cmd.Context(), client, courseID, pageURL)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "pages.get", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "pages.get", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, page, "pages.get", jsonMode, func(w io.Writer) error {
-				// Human output
 				fmt.Fprintf(w, "URL:   %s\n", page.URL)
 				fmt.Fprintf(w, "Title: %s\n", page.Title)
 				if page.Body != "" {

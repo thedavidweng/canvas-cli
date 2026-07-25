@@ -39,7 +39,7 @@ func TestDoWithRetry_ContextCancelledDuringDelay(t *testing.T) {
 
 	_, err := c.Do(ctx, http.MethodGet, "/api/v1/test", nil, nil)
 	if err == nil {
-		t.Fatal("expected error from cancelled context during retry delay")
+		t.Fatal("expected error from canceled context during retry delay")
 	}
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
@@ -446,7 +446,7 @@ func TestDoContextCancellation(t *testing.T) {
 
 	_, err := c.Do(ctx, http.MethodGet, "/api/v1/courses", nil, nil)
 	if err == nil {
-		t.Fatal("expected error from cancelled context, got nil")
+		t.Fatal("expected error from canceled context, got nil")
 	}
 }
 
@@ -469,7 +469,7 @@ func TestDoSendsBody(t *testing.T) {
 	var gotBody string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b := make([]byte, r.ContentLength)
-		r.Body.Read(b) //nolint:errcheck
+		r.Body.Read(b) //nolint:errcheck // partial read is acceptable here
 		gotBody = string(b)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -826,7 +826,7 @@ func TestDo_CookieAuth_AuthRedirect_ReturnsSessionExpired(t *testing.T) {
 func TestDo_CookieAuth_NonAuthRedirect_FollowsForGet(t *testing.T) {
 	finalSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer finalSrv.Close()
 
@@ -969,7 +969,7 @@ func TestIntegration_CookieAuth_FullFlow(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id":"42","name":"Test User","login_id":"test@example.com"}`))
+		_, _ = w.Write([]byte(`{"id":"42","name":"Test User","login_id":"test@example.com"}`))
 	}))
 	defer srv.Close()
 
@@ -1010,7 +1010,7 @@ func TestIntegration_CookieAuth_ExpiryFlow(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"errors":[{"message":"Invalid access token"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Invalid access token"}]}`))
 	}))
 	defer srv.Close()
 
@@ -1046,13 +1046,13 @@ func TestIntegration_CSRF_FromResponseHeader(t *testing.T) {
 			w.Header().Set("X-CSRF-Token", "server-issued-csrf")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[{"id":"1","name":"CS 101"}]`))
+			_, _ = w.Write([]byte(`[{"id":"1","name":"CS 101"}]`))
 
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/courses/1/assignments":
 			postCSRF = r.Header.Get("X-CSRF-Token")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id":"99","name":"Homework 1"}`))
+			_, _ = w.Write([]byte(`{"id":"99","name":"Homework 1"}`))
 
 		default:
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -1141,7 +1141,7 @@ func TestIntegration_Redirect_S3_FollowsWithCredentialsStripped(t *testing.T) {
 		followAuth = r.Header.Get("Authorization")
 		followCSRF = r.Header.Get("X-CSRF-Token")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("file content"))
+		_, _ = w.Write([]byte("file content"))
 	}))
 	defer finalSrv.Close()
 
@@ -1228,7 +1228,7 @@ func TestIntegration_TokenPrecedence_OverCookie(t *testing.T) {
 		gotCookie = r.Header.Get("Cookie")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id":"42","name":"Test User"}`))
+		_, _ = w.Write([]byte(`{"id":"42","name":"Test User"}`))
 	}))
 	defer srv.Close()
 
@@ -1259,7 +1259,7 @@ func TestIntegration_CookieAuth_RetryOn5xx(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id":"42","name":"Recovered User"}`))
+		_, _ = w.Write([]byte(`{"id":"42","name":"Recovered User"}`))
 	}))
 	defer srv.Close()
 

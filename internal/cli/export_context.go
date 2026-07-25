@@ -84,7 +84,6 @@ func exportExitCode(result *ExportResult) int {
 }
 
 // filterSince filters a slice of items by the updated_at field.
-// It keeps items whose updated_at >= since. Items without updated_at are kept.
 func filterSince(items []any, since time.Time) []any {
 	if since.IsZero() {
 		return items
@@ -119,8 +118,7 @@ func filterSince(items []any, since time.Time) []any {
 }
 
 // fetchListRaw fetches a paginated list endpoint and returns raw []map[string]any.
-// This preserves all fields from the Canvas API response.
-func fetchListRaw(ctx context.Context, client *canvas.Client, path string, query url.Values, pageSize int) ([]map[string]any, int, error) {
+func fetchListRaw(ctx context.Context, client *canvas.Client, path string, query url.Values, pageSize int) (items []map[string]any, requestCount int, err error) {
 	if query == nil {
 		query = url.Values{}
 	}
@@ -159,7 +157,6 @@ func fetchListRaw(ctx context.Context, client *canvas.Client, path string, query
 
 		allItems = append(allItems, pageItems...)
 
-		// Check for next page
 		linkHeader := resp.Header.Get("Link")
 		if linkHeader == "" {
 			break
@@ -185,7 +182,7 @@ func fetchListRaw(ctx context.Context, client *canvas.Client, path string, query
 }
 
 // fetchSingleRaw fetches a single resource and returns it as map[string]any.
-func fetchSingleRaw(ctx context.Context, client *canvas.Client, path string, query url.Values) (map[string]any, int, error) {
+func fetchSingleRaw(ctx context.Context, client *canvas.Client, path string, query url.Values) (item map[string]any, requestCount int, err error) {
 	resp, err := client.Do(ctx, "GET", path, query, nil)
 	if err != nil {
 		return nil, 1, err
@@ -196,7 +193,6 @@ func fetchSingleRaw(ctx context.Context, client *canvas.Client, path string, que
 		return nil, 1, classifyStatusCode(resp.StatusCode)
 	}
 
-	var item map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&item); err != nil {
 		return nil, 1, fmt.Errorf("decode response: %w", err)
 	}
@@ -227,7 +223,6 @@ func classifyError(err error) error {
 func ExportContext(ctx context.Context, client *canvas.Client, courseID string, opts ExportContextOpts) (*ExportResult, error) {
 	start := time.Now()
 
-	// Determine which sections to fetch
 	sections := opts.Include
 	if len(sections) == 0 {
 		sections = allExportSections
@@ -258,7 +253,6 @@ func ExportContext(ctx context.Context, client *canvas.Client, courseID string, 
 			if isAuthError(err) {
 				return nil, err
 			}
-			// 403 or network error: record warning, continue
 			meta.SectionsFailed = append(meta.SectionsFailed, section)
 			meta.Warnings = append(meta.Warnings, fmt.Sprintf("%s: %s", section, err.Error()))
 		} else {
@@ -278,7 +272,6 @@ func ExportContext(ctx context.Context, client *canvas.Client, courseID string, 
 }
 
 // fetchSection fetches a single export section and populates the result.
-// Returns the number of API requests made and any error.
 func fetchSection(ctx context.Context, client *canvas.Client, courseID, section string, since time.Time, result *ExportResult) (int, error) {
 	switch section {
 	case "course":
@@ -441,10 +434,8 @@ func fetchFilesSection(ctx context.Context, client *canvas.Client, courseID stri
 }
 
 func fetchPagesSection(ctx context.Context, client *canvas.Client, courseID string, since time.Time, result *ExportResult) (int, error) {
-	// First get page list
 	pages, reqCount, err := fetchListRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/pages", courseID), nil, 100)
 	if err != nil {
-		// Pages list may be disabled; try to extract page URLs from modules instead.
 		if result.Modules != nil {
 			return fetchPagesFromModules(ctx, client, courseID, since, result, reqCount)
 		}
@@ -461,7 +452,6 @@ func fetchPagesSection(ctx context.Context, client *canvas.Client, courseID stri
 		page, rc, err := fetchSingleRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/pages/%s", courseID, pageURL), nil)
 		reqCount += rc
 		if err != nil {
-			// Non-fatal: include page without body
 			fullPages = append(fullPages, p)
 			continue
 		}
@@ -507,7 +497,6 @@ func fetchPagesFromModules(ctx context.Context, client *canvas.Client, courseID 
 			page, rc, err := fetchSingleRaw(ctx, client, fmt.Sprintf("/api/v1/courses/%s/pages/%s", courseID, pageURL), nil)
 			reqCount += rc
 			if err != nil {
-				// Include stub without body
 				fullPages = append(fullPages, it)
 				continue
 			}
@@ -734,12 +723,11 @@ error isolation — a failure in one section does not abort others.`,
 						Message:  err.Error(),
 						Category: "auth",
 					}, "courses.export-context")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return err
 			}
 
-			// Determine output destination
 			w := cmd.OutOrStdout()
 			if outPath != "" {
 				f, fileErr := os.Create(outPath)
@@ -758,10 +746,9 @@ error isolation — a failure in one section does not abort others.`,
 					RequestCount: result.ExportMeta.RequestCount,
 					Warnings:     result.ExportMeta.Warnings,
 				})
-				return output.WriteJSON(w, env, false)
+				return writeEnvelope(w, cfg, env)
 			}
 
-			// Raw JSON mode (no envelope)
 			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
 			return enc.Encode(result)

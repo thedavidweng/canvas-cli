@@ -47,11 +47,10 @@ func newAnnouncementsListCmd() *cobra.Command {
 
 			announcements, _, err := canvas.ListAnnouncements(cmd.Context(), client, courseID, nil)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "announcements.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "announcements.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, announcements, "announcements.list", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, a := range announcements {
 					fmt.Fprintf(w, "%s\t%s\n", a.ID, a.Title)
 				}
@@ -85,11 +84,10 @@ func newAnnouncementsGetCmd() *cobra.Command {
 
 			topic, err := canvas.GetAnnouncement(cmd.Context(), client, courseID, announcementID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "announcements.get", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "announcements.get", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, topic, "announcements.get", jsonMode, func(w io.Writer) error {
-				// Human mode
 				fmt.Fprintf(w, "ID:       %s\n", topic.ID)
 				fmt.Fprintf(w, "Title:    %s\n", topic.Title)
 				fmt.Fprintf(w, "Message:  %s\n", topic.Message)
@@ -161,7 +159,7 @@ func newAnnouncementsCreateCmd() *cobra.Command {
 					return &topic, 200, nil
 				},
 				func(w io.Writer, data any) error {
-					topic := data.(*canvas.DiscussionTopic)
+					topic, _ := data.(*canvas.DiscussionTopic)
 					fmt.Fprintf(w, "Announcement created (ID: %s, title: %s)\n", topic.ID, topic.Title)
 					return nil
 				},

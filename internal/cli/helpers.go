@@ -16,8 +16,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
 
-// getClientFromContext retrieves the config from context and creates a canvas client.
-// Returns an error if no config is loaded.
 func getClientFromContext(ctx context.Context) (*canvas.Client, error) {
 	cfg := GetConfig(ctx)
 	if cfg == nil {
@@ -26,8 +24,6 @@ func getClientFromContext(ctx context.Context) (*canvas.Client, error) {
 	return newClientFromCfg(cfg), nil
 }
 
-// newClientFromCfg creates a canvas client from a resolved config, applying
-// cookie auth when token is absent.
 func newClientFromCfg(cfg *config.ResolvedConfig) *canvas.Client {
 	client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
 	if cfg.Token == "" && cfg.Cookie != "" {
@@ -36,10 +32,9 @@ func newClientFromCfg(cfg *config.ResolvedConfig) *canvas.Client {
 	return client
 }
 
-// cookieAuthBaseURL returns cfg.BaseURL as a variadic string slice when cookie
-// auth is active (token absent, cookie present). Returns nil otherwise.
-// Use this to pass baseURL to NormalizeError/NormalizeErrorFromBody only when
-// cookie session expiry detection should apply.
+// cookieAuthBaseURL returns cfg.BaseURL as a variadic slice when cookie auth is
+// active (token absent, cookie present), enabling session-expiry detection in
+// NormalizeError. Returns nil otherwise.
 func cookieAuthBaseURL(cfg *config.ResolvedConfig) []string {
 	if cfg.Token == "" && cfg.Cookie != "" {
 		return []string{cfg.BaseURL}
@@ -47,22 +42,25 @@ func cookieAuthBaseURL(cfg *config.ResolvedConfig) []string {
 	return nil
 }
 
-// isJSONMode checks the --json flag on the command.
 func isJSONMode(cmd *cobra.Command) bool {
 	v, _ := cmd.Flags().GetBool("json")
 	return v
 }
 
-// writeOutput writes data as a JSON envelope when jsonMode is true,
-// or calls humanFn for human-readable output when jsonMode is false.
-// If humanFn is nil and jsonMode is false, no output is written.
+// writeEnvelope serializes a pre-built envelope, honoring --pretty from cfg.
+func writeEnvelope(w io.Writer, cfg *config.ResolvedConfig, env canvas.Envelope) error {
+	return output.WriteJSON(w, env, cfg.OutputJSONPretty)
+}
+
+// writeOutput writes data as a JSON envelope when jsonMode is true, or calls
+// humanFn otherwise. With no humanFn and jsonMode false, nothing is written.
 func writeOutput(w io.Writer, cfg *config.ResolvedConfig, data any, command string, jsonMode bool, humanFn ...func(io.Writer) error) error {
 	if jsonMode {
 		env := output.NewSuccess(data, command, canvas.Meta{
 			Profile: cfg.Profile,
 			BaseURL: cfg.BaseURL,
 		})
-		return output.WriteJSON(w, env, false)
+		return output.WriteJSON(w, env, cfg.OutputJSONPretty)
 	}
 	if len(humanFn) > 0 && humanFn[0] != nil {
 		return humanFn[0](w)
@@ -70,30 +68,26 @@ func writeOutput(w io.Writer, cfg *config.ResolvedConfig, data any, command stri
 	return nil
 }
 
-// writeError writes an error as a JSON envelope when jsonMode is true,
-// or returns the raw error when jsonMode is false.
-func writeError(w io.Writer, err error, command string, jsonMode bool) error {
-	return writeErrorWithCode(w, err, command, "CANVAS_API_ERROR", "api", jsonMode)
+func writeError(w io.Writer, cfg *config.ResolvedConfig, err error, command string, jsonMode bool) error {
+	return writeErrorWithCode(w, cfg, err, command, "CANVAS_API_ERROR", "api", jsonMode)
 }
 
-// writeNetworkError writes a network error as a JSON envelope when jsonMode is
-// true, or returns the raw error when jsonMode is false.
-func writeNetworkError(w io.Writer, err error, command string, jsonMode bool) error {
-	return writeErrorWithCode(w, err, command, "CANVAS_NETWORK_ERROR", "network", jsonMode)
+func writeNetworkError(w io.Writer, cfg *config.ResolvedConfig, err error, command string, jsonMode bool) error {
+	return writeErrorWithCode(w, cfg, err, command, "CANVAS_NETWORK_ERROR", "network", jsonMode)
 }
 
-// writeErrorWithCode writes an error with the given code and category as a JSON
-// envelope when jsonMode is true, or returns the raw error when jsonMode is false.
-func writeErrorWithCode(w io.Writer, err error, command, code, category string, jsonMode bool) error {
+// writeErrorWithCode writes an error envelope when jsonMode is true; otherwise
+// it returns an *exitError carrying the process exit code mapped from category.
+func writeErrorWithCode(w io.Writer, cfg *config.ResolvedConfig, err error, command, code, category string, jsonMode bool) error {
 	if jsonMode {
 		env := output.NewError(canvas.ErrorInfo{
 			Code:     code,
 			Message:  err.Error(),
 			Category: category,
 		}, command)
-		return output.WriteJSON(w, env, false)
+		return output.WriteJSON(w, env, cfg.OutputJSONPretty)
 	}
-	return err
+	return &exitError{msg: err.Error(), exitCode: output.ExitCodeForCategory(category)}
 }
 
 // exitError is an error that carries a process exit code.
@@ -105,22 +99,10 @@ type exitError struct {
 func (e *exitError) Error() string { return e.msg }
 func (e *exitError) ExitCode() int { return e.exitCode }
 
-// checkSafety evaluates the safety policy for a write operation.
-// It returns nil if the operation is allowed, or an *exitError if blocked.
-func checkSafety(cfg *config.ResolvedConfig, dryRun, confirm bool) error {
-	return checkSafetyLevel(cfg, dryRun, confirm, safety.LowRiskWrite)
-}
-
-// checkHighRiskSafety evaluates the safety policy for a high-risk write operation.
-// It returns nil if the operation is allowed, or an *exitError if blocked.
-func checkHighRiskSafety(cfg *config.ResolvedConfig, dryRun, confirm bool) error {
-	return checkSafetyLevel(cfg, dryRun, confirm, safety.HighRiskWrite)
-}
-
-// checkSafetyLevel is the shared implementation for checkSafety and
-// checkHighRiskSafety. It evaluates the policy at the given safety level.
+// checkSafetyLevel evaluates the safety policy at the given level, returning an
+// *exitError carrying the safety exit code when the operation is blocked.
 func checkSafetyLevel(cfg *config.ResolvedConfig, dryRun, confirm bool, level safety.SafetyLevel) error {
-	policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm, false)
+	policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm)
 	if err := policy.Check(level); err != nil {
 		var se *safety.SafetyError
 		if errors.As(err, &se) {
@@ -131,14 +113,10 @@ func checkSafetyLevel(cfg *config.ResolvedConfig, dryRun, confirm bool, level sa
 	return nil
 }
 
-// writeAudit writes an audit event for a mutation command.
-// responseStatus and success reflect the actual API response outcome.
 func writeAudit(cfg *config.ResolvedConfig, command, method, path, body string, dryRun bool, responseStatus int, success bool) {
 	writeAuditWithResource(cfg, command, method, path, body, dryRun, responseStatus, success, nil)
 }
 
-// writeAuditWithResource is like writeAudit but also records resource IDs in
-// the audit event's Resource field.
 func writeAuditWithResource(cfg *config.ResolvedConfig, command, method, path, body string, dryRun bool, responseStatus int, success bool, resource map[string]string) {
 	if !cfg.AuditEnabled {
 		return
@@ -163,7 +141,6 @@ func writeAuditWithResource(cfg *config.ResolvedConfig, command, method, path, b
 	})
 }
 
-// truncateString truncates s to maxLen runes, appending "..." if truncated.
 func truncateString(s string, maxLen int) string {
 	r := []rune(s)
 	if len(r) <= maxLen {

@@ -105,7 +105,7 @@ func newSubmissionsListCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "api",
 					}, "submissions.list")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return err
 			}
@@ -115,10 +115,9 @@ func newSubmissionsListCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human output
 			w := cmd.OutOrStdout()
 			for _, sub := range submissions {
 				userName := ""
@@ -179,7 +178,7 @@ func newSubmissionsGetCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "api",
 					}, "submissions.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return err
 			}
@@ -189,10 +188,9 @@ func newSubmissionsGetCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human output
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "ID:             %s\n", sub.ID)
 			fmt.Fprintf(w, "User ID:        %s\n", sub.UserID)
@@ -255,7 +253,7 @@ func newSubmissionsDownloadCmd() *cobra.Command {
 				if pfErr, ok := err.(*PartialFailureError); ok {
 					meta.Warnings = []string{pfErr.Error()}
 					env := output.NewSuccess(result, "submissions.download", meta)
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				if err != nil {
 					env := output.NewError(canvas.ErrorInfo{
@@ -263,13 +261,12 @@ func newSubmissionsDownloadCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "api",
 					}, "submissions.download")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				env := output.NewSuccess(result, "submissions.download", meta)
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human output
 			w := cmd.OutOrStdout()
 			if result != nil {
 				fmt.Fprintf(w, "Downloaded %d/%d files\n", result.Downloaded, result.Total)
@@ -323,7 +320,7 @@ func newSubmissionsCommentCmd() *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/%s", courseID, assignmentID, userID)
-			payload := fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment)
+			payload := fmt.Sprintf(`{"comment":{"text_comment":%q}}`, comment)
 
 			spec := MutationSpec{
 				Command:        "submissions.comment",
@@ -399,14 +396,12 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 				Size:         att.Size,
 			}
 
-			// Build deterministic path: <assignment-id>/<sortable-name>_<user-id>/<submission-id>_<filename>
 			dirName := sortableName + "_" + sub.UserID
 			localDir := filepath.Join(outDir, assignmentID, dirName)
 			localFilename := sub.ID + "_" + att.Filename
 			localPath := filepath.Join(localDir, localFilename)
 			entry.LocalPath = localPath
 
-			// Check --no-overwrite
 			if opts.NoOverwrite {
 				if _, statErr := os.Stat(localPath); statErr == nil {
 					entry.DownloadStatus = "skipped"
@@ -416,8 +411,7 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 				}
 			}
 
-			// Create directory
-			if mkErr := os.MkdirAll(localDir, 0755); mkErr != nil {
+			if mkErr := os.MkdirAll(localDir, 0o755); mkErr != nil {
 				entry.DownloadStatus = "error"
 				entry.Error = mkErr.Error()
 				entries = append(entries, entry)
@@ -426,7 +420,6 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 				continue
 			}
 
-			// Download file
 			if dlErr := downloadAttachment(ctx, client, att, localPath); dlErr != nil {
 				entry.DownloadStatus = "error"
 				entry.Error = dlErr.Error()
@@ -443,22 +436,20 @@ func DownloadSubmissions(ctx context.Context, client *canvas.Client, courseID, a
 	}
 
 	assignDir := filepath.Join(outDir, assignmentID)
-	if mkErr := os.MkdirAll(assignDir, 0755); mkErr != nil {
+	if mkErr := os.MkdirAll(assignDir, 0o755); mkErr != nil {
 		return result, fmt.Errorf("create assignment directory: %w", mkErr)
 	}
 
-	// manifest.json
 	manifestJSONPath := filepath.Join(assignDir, "manifest.json")
 	jsonData, jsonErr := json.MarshalIndent(entries, "", "  ")
 	if jsonErr != nil {
 		return result, fmt.Errorf("marshal manifest: %w", jsonErr)
 	}
-	if writeErr := os.WriteFile(manifestJSONPath, jsonData, 0644); writeErr != nil {
+	if writeErr := os.WriteFile(manifestJSONPath, jsonData, 0o644); writeErr != nil {
 		return result, fmt.Errorf("write manifest.json: %w", writeErr)
 	}
 	result.ManifestPath = manifestJSONPath
 
-	// manifest.ndjson
 	manifestNDJSONPath := filepath.Join(assignDir, "manifest.ndjson")
 	ndjsonFile, ndErr := os.Create(manifestNDJSONPath)
 	if ndErr != nil {

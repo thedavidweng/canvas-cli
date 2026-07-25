@@ -124,7 +124,7 @@ Re-run `canvas auth login` to get a fresh cookie.
 
 - Cookie values are stored in the config file with the same permissions model as tokens (0600).
 - `env:VAR_NAME` references are supported to avoid storing cookies in plaintext.
-- Cookie values are never displayed in `auth status`, `--json`, `--verbose`, `--debug`, or doctor output.
+- Cookie values are never displayed in `auth status`, `--json`, or doctor output.
 - Cross-origin redirects strip all auth headers (Cookie, Authorization, X-CSRF-Token).
 
 ## OAuth2

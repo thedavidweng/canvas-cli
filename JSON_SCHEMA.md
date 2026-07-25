@@ -50,11 +50,14 @@ Canonical specification: [`docs/json-contract.md`](docs/json-contract.md).
 
 | Code | Category | HTTP Status | Description |
 |---|---|---|---|
-| `CANVAS_API_ERROR` | `api` | 500, 502, 503, other | Generic Canvas API error |
+| `CANVAS_API_ERROR` | `api` | other 4xx | Generic Canvas API error |
 | `CANVAS_AUTH_ERROR` | `auth` | 401 | Authentication failed or token expired |
+| `CANVAS_SESSION_EXPIRED` | `auth` | 401/403/redirect | Cookie session expired; re-authenticate |
 | `CANVAS_PERMISSION_DENIED` | `permission` | 403 | Insufficient permissions for the requested operation |
 | `CANVAS_NOT_FOUND` | `not_found` | 404 | Requested resource does not exist |
 | `CANVAS_VALIDATION_ERROR` | `validation` | 422 | Request body failed Canvas validation |
+| `CANVAS_RATE_LIMIT` | `rate_limit` | 403 (exhausted) / 429 | Rate limit hit; retryable after backoff |
+| `CANVAS_SERVER_ERROR` | `server` | 5xx | Canvas server error; retryable |
 | `CANVAS_NETWORK_ERROR` | `network` | N/A | Network-level failure (connection refused, DNS, timeout) |
 | `PARTIAL_FAILURE` | `partial_failure` | N/A | Some operations in a bulk request failed |
 
@@ -74,8 +77,7 @@ The `error` object may also contain:
 | 4 | Permission denied |
 | 5 | Rate limit exhausted after retries |
 | 6 | Network or timeout error |
-| 7 | Safety policy blocked operation |
+| 7 | Safety policy blocked operation (read-only, or missing --confirm) |
 | 8 | Partial failure in bulk operation |
-| 130 | Interrupted or cancelled |
 
 Compatibility: adding fields is non-breaking. Removing or renaming fields requires a major version.

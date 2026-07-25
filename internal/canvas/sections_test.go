@@ -17,7 +17,7 @@ func TestListSections(t *testing.T) {
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
 		total := 25
-		json.NewEncoder(w).Encode([]Section{
+		_ = json.NewEncoder(w).Encode([]Section{
 			{ID: "10", Name: "Section A", CourseID: "42", TotalStudents: &total},
 			{ID: "11", Name: "Section B", CourseID: "42"},
 		})
@@ -66,7 +66,7 @@ func TestListSectionsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message":"unauthorized"}`))
+		_, _ = w.Write([]byte(`{"message":"unauthorized"}`))
 	}))
 	defer srv.Close()
 

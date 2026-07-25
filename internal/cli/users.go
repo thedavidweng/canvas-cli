@@ -52,7 +52,7 @@ func newUsersListCmd() *cobra.Command {
 				Query: query,
 			})
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "users.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "users.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, users, "users.list", jsonMode, func(w io.Writer) error {
@@ -62,7 +62,7 @@ func newUsersListCmd() *cobra.Command {
 				for _, u := range users {
 					tbl.Rows = append(tbl.Rows, []string{u.ID, u.Name, u.LoginID})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}

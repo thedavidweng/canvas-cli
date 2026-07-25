@@ -64,7 +64,7 @@ func newGradeSetCmd() *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/%s", courseID, assignmentID, userID)
-			payload := fmt.Sprintf(`{"submission":{"posted_grade":"%s"}}`, score)
+			payload := fmt.Sprintf(`{"submission":{"posted_grade":%q}}`, score)
 
 			spec := MutationSpec{
 				Command:        "grade.set",
@@ -135,7 +135,7 @@ func newGradeCommentCmd() *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/api/v1/courses/%s/assignments/%s/submissions/%s", courseID, assignmentID, userID)
-			payload := fmt.Sprintf(`{"comment":{"text_comment":"%s"}}`, comment)
+			payload := fmt.Sprintf(`{"comment":{"text_comment":%q}}`, comment)
 
 			spec := MutationSpec{
 				Command:        "grade.comment",
@@ -217,7 +217,6 @@ func newGradeImportCmd() *cobra.Command {
 				return fmt.Errorf("--csv is required")
 			}
 
-			// Parse CSV
 			gradeData, err := parseGradeCSV(csvPath)
 			if err != nil {
 				return fmt.Errorf("parse CSV: %w", err)
@@ -253,7 +252,6 @@ func newGradeImportCmd() *cobra.Command {
 				return nil
 			}
 
-			// Warn if --confirm without prior --dry-run (human mode only)
 			result := &GradeImportResult{Total: len(gradeData)}
 			w := cmd.OutOrStdout()
 			if !jsonMode {
@@ -272,7 +270,7 @@ func newGradeImportCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "partial_failure",
 					}, "grade.import")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return &gradeImportPartialFailureError{msg: fmt.Sprintf("grade import failed: %v", err)}
 			}
@@ -286,7 +284,7 @@ func newGradeImportCmd() *cobra.Command {
 					BaseURL:  cfg.BaseURL,
 					Warnings: result.Warnings,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
 			fmt.Fprintf(w, "Imported %d grades for assignment %s\n", result.Imported, assignmentID)
@@ -334,7 +332,6 @@ func newGradeRubricCmd() *cobra.Command {
 				return fmt.Errorf("--rubric-json is required")
 			}
 
-			// Read and parse rubric assessment JSON
 			data, err := os.ReadFile(rubricJSONPath)
 			if err != nil {
 				return fmt.Errorf("read rubric JSON: %w", err)

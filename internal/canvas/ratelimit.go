@@ -35,7 +35,6 @@ func ShouldRetry(resp *http.Response, attempt, maxRetries int) (bool, time.Durat
 		return false, 0
 	}
 
-	// Check Retry-After header first
 	var retryAfterDuration time.Duration
 	if ra := resp.Header.Get("Retry-After"); ra != "" {
 		if seconds, err := strconv.Atoi(ra); err == nil {
@@ -45,14 +44,12 @@ func ShouldRetry(resp *http.Response, attempt, maxRetries int) (bool, time.Durat
 
 	switch {
 	case resp.StatusCode == 429:
-		// Always retry 429
 		if retryAfterDuration > 0 {
 			return true, retryAfterDuration
 		}
 		return true, backoffDelay(attempt)
 
 	case resp.StatusCode == 403:
-		// Retry 403 only when rate limit is exhausted
 		if remaining := resp.Header.Get("X-Rate-Limit-Remaining"); remaining == "0" {
 			if retryAfterDuration > 0 {
 				return true, retryAfterDuration
@@ -62,7 +59,6 @@ func ShouldRetry(resp *http.Response, attempt, maxRetries int) (bool, time.Durat
 		return false, 0
 
 	case resp.StatusCode >= 500 && resp.StatusCode <= 599:
-		// Retry transient 5xx
 		if retryAfterDuration > 0 {
 			return true, retryAfterDuration
 		}
@@ -84,7 +80,6 @@ func backoffDelay(attempt int) time.Duration {
 		delay = maxDelay
 	}
 
-	// Add jitter: random value between 0 and 25% of the delay
 	jitter := rand.Float64() * delay * 0.25
 	return time.Duration(delay + jitter)
 }

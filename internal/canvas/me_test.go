@@ -15,7 +15,7 @@ func TestGetActivityStream(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]ActivityItem{
+		_ = json.NewEncoder(w).Encode([]ActivityItem{
 			{
 				ID:        "1",
 				Title:     "New submission",
@@ -68,7 +68,7 @@ func TestGetActivityStreamServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -87,7 +87,7 @@ func TestGetTodoItems(t *testing.T) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		due := "2026-06-20T23:59:00Z"
-		json.NewEncoder(w).Encode([]TodoItem{
+		_ = json.NewEncoder(w).Encode([]TodoItem{
 			{
 				ID:            "10",
 				ContextCode:   "course_42",
@@ -140,7 +140,7 @@ func TestGetTodoItemsServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -158,7 +158,7 @@ func TestGetUpcomingEvents(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]UpcomingEvent{
+		_ = json.NewEncoder(w).Encode([]UpcomingEvent{
 			{
 				ID:          "100",
 				Title:       "Midterm Exam",
@@ -211,7 +211,7 @@ func TestGetUpcomingEventsServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

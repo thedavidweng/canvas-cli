@@ -1051,7 +1051,7 @@ func TestDiscussionsCreate_ConfirmSendsPOST(t *testing.T) {
 	})
 
 	bodyFile := filepath.Join(t.TempDir(), "body.md")
-	os.WriteFile(bodyFile, []byte("Discuss the readings."), 0644)
+	_ = os.WriteFile(bodyFile, []byte("Discuss the readings."), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:      mock.URL(),
@@ -1103,7 +1103,7 @@ func TestDiscussionsCreate_DryRunShowsPreview(t *testing.T) {
 	defer mock.Close()
 
 	bodyFile := filepath.Join(t.TempDir(), "body.md")
-	os.WriteFile(bodyFile, []byte("Discuss the readings."), 0644)
+	_ = os.WriteFile(bodyFile, []byte("Discuss the readings."), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL: mock.URL(),
@@ -1145,7 +1145,7 @@ func TestDiscussionsCreate_ReadOnlyReturnsExit7(t *testing.T) {
 	defer mock.Close()
 
 	bodyFile := filepath.Join(t.TempDir(), "body.md")
-	os.WriteFile(bodyFile, []byte("Discuss the readings."), 0644)
+	_ = os.WriteFile(bodyFile, []byte("Discuss the readings."), 0o644)
 
 	cfg := &config.ResolvedConfig{
 		BaseURL:  mock.URL(),

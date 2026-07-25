@@ -16,7 +16,7 @@ func TestListDiscussions(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]DiscussionTopic{
+		_ = json.NewEncoder(w).Encode([]DiscussionTopic{
 			{
 				ID:             "201",
 				Title:          "Week 1 discussion",
@@ -72,12 +72,12 @@ func TestListDiscussionsPagination(t *testing.T) {
 		switch page {
 		case 1:
 			w.Header().Set("Link", fmt.Sprintf(`<%s/api/v1/courses/42/discussion_topics?page=2>; rel="next"`, srv.URL))
-			json.NewEncoder(w).Encode([]DiscussionTopic{
+			_ = json.NewEncoder(w).Encode([]DiscussionTopic{
 				{ID: "1", Title: "Topic 1"},
 				{ID: "2", Title: "Topic 2"},
 			})
 		case 2:
-			json.NewEncoder(w).Encode([]DiscussionTopic{
+			_ = json.NewEncoder(w).Encode([]DiscussionTopic{
 				{ID: "3", Title: "Topic 3"},
 			})
 		}
@@ -105,7 +105,7 @@ func TestGetDiscussion(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(DiscussionTopic{
+		_ = json.NewEncoder(w).Encode(DiscussionTopic{
 			ID:             "201",
 			Title:          "Week 1 discussion",
 			Message:        "Introduce yourselves!",
@@ -148,7 +148,7 @@ func TestListDiscussionEntries(t *testing.T) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		parentID := "901"
-		json.NewEncoder(w).Encode([]DiscussionEntry{
+		_ = json.NewEncoder(w).Encode([]DiscussionEntry{
 			{
 				ID:        "901",
 				UserID:    "789",
@@ -200,7 +200,7 @@ func TestListDiscussionEntriesError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -223,10 +223,10 @@ func TestCreateDiscussion(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		postedAt := "2026-06-15T10:00:00Z"
-		json.NewEncoder(w).Encode(DiscussionTopic{
+		_ = json.NewEncoder(w).Encode(DiscussionTopic{
 			ID:             "301",
 			Title:          "Week 3 discussion",
 			Message:        "Discuss the reading.",
@@ -276,7 +276,7 @@ func TestCreateDiscussionError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message":"Forbidden"}`))
+		_, _ = w.Write([]byte(`{"message":"Forbidden"}`))
 	}))
 	defer srv.Close()
 
@@ -300,8 +300,8 @@ func TestReplyToDiscussion(t *testing.T) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewDecoder(r.Body).Decode(&gotBody)
-		json.NewEncoder(w).Encode(DiscussionEntry{
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewEncoder(w).Encode(DiscussionEntry{
 			ID:        "901",
 			UserID:    "789",
 			Message:   "Great topic!",
@@ -353,9 +353,9 @@ func TestReplyToEntry(t *testing.T) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 		parentID := "901"
-		json.NewEncoder(w).Encode(DiscussionEntry{
+		_ = json.NewEncoder(w).Encode(DiscussionEntry{
 			ID:        "902",
 			UserID:    "790",
 			Message:   "I agree with you!",
@@ -394,7 +394,7 @@ func TestListDiscussionsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -410,7 +410,7 @@ func TestGetDiscussionError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -426,7 +426,7 @@ func TestReplyToDiscussionError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -442,7 +442,7 @@ func TestReplyToEntryError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

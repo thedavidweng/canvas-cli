@@ -60,7 +60,6 @@ func newApiGetCmd() *cobra.Command {
 			pageSize, _ := cmd.Flags().GetInt("page-size")
 			limit, _ := cmd.Flags().GetInt("limit")
 
-			// Parse query params
 			query := url.Values{}
 			if queryStr != "" {
 				for _, pair := range strings.Split(queryStr, ",") {
@@ -77,7 +76,6 @@ func newApiGetCmd() *cobra.Command {
 				return handlePaginatedRequest(cmd, client, path, query, pageSize, limit, cfg, jsonMode, rawMode)
 			}
 
-			// Single request
 			resp, err := client.Do(cmd.Context(), "GET", path, query, nil)
 			if err != nil {
 				if jsonMode {
@@ -86,7 +84,7 @@ func newApiGetCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "network",
 					}, "api.get")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return fmt.Errorf("request failed: %w", err)
 			}
@@ -98,7 +96,6 @@ func newApiGetCmd() *cobra.Command {
 			}
 
 			if resp.StatusCode >= 400 {
-				// Create error from the already-read body
 				errInfo := canvas.NormalizeErrorFromBody(resp, bodyBytes, cookieAuthBaseURL(cfg)...)
 				env := canvas.Envelope{
 					OK:    false,
@@ -109,19 +106,17 @@ func newApiGetCmd() *cobra.Command {
 					},
 				}
 				if jsonMode {
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 			}
 
-			// Raw mode: output body only
 			if rawMode {
 				w := cmd.OutOrStdout()
 				_, err = w.Write(bodyBytes)
 				return err
 			}
 
-			// Parse the response
 			var data any
 			if err := json.Unmarshal(bodyBytes, &data); err != nil {
 				data = string(bodyBytes)
@@ -136,10 +131,9 @@ func newApiGetCmd() *cobra.Command {
 					meta.Warnings = extractResponseHeaders(resp)
 				}
 				env := output.NewSuccess(data, "api.get", meta)
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human mode: pretty print JSON
 			w := cmd.OutOrStdout()
 			pretty, err := json.MarshalIndent(data, "", "  ")
 			if err != nil {
@@ -169,7 +163,7 @@ func handlePaginatedRequest(cmd *cobra.Command, client *canvas.Client, path stri
 
 	items, pagMeta, err := canvas.Paginate[any](cmd.Context(), client, path, query, limit, pageSize)
 	if err != nil {
-		return writeError(cmd.OutOrStdout(), fmt.Errorf("pagination failed: %w", err), "api.get", jsonMode)
+		return writeError(cmd.OutOrStdout(), cfg, fmt.Errorf("pagination failed: %w", err), "api.get", jsonMode)
 	}
 
 	if rawMode {
@@ -190,10 +184,9 @@ func handlePaginatedRequest(cmd *cobra.Command, client *canvas.Client, path stri
 			PageSize:     pagMeta.PageSize,
 			RequestCount: pagMeta.RequestCount,
 		})
-		return output.WriteJSON(cmd.OutOrStdout(), env, false)
+		return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 	}
 
-	// Human mode
 	w := cmd.OutOrStdout()
 	pretty, err := json.MarshalIndent(items, "", "  ")
 	if err != nil {
@@ -378,7 +371,7 @@ func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer
 	resp, err := client.Do(ctx, spec.Method, spec.Path, nil, body)
 	if err != nil {
 		RecordAudit(cfg, spec, 0, false)
-		return writeNetworkError(w, err, spec.Command, jsonMode)
+		return writeNetworkError(w, cfg, err, spec.Command, jsonMode)
 	}
 	defer resp.Body.Close()
 
@@ -402,7 +395,7 @@ func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer
 			},
 		}
 		if jsonMode {
-			return output.WriteJSON(w, env, false)
+			return writeEnvelope(w, cfg, env)
 		}
 		return fmt.Errorf("api error: %s (status %d)", errInfo.Message, resp.StatusCode)
 	}
@@ -417,7 +410,7 @@ func rawApiMutation(ctx context.Context, cfg *config.ResolvedConfig, w io.Writer
 			Profile: cfg.Profile,
 			BaseURL: cfg.BaseURL,
 		})
-		return output.WriteJSON(w, env, false)
+		return writeEnvelope(w, cfg, env)
 	}
 
 	fmt.Fprintf(w, "%s %s succeeded (status %d)\n", spec.Method, spec.Path, resp.StatusCode)

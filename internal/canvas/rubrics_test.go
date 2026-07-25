@@ -16,7 +16,7 @@ func TestListRubrics(t *testing.T) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Rubric{
+		_ = json.NewEncoder(w).Encode([]Rubric{
 			{
 				ID:             "1",
 				Title:          "Essay Rubric",
@@ -76,7 +76,7 @@ func TestListRubricsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message":"unauthorized"}`))
+		_, _ = w.Write([]byte(`{"message":"unauthorized"}`))
 	}))
 	defer srv.Close()
 

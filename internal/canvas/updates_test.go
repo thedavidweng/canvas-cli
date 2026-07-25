@@ -20,10 +20,10 @@ func TestUpdateAssignment(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
 		dueAt := "2026-06-30T23:59:00Z"
-		json.NewEncoder(w).Encode(Assignment{
+		_ = json.NewEncoder(w).Encode(Assignment{
 			ID:              "301",
 			CourseID:        "42",
 			Name:            "Essay 1",
@@ -75,9 +75,9 @@ func TestUpdatePage(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			URL:       "syllabus",
 			Title:     "Syllabus",
 			Body:      "<p>Updated syllabus content</p>",
@@ -128,9 +128,9 @@ func TestPublishModule(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
-		json.NewEncoder(w).Encode(Module{
+		_ = json.NewEncoder(w).Encode(Module{
 			ID:            "10",
 			Name:          "Week 1",
 			Position:      1,
@@ -177,9 +177,9 @@ func TestUnpublishModule(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 
-		json.NewEncoder(w).Encode(Module{
+		_ = json.NewEncoder(w).Encode(Module{
 			ID:            "10",
 			Name:          "Week 1",
 			Position:      1,
@@ -216,7 +216,7 @@ func TestUpdateAssignmentError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -232,7 +232,7 @@ func TestUpdatePageError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -248,7 +248,7 @@ func TestPublishModuleError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

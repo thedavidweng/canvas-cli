@@ -103,7 +103,6 @@ func LoadConfig(configPath, profileOverride string) (*canvas.Config, error) {
 // Resolve merges Options (flags), environment variables, and the parsed config
 // into a ResolvedConfig. It returns an error when required values are missing.
 func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
-	// Determine effective profile name.
 	profileName := cfg.CurrentProfile
 	if opts.Profile != "" {
 		profileName = opts.Profile
@@ -112,29 +111,24 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		profileName = envProfile
 	}
 
-	// Look up profile. Allow missing profile when env vars or flags provide
 	// the required values (env-var-first configuration).
 	prof, ok := cfg.Profiles[profileName]
 	if !ok && profileName != "" {
-		// Check if env vars or flags will provide base URL and token.
 		envBase := os.Getenv("CANVAS_BASE_URL")
 		envToken := os.Getenv("CANVAS_TOKEN")
 		envCookie := os.Getenv("CANVAS_COOKIE")
 		if opts.BaseURL == "" && envBase == "" && opts.Token == "" && envToken == "" && opts.Cookie == "" && envCookie == "" {
 			return nil, fmt.Errorf("profile %q not found in config", profileName)
 		}
-		// Profile missing but env/flag credentials are available; proceed with zero-value profile.
 		prof = canvas.Profile{}
 	}
 
-	// --- Resolve BaseURL (flag > env > file) ---
 	baseURL := choose(opts.BaseURL, os.Getenv("CANVAS_BASE_URL"), prof.BaseURL)
 	baseURL = normalizeBaseURL(baseURL)
 	if baseURL == "" {
 		return nil, fmt.Errorf("base URL is required (flag, CANVAS_BASE_URL env, or config file)")
 	}
 
-	// --- Resolve Token (flag > env > file) ---
 	token := choose(opts.Token, os.Getenv("CANVAS_TOKEN"), prof.Token)
 	if strings.HasPrefix(token, "env:") {
 		envKey := strings.TrimPrefix(token, "env:")
@@ -145,7 +139,6 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		token = resolved
 	}
 
-	// --- Resolve Cookie (flag > env > file) ---
 	cookie := choose(opts.Cookie, os.Getenv("CANVAS_COOKIE"), prof.Cookie)
 	if strings.HasPrefix(cookie, "env:") {
 		envKey := strings.TrimPrefix(cookie, "env:")
@@ -167,7 +160,6 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		csrfToken = resolved
 	}
 
-	// --- Require at least one auth method ---
 	var warnings []string
 	if token == "" && cookie == "" {
 		return nil, fmt.Errorf("token or cookie required (cookie auth is experimental)")
@@ -178,7 +170,6 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		warnings = append(warnings, "cookie auth without CSRF token: write commands will fail")
 	}
 
-	// --- Resolve optional settings (env > file) ---
 	timeout := choose("", os.Getenv("CANVAS_TIMEOUT"), prof.Timeout)
 
 	retries := prof.Retries

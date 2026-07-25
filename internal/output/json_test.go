@@ -75,10 +75,10 @@ func TestWriteJSON_NeverContainsToken(t *testing.T) {
 	}
 
 	// Walk the JSON to check no "token" key exists anywhere
-	assertNoToken(t, parsed, output)
+	assertNoToken(t, parsed)
 }
 
-func assertNoToken(t *testing.T, v any, raw string) {
+func assertNoToken(t *testing.T, v any) {
 	t.Helper()
 	switch val := v.(type) {
 	case map[string]any:
@@ -86,11 +86,11 @@ func assertNoToken(t *testing.T, v any, raw string) {
 			if strings.EqualFold(k, "token") {
 				t.Errorf("JSON output contains key %q", k)
 			}
-			assertNoToken(t, vv, raw)
+			assertNoToken(t, vv)
 		}
 	case []any:
 		for _, vv := range val {
-			assertNoToken(t, vv, raw)
+			assertNoToken(t, vv)
 		}
 	}
 }
@@ -159,7 +159,7 @@ func TestWriteJSON_PreservesAllMetaFields(t *testing.T) {
 	if meta["profile"] != "prod" {
 		t.Errorf("meta.profile = %v, want prod", meta["profile"])
 	}
-	if meta["duration_ms"].(float64) != 50 {
+	if ms, _ := meta["duration_ms"].(float64); ms != 50 {
 		t.Errorf("meta.duration_ms = %v, want 50", meta["duration_ms"])
 	}
 	if meta["rate_limit"] == nil {

@@ -50,7 +50,7 @@ func newModulesListCmd() *cobra.Command {
 
 			modules, _, err := canvas.ListModules(cmd.Context(), client, courseID, url.Values{})
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "modules.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "modules.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, modules, "modules.list", jsonMode, func(w io.Writer) error {
@@ -66,7 +66,7 @@ func newModulesListCmd() *cobra.Command {
 						m.ID, m.Name, fmt.Sprintf("%d", m.Position), published, fmt.Sprintf("%d", m.ItemsCount),
 					})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}
@@ -96,7 +96,7 @@ func newModulesGetCmd() *cobra.Command {
 
 			mod, err := canvas.GetModule(cmd.Context(), client, courseID, moduleID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "modules.get", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "modules.get", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, mod, "modules.get", jsonMode, func(w io.Writer) error {
@@ -137,7 +137,7 @@ func newModulesItemsCmd() *cobra.Command {
 
 			items, _, err := canvas.ListModuleItems(cmd.Context(), client, courseID, moduleID, url.Values{})
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "modules.items", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "modules.items", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, items, "modules.items", jsonMode, func(w io.Writer) error {
@@ -147,7 +147,7 @@ func newModulesItemsCmd() *cobra.Command {
 				for _, item := range items {
 					tbl.Rows = append(tbl.Rows, []string{item.ID, item.Title, item.Type, fmt.Sprintf("%d", item.Position)})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}
@@ -182,7 +182,7 @@ func newModulesItemCmd() *cobra.Command {
 
 			item, err := canvas.GetModuleItem(cmd.Context(), client, courseID, moduleID, itemID)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "modules.item", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "modules.item", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, item, "modules.item", jsonMode, func(w io.Writer) error {

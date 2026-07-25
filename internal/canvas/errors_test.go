@@ -561,7 +561,7 @@ func TestIsCookieSessionExpired(t *testing.T) {
 				Body:       io.NopCloser(strings.NewReader(tt.body)),
 			}
 			if tt.reqHeaders != nil {
-				req, _ := http.NewRequest("GET", "https://example.com", nil)
+				req, _ := http.NewRequest("GET", "https://example.com", http.NoBody)
 				for k, v := range tt.reqHeaders {
 					req.Header.Set(k, v)
 				}

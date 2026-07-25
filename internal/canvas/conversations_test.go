@@ -18,7 +18,7 @@ func TestConversationList(t *testing.T) {
 		gotPath = r.URL.Path
 		gotPerPage = r.URL.Query().Get("per_page")
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]Conversation{
+		_ = json.NewEncoder(w).Encode([]Conversation{
 			{
 				ID:            "1001",
 				Subject:       "Homework question",
@@ -93,7 +93,7 @@ func TestConversationGet(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Conversation{
+		_ = json.NewEncoder(w).Encode(Conversation{
 			ID:            "1001",
 			Subject:       "Homework question",
 			WorkflowState: "read",
@@ -154,9 +154,9 @@ func TestConversationSendMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read request body: %v", err)
 		}
-		json.Unmarshal(bodyBytes, &gotBody)
+		_ = json.Unmarshal(bodyBytes, &gotBody)
 
-		json.NewEncoder(w).Encode(Conversation{
+		_ = json.NewEncoder(w).Encode(Conversation{
 			ID:            "1003",
 			Subject:       "New assignment question",
 			WorkflowState: "unread",
@@ -192,10 +192,10 @@ func TestConversationSendMessage(t *testing.T) {
 	if len(recipients) != 2 {
 		t.Errorf("len(recipients) = %d, want 2", len(recipients))
 	}
-	if recipients[0].(string) != "30" {
+	if r0, _ := recipients[0].(string); r0 != "30" {
 		t.Errorf("recipients[0] = %q, want %q", recipients[0], "30")
 	}
-	if recipients[1].(string) != "40" {
+	if r1, _ := recipients[1].(string); r1 != "40" {
 		t.Errorf("recipients[1] = %q, want %q", recipients[1], "40")
 	}
 	if gotBody["subject"] != "New assignment question" {
@@ -233,9 +233,9 @@ func TestConversationReply(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read request body: %v", err)
 		}
-		json.Unmarshal(bodyBytes, &gotBody)
+		_ = json.Unmarshal(bodyBytes, &gotBody)
 
-		json.NewEncoder(w).Encode(Conversation{
+		_ = json.NewEncoder(w).Encode(Conversation{
 			ID:            "1001",
 			Subject:       "Homework question",
 			WorkflowState: "read",
@@ -292,9 +292,9 @@ func TestConversationArchive(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read request body: %v", err)
 		}
-		json.Unmarshal(bodyBytes, &gotBody)
+		_ = json.Unmarshal(bodyBytes, &gotBody)
 
-		json.NewEncoder(w).Encode(Conversation{
+		_ = json.NewEncoder(w).Encode(Conversation{
 			ID:            "1001",
 			Subject:       "Homework question",
 			WorkflowState: "archived",
@@ -325,7 +325,7 @@ func TestListConversationsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -341,7 +341,7 @@ func TestGetConversationError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"Not Found"}`))
+		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
 	}))
 	defer srv.Close()
 
@@ -357,7 +357,7 @@ func TestSendMessageError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -373,7 +373,7 @@ func TestReplyToConversationError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 
@@ -389,7 +389,7 @@ func TestArchiveConversationError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

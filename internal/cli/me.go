@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/thedavidweng/canvas-cli/internal/canvas"
-	"github.com/thedavidweng/canvas-cli/internal/output"
 )
 
 // NewMeCmd returns the `me` parent command with all subcommands.
@@ -44,14 +43,14 @@ func newMeGetCmd() *cobra.Command {
 
 			resp, err := client.Do(ctx, "GET", "/api/v1/users/self", nil, nil)
 			if err != nil {
-				return writeNetworkError(cmd.OutOrStdout(), err, "me.get", jsonMode)
+				return writeNetworkError(cmd.OutOrStdout(), cfg, err, "me.get", jsonMode)
 			}
 			defer resp.Body.Close()
 
 			if resp.StatusCode != 200 {
 				env := canvas.NormalizeError(resp, "me.get", cookieAuthBaseURL(cfg)...)
 				if jsonMode {
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return fmt.Errorf("api error: %s (status %d)", env.Error.Message, resp.StatusCode)
 			}
@@ -62,7 +61,6 @@ func newMeGetCmd() *cobra.Command {
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, user, "me.get", jsonMode, func(w io.Writer) error {
-				// Human output
 				fmt.Fprintf(w, "Name:      %s\n", user.Name)
 				fmt.Fprintf(w, "ID:        %s\n", user.ID)
 				if user.LoginID != "" {
@@ -99,11 +97,10 @@ func newMeActivityCmd() *cobra.Command {
 
 			items, err := canvas.GetActivityStream(ctx, client)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "me.activity", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "me.activity", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, items, "me.activity", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, item := range items {
 					fmt.Fprintf(w, "[%s] %s\n", item.Type, item.Title)
 					if item.Message != "" {
@@ -136,11 +133,10 @@ func newMeTodoCmd() *cobra.Command {
 
 			items, err := canvas.GetTodoItems(ctx, client)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "me.todo", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "me.todo", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, items, "me.todo", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, item := range items {
 					dueStr := "no due date"
 					if item.DueDate != nil {
@@ -173,11 +169,10 @@ func newMeUpcomingCmd() *cobra.Command {
 
 			items, err := canvas.GetUpcomingEvents(ctx, client)
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "me.upcoming", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "me.upcoming", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, items, "me.upcoming", jsonMode, func(w io.Writer) error {
-				// Human output
 				for _, item := range items {
 					fmt.Fprintf(w, "[%s] %s\n", item.Type, item.Title)
 					fmt.Fprintf(w, "  Start: %s\n", item.StartAt)

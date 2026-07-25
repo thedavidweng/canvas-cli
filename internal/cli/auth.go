@@ -56,7 +56,6 @@ func newAuthStatusCmd() *cobra.Command {
 			tokenPresent := cfg.Token != ""
 			cookiePresent := cfg.Cookie != ""
 
-			// Determine active auth method.
 			authMethod := "none"
 			if tokenPresent {
 				authMethod = "token"
@@ -75,10 +74,9 @@ func newAuthStatusCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
-			// Human output
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "Profile:    %s\n", cfg.Profile)
 			fmt.Fprintf(w, "Base URL:   %s\n", cfg.BaseURL)
@@ -115,7 +113,7 @@ func newAuthTestCmd() *cobra.Command {
 						Message:  err.Error(),
 						Category: "network",
 					}, "auth.test")
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return fmt.Errorf("failed to reach API: %w", err)
 			}
@@ -124,7 +122,7 @@ func newAuthTestCmd() *cobra.Command {
 			if resp.StatusCode != 200 {
 				env := canvas.NormalizeError(resp, "auth.test", cookieAuthBaseURL(cfg)...)
 				if jsonMode {
-					return output.WriteJSON(cmd.OutOrStdout(), env, false)
+					return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 				}
 				return fmt.Errorf("authentication failed: %s (status %d)", env.Error.Message, resp.StatusCode)
 			}
@@ -139,7 +137,7 @@ func newAuthTestCmd() *cobra.Command {
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
 			w := cmd.OutOrStdout()
@@ -201,7 +199,6 @@ Supports multiple profiles for multiple institutions or users:
 
 			w := cmd.OutOrStdout()
 
-			// --- Get profile name (interactive only, if --profile not given) ---
 			if interactive && profileFlag == "" {
 				input := promptLine(w, "Profile name (default): ")
 				if input != "" {
@@ -209,7 +206,6 @@ Supports multiple profiles for multiple institutions or users:
 				}
 			}
 
-			// --- Get base URL ---
 			if baseURL == "" {
 				if interactive {
 					baseURL = promptLine(w, "Canvas Instance URL (e.g. https://school.instructure.com): ")
@@ -227,17 +223,14 @@ Supports multiple profiles for multiple institutions or users:
 				}
 			}
 
-			// Normalize base URL early so we can use it in the help message.
 			baseURL = strings.TrimRight(baseURL, "/")
 			baseURL = strings.TrimSuffix(baseURL, "/api/v1")
 
-			// --- Determine auth method and read credentials ---
 			var token string
 			var cookie string
 			var csrfToken string
 
 			switch {
-			// Token flags (existing flow, unchanged)
 			case tokenStdin:
 				reader := bufio.NewReader(cmd.InOrStdin())
 				line, err := reader.ReadString('\n')
@@ -248,7 +241,6 @@ Supports multiple profiles for multiple institutions or users:
 			case tokenEnv != "":
 				token = "env:" + tokenEnv
 
-			// Cookie stdin
 			case cookieStdin:
 				reader := bufio.NewReader(cmd.InOrStdin())
 				line, err := reader.ReadString('\n')
@@ -268,11 +260,9 @@ Supports multiple profiles for multiple institutions or users:
 					csrfToken = strings.TrimSpace(csrfLine)
 				}
 
-			// Cookie env
 			case cookieEnv != "":
 				cookie = "env:" + cookieEnv
 
-			// Cookie file
 			case cookieFile != "":
 				val, err := readSecretFile(cookieFile)
 				if err != nil {
@@ -280,7 +270,6 @@ Supports multiple profiles for multiple institutions or users:
 				}
 				cookie = val
 
-			// Interactive mode
 			case interactive:
 				var err error
 				token, cookie, csrfToken, err = promptAuthMethod(cmd.Context(), w, baseURL, browserFlag)
@@ -314,7 +303,6 @@ Supports multiple profiles for multiple institutions or users:
 				}
 			}
 
-			// --- Load or create config ---
 			existingCfg, _ := config.LoadConfig(configPath, "")
 			if existingCfg == nil {
 				existingCfg = &canvas.Config{
@@ -323,7 +311,6 @@ Supports multiple profiles for multiple institutions or users:
 				}
 			}
 
-			// Determine profile name: --profile flag > current profile > "default".
 			profileName := profileFlag
 			if profileName == "" {
 				profileName = existingCfg.CurrentProfile
@@ -340,14 +327,11 @@ Supports multiple profiles for multiple institutions or users:
 			existingCfg.Profiles[profileName] = prof
 			existingCfg.CurrentProfile = profileName
 
-			// --- Write config ---
 			if err := writeConfigFile(configPath, existingCfg); err != nil {
 				return fmt.Errorf("failed to write config: %w", err)
 			}
 
-			// --- Validate credentials ---
 			if token != "" {
-				// Token verification (existing flow)
 				resolvedToken := token
 				if strings.HasPrefix(token, "env:") {
 					resolvedToken = os.Getenv(strings.TrimPrefix(token, "env:"))
@@ -380,7 +364,6 @@ Supports multiple profiles for multiple institutions or users:
 					}
 				}
 			} else if cookie != "" {
-				// Cookie verification
 				resolvedCookie := cookie
 				if strings.HasPrefix(cookie, "env:") {
 					resolvedCookie = os.Getenv(strings.TrimPrefix(cookie, "env:"))
@@ -452,7 +435,6 @@ func promptAuthMethod(ctx context.Context, w io.Writer, baseURL, browser string)
 		return promptCookieAuth(ctx, w, baseURL, browser)
 	}
 
-	// Default: token flow (unchanged)
 	fmt.Fprintf(w, "Generate an access token at: %s/profile/settings\n", baseURL)
 	fmt.Fprintf(w, "  Account -> Settings -> Approved Integrations -> New Access Token\n\n")
 	tok := promptLine(w, "Access Token: ")
@@ -478,14 +460,6 @@ func promptCookieAuth(ctx context.Context, w io.Writer, baseURL, browserOverride
 
 	host := extractHost(baseURL)
 
-	if !browsercookie.Available {
-		fmt.Fprintln(w, "Browser cookie auto-extraction is not available on this platform.")
-		fmt.Fprintln(w, "Copy the session cookie from your browser:")
-		fmt.Fprintln(w, "  DevTools -> Application -> Cookies -> your Canvas domain")
-		return promptCookieManual(w)
-	}
-
-	// Build ordered list of browsers to try.
 	var tryBrowsers []string
 	if browserOverride != "" {
 		tryBrowsers = []string{browserOverride}
@@ -520,7 +494,6 @@ func promptCookieAuth(ctx context.Context, w io.Writer, baseURL, browserOverride
 			break
 		}
 
-		// First failure: offer retry with a different browser or manual entry.
 		if i == 0 {
 			action := promptLine(w, "  Try another browser, enter manually, or abort? [try/manual/abort]: ")
 			switch action {
@@ -529,15 +502,13 @@ func promptCookieAuth(ctx context.Context, w io.Writer, baseURL, browserOverride
 			case "abort", "":
 				return "", "", "", fmt.Errorf("aborted")
 			}
-			// "try" — show available browsers and let user pick.
-			tryBrowsers = promptBrowserSelection(w, host)
+			tryBrowsers = promptBrowserSelection(w)
 			if len(tryBrowsers) == 0 {
 				return promptCookieManual(w)
 			}
 		}
 	}
 
-	// All browsers exhausted — fall back to manual.
 	fmt.Fprintln(w, "Could not extract cookies from any browser.")
 	action := promptLine(w, "  Enter manually or abort? [manual/abort]: ")
 	if action == "abort" || action == "" {
@@ -547,7 +518,7 @@ func promptCookieAuth(ctx context.Context, w io.Writer, baseURL, browserOverride
 }
 
 // promptBrowserSelection shows available browsers and returns the user's selection(s).
-func promptBrowserSelection(w io.Writer, host string) []string {
+func promptBrowserSelection(w io.Writer) []string {
 	available := browsercookie.AvailableBrowsers()
 	if len(available) == 0 {
 		return nil
@@ -560,13 +531,11 @@ func promptBrowserSelection(w io.Writer, host string) []string {
 	if choice == "" {
 		return nil
 	}
-	// Try numeric selection.
 	for i, b := range available {
 		if choice == fmt.Sprintf("%d", i+1) {
 			return []string{b}
 		}
 	}
-	// Try name match.
 	for _, b := range available {
 		if strings.EqualFold(choice, b) {
 			return []string{b}
@@ -665,7 +634,7 @@ func newAuthProfilesCmd() *cobra.Command {
 					})
 				}
 				env := output.NewSuccess(profiles, "auth.profiles")
-				return output.WriteJSON(cmd.OutOrStdout(), env, false)
+				return writeEnvelope(cmd.OutOrStdout(), cfg, env)
 			}
 
 			w := cmd.OutOrStdout()

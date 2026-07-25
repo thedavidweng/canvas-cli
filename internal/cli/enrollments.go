@@ -44,11 +44,10 @@ func newEnrollmentsListCmd() *cobra.Command {
 
 			enrollments, _, err := canvas.ListEnrollments(ctx, client, courseID, canvas.RequestOptions{})
 			if err != nil {
-				return writeError(cmd.OutOrStdout(), err, "enrollments.list", jsonMode)
+				return writeError(cmd.OutOrStdout(), cfg, err, "enrollments.list", jsonMode)
 			}
 
 			return writeOutput(cmd.OutOrStdout(), cfg, enrollments, "enrollments.list", jsonMode, func(w io.Writer) error {
-				// Human mode: table with name, role, grades
 				tbl := output.Table{
 					Headers: []string{"Name", "Role", "Current Score", "Current Grade"},
 				}
@@ -69,7 +68,7 @@ func newEnrollmentsListCmd() *cobra.Command {
 					}
 					tbl.Rows = append(tbl.Rows, []string{name, e.Role, score, grade})
 				}
-				return tbl.Render(w, false)
+				return tbl.Render(w, cfg.OutputNoColor)
 			})
 		},
 	}

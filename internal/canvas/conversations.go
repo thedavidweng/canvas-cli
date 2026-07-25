@@ -8,8 +8,6 @@ import (
 )
 
 // ListConversations returns all conversations for the authenticated user.
-// It sends GET /api/v1/conversations with pagination.
-// The per_page parameter defaults to 100.
 func ListConversations(ctx context.Context, client *Client, opts RequestOptions) ([]Conversation, PaginationMeta, error) {
 	var conversations []Conversation
 	meta, err := Request(ctx, client, RequestOptions{
@@ -27,7 +25,6 @@ func ListConversations(ctx context.Context, client *Client, opts RequestOptions)
 }
 
 // GetConversation returns a single conversation by ID.
-// It sends GET /api/v1/conversations/{conversationID}.
 func GetConversation(ctx context.Context, client *Client, conversationID string) (Conversation, error) {
 	var conversation Conversation
 	_, err := Request(ctx, client, RequestOptions{
@@ -43,7 +40,6 @@ func GetConversation(ctx context.Context, client *Client, conversationID string)
 }
 
 // SendMessage creates a new conversation with the given recipients, subject, and body.
-// It sends POST /api/v1/conversations.
 func SendMessage(ctx context.Context, client *Client, recipients []string, subject, body string) (Conversation, error) {
 	payload := map[string]any{
 		"recipients": recipients,
@@ -71,7 +67,6 @@ func SendMessage(ctx context.Context, client *Client, recipients []string, subje
 }
 
 // ReplyToConversation adds a message to an existing conversation.
-// It sends POST /api/v1/conversations/{conversationID}/add_message.
 func ReplyToConversation(ctx context.Context, client *Client, conversationID, body string) (Conversation, error) {
 	payload := map[string]any{
 		"body": body,
@@ -97,7 +92,6 @@ func ReplyToConversation(ctx context.Context, client *Client, conversationID, bo
 }
 
 // ArchiveConversation archives a conversation by setting its workflow_state to "archived".
-// It sends PUT /api/v1/conversations/{conversationID}.
 func ArchiveConversation(ctx context.Context, client *Client, conversationID string) error {
 	payload := map[string]any{
 		"workflow_state": "archived",
