@@ -1,6 +1,6 @@
 module github.com/thedavidweng/canvas-cli
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/browserutils/kooky v0.2.10
