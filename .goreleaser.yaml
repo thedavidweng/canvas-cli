@@ -38,6 +38,7 @@ changelog:
   disable: true
 
 release:
+  mode: append
   github:
     owner: thedavidweng
     name: canvas-cli
