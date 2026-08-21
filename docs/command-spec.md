@@ -184,11 +184,7 @@ canvas files upload --course COURSE_ID --file PATH --folder FOLDER_ID --dry-run
 Useful flags:
 
 ```text
---search TEXT
---content-type TYPE
---exclude-content-type TYPE
---sort name|size|created_at|updated_at|content_type|user
---order asc|desc
+--out PATH           download target (required); --no-overwrite to fail/skip on existing files
 ```
 
 ## Pages

@@ -58,6 +58,8 @@ The README must also state that broad multi-user applications should use OAuth2.
 
 **Warning**: Session cookie auth is experimental and fallback-only. Use token auth or OAuth2 when possible.
 
+For a task-oriented walkthrough, see [Log in with a session cookie](how-to/log-in-with-a-session-cookie.md).
+
 Session cookie auth is intended for students whose schools disable access token generation. It reads your browser's Canvas login cookie, which grants full account access and bypasses SSO/2FA boundaries.
 
 ### Limitations

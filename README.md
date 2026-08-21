@@ -92,9 +92,26 @@ Remove config if desired: `rm -rf ~/.config/canvas-cli`
 
 ## Documentation
 
-- [Authentication & Configuration](docs/auth.md) — token, cookie, OAuth, profiles, env vars
-- [Command Reference](docs/command-spec.md) — full command inventory with examples
+Docs are organized by the [Diátaxis](https://diataxis.fr/) framework — the [full index](docs/README.md) has everything.
+
+**Tutorial:**
+
+- [Getting started](docs/tutorials/getting-started.md) — install, authenticate, first queries
+
+**How-to guides** ([all guides](docs/README.md#how-to-guides--task-oriented)):
+
+- Students: [check what's due](docs/how-to/check-what-is-due.md), [submit an assignment](docs/how-to/submit-an-assignment.md), [download course files](docs/how-to/download-course-files.md), [message your instructor](docs/how-to/message-your-instructor.md)
+- Schools that disable tokens: [log in with a session cookie](docs/how-to/log-in-with-a-session-cookie.md)
+- Teaching teams: [collect submissions](docs/how-to/collect-student-submissions.md), [enter grades](docs/how-to/enter-grades.md)
+
+**Reference:**
+
+- [Command Reference](docs/command-spec.md) — full command inventory
 - [JSON Contract](docs/json-contract.md) — envelope schema, exit codes, `--json` output
+- [Authentication & Configuration](docs/auth.md) — token, cookie, OAuth, profiles, env vars
+
+**Explanation:**
+
 - [Safety Model](docs/safety-model.md) — read-only mode, dry-run, confirm gates
 - [Architecture](docs/architecture.md) — codebase structure and design decisions
 - [Contributing](CONTRIBUTING.md) — development setup and guidelines
