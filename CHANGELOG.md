@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1](https://github.com/thedavidweng/canvas-cli/compare/v0.4.0...v0.4.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* let release-please create tags and releases ([7dbf32c](https://github.com/thedavidweng/canvas-cli/commit/7dbf32c6ca5e6531ea1a6e53b578f1bf4c51d74e))
+
+
+### Documentation
+
+* add Diátaxis tutorial and how-to guides ([74cab50](https://github.com/thedavidweng/canvas-cli/commit/74cab50e85af411b606a1f7d7ddc3c6be16f5aac))
+* remove retired Go Report Card badge ([041efce](https://github.com/thedavidweng/canvas-cli/commit/041efceaa98dc80564d5d22c1da6d1d988786cd4))
+
 ## [0.4.0](https://github.com/thedavidweng/canvas-cli/compare/v0.3.0...v0.4.0) (2026-07-25)
 
 
