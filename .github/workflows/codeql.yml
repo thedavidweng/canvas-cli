@@ -15,4 +15,4 @@ permissions:
 
 jobs:
   analyze:
-    uses: thedavidweng/cli-workflow-template/.github/workflows/go-codeql.yml@main
+    uses: thedavidweng/cli-workflow-template/.github/workflows/go-codeql.yml@87904abb6c0938e078a439474aebfba9b571a55e # main
