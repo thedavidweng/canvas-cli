@@ -48,8 +48,7 @@ These are fixed and should not be revisited in pull requests:
 
 ## Code style
 
-- Standard Go formatting (`gofmt`).
-- Use `goimports` with local prefix `github.com/thedavidweng/canvas-cli`.
+- Standard Go formatting (`gofumpt`).
 - Comments only for constraints the code cannot express; CI enforces a comment budget of 5% of non-test lines. See `AGENTS.md`.
 - Error messages are lowercase, no trailing punctuation.
 - Wrap errors with `fmt.Errorf("context: %w", err)`.
@@ -70,7 +69,7 @@ Run before submitting:
 ```bash
 go test ./... -race
 go vet ./...
-gofmt -l ./cmd ./internal   # must be empty
+gofumpt -extra -l .   # must be empty
 ```
 
 ## JSON contract

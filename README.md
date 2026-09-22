@@ -118,7 +118,7 @@ Docs are organized by the [Diátaxis](https://diataxis.fr/) framework — the [f
 
 ## Infrastructure
 
-- **CI/CD:** [cli-workflow-template](https://github.com/thedavidweng/cli-workflow-template) — reusable GitHub Actions workflows
+- **CI/CD:** GitHub Actions + [mise](https://mise.jdx.dev/)
 - **Docs:** [site](https://github.com/thedavidweng/site) — landing page and documentation
 
 ## License

@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "0 0 * * 1"
+    - cron: '0 6 * * 1'
 
 permissions:
   security-events: write
@@ -15,4 +15,21 @@ permissions:
 
 jobs:
   analyze:
-    uses: thedavidweng/cli-workflow-template/.github/workflows/go-codeql.yml@87904abb6c0938e078a439474aebfba9b571a55e # main
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:go"
