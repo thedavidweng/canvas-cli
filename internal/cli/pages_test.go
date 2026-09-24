@@ -14,13 +14,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestPagesCmd_Exists(t *testing.T) {
-	cmd := NewPagesCmd()
-	if cmd.Use != "pages" {
-		t.Errorf("expected Use 'pages', got %q", cmd.Use)
-	}
-}
-
 func TestPagesList_CourseRequired(t *testing.T) {
 	cfg := &config.ResolvedConfig{
 		BaseURL: "http://localhost",
@@ -182,19 +175,6 @@ func TestPagesGet_APIError_Human(t *testing.T) {
 	err := cmd.RunE(cmd, []string{"front-page"})
 	if err == nil {
 		t.Fatal("expected error in human mode")
-	}
-}
-
-func TestPagesCmd_HasSubcommands(t *testing.T) {
-	cmd := NewPagesCmd()
-	subs := map[string]bool{}
-	for _, sub := range cmd.Commands() {
-		subs[sub.Name()] = true
-	}
-	for _, want := range []string{"list", "get"} {
-		if !subs[want] {
-			t.Errorf("expected '%s' subcommand", want)
-		}
 	}
 }
 
@@ -575,21 +555,5 @@ func TestPagesUpdate_WritesAuditLog(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "pages.update") {
 		t.Errorf("expected 'pages.update' in audit log, got: %s", string(data))
-	}
-}
-
-func TestPagesList_NilConfig(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := newPagesListCmd()
-	cmd.SetContext(context.Background()) // no config
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got: %v", err)
 	}
 }

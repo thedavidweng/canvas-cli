@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,17 +18,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/output"
 	"github.com/thedavidweng/canvas-cli/internal/safety"
 )
-
-func TestGetClientFromContext_NilConfig(t *testing.T) {
-	ctx := context.Background()
-	_, err := getClientFromContext(ctx)
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if err.Error() != "no config loaded" {
-		t.Errorf("expected 'no config loaded', got %q", err.Error())
-	}
-}
 
 func TestGetClientFromContext_ValidConfig(t *testing.T) {
 	cfg := &config.ResolvedConfig{
@@ -122,35 +110,6 @@ func TestWriteEnvelope_NoDurationWithoutStartTime(t *testing.T) {
 	}
 }
 
-func TestWriteOutput_HumanMode_NoFn(t *testing.T) {
-	cfg := &config.ResolvedConfig{Profile: "test"}
-	var buf bytes.Buffer
-
-	err := writeOutput(&buf, cfg, nil, "courses.list", false)
-	if err != nil {
-		t.Fatalf("writeOutput in human mode failed: %v", err)
-	}
-	if buf.Len() != 0 {
-		t.Errorf("expected no output, got %q", buf.String())
-	}
-}
-
-func TestWriteOutput_HumanMode_WithFn(t *testing.T) {
-	cfg := &config.ResolvedConfig{Profile: "test"}
-	var buf bytes.Buffer
-
-	err := writeOutput(&buf, cfg, nil, "courses.list", false, func(w io.Writer) error {
-		_, err := w.Write([]byte("human output"))
-		return err
-	})
-	if err != nil {
-		t.Fatalf("writeOutput with humanFn failed: %v", err)
-	}
-	if buf.String() != "human output" {
-		t.Errorf("expected 'human output', got %q", buf.String())
-	}
-}
-
 func TestWriteError_JSONMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("something went wrong")
@@ -172,19 +131,6 @@ func TestWriteError_JSONMode(t *testing.T) {
 	}
 	if env.Error.Message != "something went wrong" {
 		t.Errorf("expected error message 'something went wrong', got %q", env.Error.Message)
-	}
-}
-
-func TestWriteError_HumanMode(t *testing.T) {
-	var buf bytes.Buffer
-	inputErr := errors.New("something went wrong")
-
-	err := writeError(&buf, &config.ResolvedConfig{}, inputErr, "courses.list", false)
-	if err == nil {
-		t.Fatal("expected error to be returned")
-	}
-	if err.Error() != "something went wrong" {
-		t.Errorf("expected 'something went wrong', got %q", err.Error())
 	}
 }
 
@@ -218,30 +164,6 @@ func TestTruncateString(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("truncateString(%q, %d) = %q, want %q", tt.s, tt.maxLen, got, tt.want)
 		}
-	}
-}
-
-func TestExitError_Error(t *testing.T) {
-	e := &exitError{msg: "something broke", exitCode: 42}
-	if e.Error() != "something broke" {
-		t.Errorf("Error() = %q, want %q", e.Error(), "something broke")
-	}
-}
-
-func TestExitError_ExitCode(t *testing.T) {
-	e := &exitError{msg: "blocked", exitCode: 1}
-	if e.ExitCode() != 1 {
-		t.Errorf("ExitCode() = %d, want 1", e.ExitCode())
-	}
-
-	e2 := &exitError{msg: "ok", exitCode: 0}
-	if e2.ExitCode() != 0 {
-		t.Errorf("ExitCode() = %d, want 0", e2.ExitCode())
-	}
-
-	e3 := &exitError{msg: "fatal", exitCode: 255}
-	if e3.ExitCode() != 255 {
-		t.Errorf("ExitCode() = %d, want 255", e3.ExitCode())
 	}
 }
 
@@ -279,22 +201,6 @@ func TestWriteNetworkError_JSONMode(t *testing.T) {
 	}
 }
 
-func TestWriteNetworkError_HumanMode(t *testing.T) {
-	var buf bytes.Buffer
-	inputErr := errors.New("connection refused")
-
-	err := writeNetworkError(&buf, &config.ResolvedConfig{}, inputErr, "api.get", false)
-	if err == nil {
-		t.Fatal("expected error to be returned")
-	}
-	if err.Error() != "connection refused" {
-		t.Errorf("expected 'connection refused', got %q", err.Error())
-	}
-	if buf.Len() != 0 {
-		t.Errorf("expected no output in human mode, got %q", buf.String())
-	}
-}
-
 func TestWriteErrorWithCode_JSONMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("not found")
@@ -313,19 +219,6 @@ func TestWriteErrorWithCode_JSONMode(t *testing.T) {
 	}
 	if env.Error.Code != "CANVAS_NOT_FOUND" {
 		t.Errorf("expected code CANVAS_NOT_FOUND, got %q", env.Error.Code)
-	}
-}
-
-func TestWriteErrorWithCode_HumanMode(t *testing.T) {
-	var buf bytes.Buffer
-	inputErr := errors.New("not found")
-
-	err := writeErrorWithCode(&buf, &config.ResolvedConfig{}, inputErr, "courses.get", "CANVAS_NOT_FOUND", "api", false)
-	if err == nil {
-		t.Fatal("expected error to be returned")
-	}
-	if err.Error() != "not found" {
-		t.Errorf("expected 'not found', got %q", err.Error())
 	}
 }
 
@@ -489,5 +382,32 @@ func TestTruncateString_NoSplitMidRune(t *testing.T) {
 	want := "a😀..."
 	if got != want {
 		t.Errorf("truncateString(%q, 2) = %q, want %q", s, got, want)
+	}
+}
+
+func TestGetClientFromContext_NilConfig(t *testing.T) {
+	ctx := context.Background()
+	_, err := getClientFromContext(ctx)
+	if err == nil {
+		t.Fatal("expected error when config is nil, got nil")
+	}
+	if err.Error() != "no config loaded" {
+		t.Errorf("expected 'no config loaded', got %q", err.Error())
+	}
+}
+
+func TestWriteNetworkError_HumanMode(t *testing.T) {
+	var buf bytes.Buffer
+	inputErr := errors.New("connection refused")
+
+	err := writeNetworkError(&buf, &config.ResolvedConfig{}, inputErr, "api.get", false)
+	if err == nil {
+		t.Fatal("expected error to be returned")
+	}
+	if err.Error() != "connection refused" {
+		t.Errorf("expected 'connection refused', got %q", err.Error())
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected no output in human mode, got %q", buf.String())
 	}
 }

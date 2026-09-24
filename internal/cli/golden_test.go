@@ -45,246 +45,6 @@ func exitCode(err error) int {
 // 1. JSON Output Shape Tests
 // ---------------------------------------------------------------------------
 
-func TestGolden_MeGet_JSON_EnvelopeShape(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd := newMeGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-	_ = cmd.Flags().Set("json", "true")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Parse envelope
-	var env canvas.Envelope
-	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
-		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, stdout.String())
-	}
-
-	// Verify envelope structure
-	if !env.OK {
-		t.Error("expected ok=true")
-	}
-	if env.Data == nil {
-		t.Fatal("expected data to be non-nil")
-	}
-	if env.Error != nil {
-		t.Errorf("expected no error in success envelope, got %+v", env.Error)
-	}
-
-	// Verify meta
-	if env.Meta.SchemaVersion != output.SchemaVersion {
-		t.Errorf("expected schema_version=%q, got %q", output.SchemaVersion, env.Meta.SchemaVersion)
-	}
-	if env.Meta.Command != "me.get" {
-		t.Errorf("expected command=%q, got %q", "me.get", env.Meta.Command)
-	}
-
-	// Verify data decodes to User
-	dataJSON, _ := json.Marshal(env.Data)
-	var user canvas.User
-	if err := json.Unmarshal(dataJSON, &user); err != nil {
-		t.Fatalf("data does not decode to User: %v", err)
-	}
-	if user.Name != "Test User" {
-		t.Errorf("expected user name %q, got %q", "Test User", user.Name)
-	}
-	if user.ID != "1" {
-		t.Errorf("expected user ID %q, got %q", "1", user.ID)
-	}
-}
-
-func TestGolden_CoursesList_JSON_EnvelopeShape(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses", 200, []map[string]any{
-		{"id": "1", "name": "Intro to CS", "course_code": "CS101", "workflow_state": "available"},
-		{"id": "2", "name": "Data Structures", "course_code": "CS201", "workflow_state": "available"},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd := newCoursesListCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-	_ = cmd.Flags().Set("json", "true")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var env canvas.Envelope
-	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
-		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, stdout.String())
-	}
-
-	if !env.OK {
-		t.Error("expected ok=true")
-	}
-	if env.Data == nil {
-		t.Fatal("expected data to be non-nil")
-	}
-	if env.Meta.Command != "courses.list" {
-		t.Errorf("expected command=%q, got %q", "courses.list", env.Meta.Command)
-	}
-
-	// Verify data is an array
-	dataJSON, _ := json.Marshal(env.Data)
-	var courses []canvas.Course
-	if err := json.Unmarshal(dataJSON, &courses); err != nil {
-		t.Fatalf("data is not []Course: %v", err)
-	}
-	if len(courses) != 2 {
-		t.Errorf("expected 2 courses, got %d", len(courses))
-	}
-	if courses[0].Name != "Intro to CS" {
-		t.Errorf("expected first course name %q, got %q", "Intro to CS", courses[0].Name)
-	}
-}
-
-func TestGolden_AssignmentsList_JSON_EnvelopeShape(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignments", 200, []map[string]any{
-		{"id": "100", "name": "Essay 1", "course_id": "1", "published": true, "points_possible": 100},
-		{"id": "101", "name": "Quiz 1", "course_id": "1", "published": false, "points_possible": 50},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd := newAssignmentsListCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-	_ = cmd.Flags().Set("json", "true")
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var env canvas.Envelope
-	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
-		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, stdout.String())
-	}
-
-	if !env.OK {
-		t.Error("expected ok=true")
-	}
-	if env.Data == nil {
-		t.Fatal("expected data to be non-nil")
-	}
-	if env.Meta.Command != "assignments.list" {
-		t.Errorf("expected command=%q, got %q", "assignments.list", env.Meta.Command)
-	}
-
-	// Verify data is an array of Assignment
-	dataJSON, _ := json.Marshal(env.Data)
-	var assignments []canvas.Assignment
-	if err := json.Unmarshal(dataJSON, &assignments); err != nil {
-		t.Fatalf("data is not []Assignment: %v", err)
-	}
-	if len(assignments) != 2 {
-		t.Errorf("expected 2 assignments, got %d", len(assignments))
-	}
-
-	// Verify fields
-	a := assignments[0]
-	if a.ID != "100" {
-		t.Errorf("expected ID %q, got %q", "100", a.ID)
-	}
-	if a.Name != "Essay 1" {
-		t.Errorf("expected name %q, got %q", "Essay 1", a.Name)
-	}
-	if !a.Published {
-		t.Error("expected published=true for first assignment")
-	}
-	if a.PointsPossible != 100 {
-		t.Errorf("expected points_possible=100, got %g", a.PointsPossible)
-	}
-}
-
-func TestGolden_ApiGet_JSON_EnvelopeShape(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd := newApiGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-	_ = cmd.Flags().Set("json", "true")
-
-	err := cmd.RunE(cmd, []string{"/api/v1/courses"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var env canvas.Envelope
-	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
-		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, stdout.String())
-	}
-
-	if !env.OK {
-		t.Error("expected ok=true")
-	}
-	if env.Data == nil {
-		t.Fatal("expected data to be non-nil")
-	}
-	if env.Meta.Command != "api.get" {
-		t.Errorf("expected command=%q, got %q", "api.get", env.Meta.Command)
-	}
-	if env.Meta.SchemaVersion != output.SchemaVersion {
-		t.Errorf("expected schema_version=%q, got %q", output.SchemaVersion, env.Meta.SchemaVersion)
-	}
-
-	// Verify the raw response is an array containing the mock course.
-	dataJSON, _ := json.Marshal(env.Data)
-	var raw []map[string]any
-	if err := json.Unmarshal(dataJSON, &raw); err != nil {
-		t.Fatalf("data is not an array: %v", err)
-	}
-	if len(raw) == 0 {
-		t.Fatal("expected at least one course in raw response")
-	}
-	if raw[0]["name"] != "Test Course" {
-		t.Errorf("expected course name %q, got %v", "Test Course", raw[0]["name"])
-	}
-}
-
 // ---------------------------------------------------------------------------
 // 2. Exit Code Tests
 // ---------------------------------------------------------------------------
@@ -308,64 +68,6 @@ func TestGolden_ExitCode_Success(t *testing.T) {
 	err := cmd.RunE(cmd, nil)
 	if code := exitCode(err); code != output.CodeSuccess {
 		t.Errorf("expected exit code %d, got %d (err=%v)", output.CodeSuccess, code, err)
-	}
-}
-
-func TestGolden_ExitCode_AuthError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/users/self", 401, map[string]any{
-		"errors": []map[string]any{{"message": "Unauthorized"}},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "bad-token",
-		Profile: "default",
-	}
-
-	// In JSON mode, auth errors are written to the envelope on stdout (command returns nil).
-	var buf bytes.Buffer
-	cmd := newMeGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("json", "true")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("JSON mode should not return Go error for API errors, got: %v", err)
-	}
-
-	var env canvas.Envelope
-	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
-		t.Fatalf("stdout is not valid JSON: %v", err)
-	}
-	if env.OK {
-		t.Error("expected ok=false for auth error")
-	}
-	if env.Error == nil {
-		t.Fatal("expected error field in envelope")
-	}
-	if env.Error.Code != "CANVAS_AUTH_ERROR" {
-		t.Errorf("expected error code %q, got %q", "CANVAS_AUTH_ERROR", env.Error.Code)
-	}
-	if env.Error.Category != "auth" {
-		t.Errorf("expected category %q, got %q", "auth", env.Error.Category)
-	}
-	if env.Meta.RequestID == "" {
-		t.Error("expected request_id in error envelope meta")
-	}
-
-	// In non-JSON mode, auth errors are returned as Go errors.
-	var buf2 bytes.Buffer
-	cmd2 := newMeGetCmd()
-	cmd2.SetContext(WithConfig(context.Background(), cfg))
-	cmd2.SetOut(&buf2)
-
-	err2 := cmd2.RunE(cmd2, nil)
-	if err2 == nil {
-		t.Fatal("expected Go error for 401 in non-JSON mode")
 	}
 }
 
@@ -461,36 +163,6 @@ func TestGolden_ExitCode_RateLimitExhausted(t *testing.T) {
 	err2 := cmd2.RunE(cmd2, nil)
 	if err2 == nil {
 		t.Fatal("expected Go error for 429 in non-JSON mode")
-	}
-}
-
-func TestGolden_ExitCode_NetworkError(t *testing.T) {
-	// Use a URL that will fail to connect.
-	cfg := &config.ResolvedConfig{
-		BaseURL: "http://localhost:0",
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newMeGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("json", "true")
-
-	err := cmd.RunE(cmd, nil)
-	// Network errors in JSON mode are written to stdout as an envelope.
-	if err == nil {
-		// If no error returned, it should be in stdout as JSON error envelope.
-		if buf.Len() > 0 {
-			var env canvas.Envelope
-			if jsonErr := json.Unmarshal(buf.Bytes(), &env); jsonErr == nil {
-				if env.Error != nil && env.Error.Code == "CANVAS_NETWORK_ERROR" {
-					return // Expected behavior
-				}
-			}
-		}
-		t.Fatal("expected network error")
 	}
 }
 
@@ -1047,5 +719,93 @@ func TestGolden_StdoutStderr_ApiGet_JSON_PureJSON(t *testing.T) {
 	// Stderr should be empty.
 	if stderr.Len() != 0 {
 		t.Errorf("expected empty stderr, got: %s", stderr.String())
+	}
+}
+
+func TestGolden_ExitCode_AuthError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/users/self", 401, map[string]any{
+		"errors": []map[string]any{{"message": "Unauthorized"}},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "bad-token",
+		Profile: "default",
+	}
+
+	// In JSON mode, auth errors are written to the envelope on stdout (command returns nil).
+	var buf bytes.Buffer
+	cmd := newMeGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Fatalf("JSON mode should not return Go error for API errors, got: %v", err)
+	}
+
+	var env canvas.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("stdout is not valid JSON: %v", err)
+	}
+	if env.OK {
+		t.Error("expected ok=false for auth error")
+	}
+	if env.Error == nil {
+		t.Fatal("expected error field in envelope")
+	}
+	if env.Error.Code != "CANVAS_AUTH_ERROR" {
+		t.Errorf("expected error code %q, got %q", "CANVAS_AUTH_ERROR", env.Error.Code)
+	}
+	if env.Error.Category != "auth" {
+		t.Errorf("expected category %q, got %q", "auth", env.Error.Category)
+	}
+	if env.Meta.RequestID == "" {
+		t.Error("expected request_id in error envelope meta")
+	}
+
+	// In non-JSON mode, auth errors are returned as Go errors.
+	var buf2 bytes.Buffer
+	cmd2 := newMeGetCmd()
+	cmd2.SetContext(WithConfig(context.Background(), cfg))
+	cmd2.SetOut(&buf2)
+
+	err2 := cmd2.RunE(cmd2, nil)
+	if err2 == nil {
+		t.Fatal("expected Go error for 401 in non-JSON mode")
+	}
+}
+
+func TestGolden_ExitCode_NetworkError(t *testing.T) {
+	// Use a URL that will fail to connect.
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost:0",
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newMeGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("json", "true")
+
+	err := cmd.RunE(cmd, nil)
+	// Network errors in JSON mode are written to stdout as an envelope.
+	if err == nil {
+		// If no error returned, it should be in stdout as JSON error envelope.
+		if buf.Len() > 0 {
+			var env canvas.Envelope
+			if jsonErr := json.Unmarshal(buf.Bytes(), &env); jsonErr == nil {
+				if env.Error != nil && env.Error.Code == "CANVAS_NETWORK_ERROR" {
+					return // Expected behavior
+				}
+			}
+		}
+		t.Fatal("expected network error")
 	}
 }

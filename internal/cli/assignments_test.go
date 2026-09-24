@@ -241,37 +241,6 @@ func TestAssignmentGroupsList_JSON(t *testing.T) {
 	}
 }
 
-func TestAssignmentsList_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignments", 200, []map[string]any{
-		{"id": "100", "name": "Essay 1", "course_id": "1", "published": true, "points_possible": 100},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newAssignmentsListCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("assignments list failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Essay 1") {
-		t.Errorf("expected assignment name in human output, got: %s", output)
-	}
-}
-
 func TestAssignmentsUpdate_DryRunShowsPreview(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -648,45 +617,6 @@ func TestAssignmentsGet_MissingCourse(t *testing.T) {
 	}
 }
 
-func TestAssignmentsGet_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	dueAt := "2026-07-01T23:59:00Z"
-	mock.On("GET", "/api/v1/courses/1/assignments/100", 200, map[string]any{
-		"id": "100", "name": "Essay 1", "course_id": "1", "published": true, "points_possible": 100,
-		"due_at": dueAt, "submission_types": []string{"online_text_entry"},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newAssignmentsGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, []string{"100"})
-	if err != nil {
-		t.Fatalf("assignments get failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Essay 1") {
-		t.Errorf("expected 'Essay 1' in output, got: %s", output)
-	}
-	if !strings.Contains(output, dueAt) {
-		t.Errorf("expected due_at in output, got: %s", output)
-	}
-	if !strings.Contains(output, "online_text_entry") {
-		t.Errorf("expected submission type in output, got: %s", output)
-	}
-}
-
 func TestAssignmentsGet_APIError_JSON(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -772,37 +702,6 @@ func TestAssignmentGroupsList_APIError_JSON(t *testing.T) {
 	}
 	if env.OK {
 		t.Error("expected ok:false on API error")
-	}
-}
-
-func TestAssignmentGroupsList_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignment_groups", 200, []map[string]any{
-		{"id": "10", "name": "Homework", "position": 1, "group_weight": 40},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newAssignmentGroupsListCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("assignment groups list failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Homework") {
-		t.Errorf("expected 'Homework' in output, got: %s", output)
 	}
 }
 

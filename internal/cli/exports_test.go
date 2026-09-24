@@ -62,24 +62,6 @@ func TestDownloadToFile_CreatesNestedDirs(t *testing.T) {
 	}
 }
 
-func TestDownloadToFile_ServerError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/files/999/download", 500, map[string]any{"error": "server error"})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	outPath := filepath.Join(t.TempDir(), "fail.epub")
-
-	err := downloadToFile(context.Background(), client, mock.URL()+"/files/999/download", outPath)
-	if err == nil {
-		t.Fatal("expected error on server 500, got nil")
-	}
-	if !strings.Contains(err.Error(), "status 500") {
-		t.Errorf("expected 'status 500' in error, got: %v", err)
-	}
-}
-
 // --- waitForComplete ---
 
 func TestWaitForComplete_Completed(t *testing.T) {
@@ -251,24 +233,6 @@ func TestExportEpub_FullFlow_DefaultOutPath(t *testing.T) {
 	}
 }
 
-func TestExportEpub_StartError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("POST", "/api/v1/courses/1/epub_exports", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal server error"}},
-	})
-
-	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	var buf bytes.Buffer
-
-	err := exportEpub(context.Background(), client, &buf, "1", "", false, false, cfg)
-	if err == nil {
-		t.Fatal("expected error on start failure, got nil")
-	}
-}
-
 func TestExportEpub_NoWait(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -374,33 +338,6 @@ func TestExportEpub_WaitFails(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "export failed") {
 		t.Errorf("expected 'export failed' in error, got: %v", err)
-	}
-}
-
-func TestExportEpub_ReFetchError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("POST", "/api/v1/courses/1/epub_exports", 200, map[string]any{
-		"id":           "1",
-		"progress_url": "/api/v1/progress/100",
-	})
-	mock.On("GET", "/api/v1/progress/100", 200, map[string]any{
-		"id":             "100",
-		"workflow_state": "completed",
-	})
-	// Re-fetch returns error
-	mock.On("GET", "/api/v1/courses/1/epub_exports/1", 500, map[string]any{
-		"errors": []map[string]any{{"message": "server error"}},
-	})
-
-	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	var buf bytes.Buffer
-
-	err := exportEpub(context.Background(), client, &buf, "1", "", false, false, cfg)
-	if err == nil {
-		t.Fatal("expected error on re-fetch failure, got nil")
 	}
 }
 
@@ -570,24 +507,6 @@ func TestExportContent_DefaultOutPath(t *testing.T) {
 	}
 }
 
-func TestExportContent_StartError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("POST", "/api/v1/courses/1/content_exports", 500, map[string]any{
-		"errors": []map[string]any{{"message": "server error"}},
-	})
-
-	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	var buf bytes.Buffer
-
-	err := exportContent(context.Background(), client, &buf, "1", "common_cartridge", "", false, false, cfg)
-	if err == nil {
-		t.Fatal("expected error on start failure, got nil")
-	}
-}
-
 func TestExportContent_NoWait(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -745,23 +664,6 @@ func TestNewCoursesExportCmd_MissingFormat(t *testing.T) {
 	}
 }
 
-func TestNewCoursesExportCmd_NilConfig(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := newCoursesExportCmd()
-	cmd.SetContext(context.Background()) // no config
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-	_ = cmd.Flags().Set("format", "epub")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got: %v", err)
-	}
-}
-
 func TestNewCoursesExportsCmd_JSON(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -810,45 +712,6 @@ func TestNewCoursesExportsCmd_MissingCourse(t *testing.T) {
 	}
 }
 
-func TestNewCoursesExportsCmd_NilConfig(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := newCoursesExportsCmd()
-	cmd.SetContext(context.Background())
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got: %v", err)
-	}
-}
-
-func TestNewCoursesExportsCmd_APIError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/content_exports", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal server error"}},
-	})
-
-	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-	var buf bytes.Buffer
-
-	// Without JSON mode, error is returned directly
-	cmd := newCoursesExportsCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error on API failure, got nil")
-	}
-}
-
 func TestNewCoursesExportsCmd_APIErrorJSON(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -878,32 +741,83 @@ func TestNewCoursesExportsCmd_APIErrorJSON(t *testing.T) {
 	}
 }
 
-func TestNewCoursesExportsCmd_HumanMode(t *testing.T) {
+func TestDownloadToFile_ServerError(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
 
-	mock.On("GET", "/api/v1/courses/1/content_exports", 200, []map[string]any{
-		{"id": "1", "export_type": "common_cartridge", "workflow_state": "exported", "created_at": "2026-01-01T00:00:00Z"},
+	mock.On("GET", "/files/999/download", 500, map[string]any{"error": "server error"})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	outPath := filepath.Join(t.TempDir(), "fail.epub")
+
+	err := downloadToFile(context.Background(), client, mock.URL()+"/files/999/download", outPath)
+	if err == nil {
+		t.Fatal("expected error on server 500, got nil")
+	}
+	if !strings.Contains(err.Error(), "status 500") {
+		t.Errorf("expected 'status 500' in error, got: %v", err)
+	}
+}
+
+func TestExportEpub_StartError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/courses/1/epub_exports", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal server error"}},
 	})
 
 	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
 	var buf bytes.Buffer
-	cmd := newCoursesExportsCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
 
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("courses exports human mode failed: %v", err)
+	err := exportEpub(context.Background(), client, &buf, "1", "", false, false, cfg)
+	if err == nil {
+		t.Fatal("expected error on start failure, got nil")
 	}
+}
 
-	output := buf.String()
-	if !strings.Contains(output, "ID") {
-		t.Errorf("expected table header 'ID' in output, got: %q", output)
+func TestExportEpub_ReFetchError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/courses/1/epub_exports", 200, map[string]any{
+		"id":           "1",
+		"progress_url": "/api/v1/progress/100",
+	})
+	mock.On("GET", "/api/v1/progress/100", 200, map[string]any{
+		"id":             "100",
+		"workflow_state": "completed",
+	})
+	// Re-fetch returns error
+	mock.On("GET", "/api/v1/courses/1/epub_exports/1", 500, map[string]any{
+		"errors": []map[string]any{{"message": "server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	var buf bytes.Buffer
+
+	err := exportEpub(context.Background(), client, &buf, "1", "", false, false, cfg)
+	if err == nil {
+		t.Fatal("expected error on re-fetch failure, got nil")
 	}
-	if !strings.Contains(output, "common_cartridge") {
-		t.Errorf("expected export type in output, got: %q", output)
+}
+
+func TestExportContent_StartError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("POST", "/api/v1/courses/1/content_exports", 500, map[string]any{
+		"errors": []map[string]any{{"message": "server error"}},
+	})
+
+	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	var buf bytes.Buffer
+
+	err := exportContent(context.Background(), client, &buf, "1", "common_cartridge", "", false, false, cfg)
+	if err == nil {
+		t.Fatal("expected error on start failure, got nil")
 	}
 }

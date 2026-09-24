@@ -226,45 +226,6 @@ func TestSubmit_File_Confirm_UploadFlow(t *testing.T) {
 	}
 }
 
-func TestSubmit_NoConfirm_InNonInteractiveMode_ReturnsError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignments/100", 200, map[string]any{
-		"id": "100", "name": "Essay 1", "course_id": "1",
-		"submission_types": []string{"online_text_entry"},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newAssignmentsSubmitCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-	// Neither --confirm nor --dry-run set.
-
-	err := cmd.RunE(cmd, []string{"100", "my answer"})
-	if err == nil {
-		t.Fatal("expected error without --confirm, got nil")
-	}
-
-	exitErr, ok := err.(interface{ ExitCode() int })
-	if !ok {
-		t.Fatalf("expected error with ExitCode(), got %T: %v", err, err)
-	}
-	if exitErr.ExitCode() != output.CodeSafetyBlocked {
-		t.Errorf("expected exit code %d (safety blocked), got %d", output.CodeSafetyBlocked, exitErr.ExitCode())
-	}
-	if !strings.Contains(err.Error(), "--confirm") {
-		t.Errorf("expected error to mention --confirm, got: %s", err.Error())
-	}
-}
-
 func TestSubmit_ReadOnly_ReturnsExit7(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -528,5 +489,44 @@ func TestSubmitAuditEvent_Fields(t *testing.T) {
 	}
 	if got.Resource["assignment_id"] != "100" {
 		t.Errorf("resource.assignment_id = %q, want %q", got.Resource["assignment_id"], "100")
+	}
+}
+
+func TestSubmit_NoConfirm_InNonInteractiveMode_ReturnsError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/courses/1/assignments/100", 200, map[string]any{
+		"id": "100", "name": "Essay 1", "course_id": "1",
+		"submission_types": []string{"online_text_entry"},
+	})
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newAssignmentsSubmitCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	// Neither --confirm nor --dry-run set.
+
+	err := cmd.RunE(cmd, []string{"100", "my answer"})
+	if err == nil {
+		t.Fatal("expected error without --confirm, got nil")
+	}
+
+	exitErr, ok := err.(interface{ ExitCode() int })
+	if !ok {
+		t.Fatalf("expected error with ExitCode(), got %T: %v", err, err)
+	}
+	if exitErr.ExitCode() != output.CodeSafetyBlocked {
+		t.Errorf("expected exit code %d (safety blocked), got %d", output.CodeSafetyBlocked, exitErr.ExitCode())
+	}
+	if !strings.Contains(err.Error(), "--confirm") {
+		t.Errorf("expected error to mention --confirm, got: %s", err.Error())
 	}
 }

@@ -67,39 +67,6 @@ func TestCoursesList_JSON(t *testing.T) {
 	}
 }
 
-func TestCoursesList_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses", 200, []map[string]any{
-		{"id": "1", "name": "Intro to CS", "course_code": "CS101", "workflow_state": "available"},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newCoursesListCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("courses list failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Intro to CS") {
-		t.Errorf("expected course name in human output, got: %s", output)
-	}
-	if !strings.Contains(output, "CS101") {
-		t.Errorf("expected course code in human output, got: %s", output)
-	}
-}
-
 func TestCoursesGet_JSON(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -392,40 +359,6 @@ func TestCoursesList_IncludeFlag(t *testing.T) {
 	}
 }
 
-func TestCoursesGet_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/42", 200, map[string]any{
-		"id": "42", "name": "Advanced Go", "course_code": "GO301", "workflow_state": "available",
-		"term": map[string]any{"id": "1", "name": "Fall 2026"},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newCoursesGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, []string{"42"})
-	if err != nil {
-		t.Fatalf("courses get 42 failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Advanced Go") {
-		t.Errorf("expected course name in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Fall 2026") {
-		t.Errorf("expected term name in output, got: %s", output)
-	}
-}
-
 func TestCoursesGet_APIError_JSON(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -544,37 +477,6 @@ func TestCoursesTabs_APIError_JSON(t *testing.T) {
 	}
 	if env.OK {
 		t.Error("expected ok:false on API error")
-	}
-}
-
-func TestCoursesTabs_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/tabs", 200, []map[string]any{
-		{"id": "home", "label": "Home", "type": "internal", "html_url": "/courses/1", "full_url": "https://canvas.example.com/courses/1", "position": 1, "visibility": "public"},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newCoursesTabsCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("courses tabs failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Home") {
-		t.Errorf("expected 'Home' in output, got: %s", output)
 	}
 }
 

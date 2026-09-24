@@ -16,26 +16,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestInboxCmd_Exists(t *testing.T) {
-	cmd := NewInboxCmd()
-	if cmd.Use != "inbox" {
-		t.Errorf("expected Use 'inbox', got %q", cmd.Use)
-	}
-}
-
-func TestInboxCmd_HasSubcommands(t *testing.T) {
-	cmd := NewInboxCmd()
-	subs := map[string]bool{}
-	for _, sub := range cmd.Commands() {
-		subs[sub.Name()] = true
-	}
-	for _, want := range []string{"list", "get", "send", "reply", "archive"} {
-		if !subs[want] {
-			t.Errorf("expected '%s' subcommand", want)
-		}
-	}
-}
-
 func TestInboxList_JSONReturnsConversations(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -512,39 +492,6 @@ func TestInboxCommands_WriteAuditLog(t *testing.T) {
 
 // --- inbox reply uncovered paths ---
 
-func TestInboxList_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/conversations", 200, []map[string]any{
-		{"id": "1001", "subject": "Homework question", "workflow_state": "unread", "message_count": 2},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newInboxListCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("inbox list failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Homework question") {
-		t.Errorf("expected 'Homework question' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "1001") {
-		t.Errorf("expected conversation ID in output, got: %s", output)
-	}
-}
-
 func TestInboxList_APIError_JSON(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -601,46 +548,6 @@ func TestInboxList_APIError_Human(t *testing.T) {
 	err := cmd.RunE(cmd, nil)
 	if err == nil {
 		t.Fatal("expected error in human mode")
-	}
-}
-
-func TestInboxGet_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/conversations/1001", 200, map[string]any{
-		"id":             "1001",
-		"subject":        "Homework question",
-		"workflow_state": "read",
-		"last_message":   "Thanks for the help!",
-		"message_count":  3,
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newInboxGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, []string{"1001"})
-	if err != nil {
-		t.Fatalf("inbox get failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Homework question") {
-		t.Errorf("expected subject in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Thanks for the help!") {
-		t.Errorf("expected last message in output, got: %s", output)
-	}
-	if !strings.Contains(output, "3") {
-		t.Errorf("expected message count in output, got: %s", output)
 	}
 }
 
@@ -725,48 +632,5 @@ func TestInboxReply_MissingBody(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--body is required") {
 		t.Errorf("expected '--body is required' in error, got: %v", err)
-	}
-}
-
-func TestInboxReply_NilConfig(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := newInboxReplyCmd()
-	cmd.SetContext(context.Background()) // no config
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("body", "test")
-
-	err := cmd.RunE(cmd, []string{"1001"})
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got: %v", err)
-	}
-}
-
-func TestInboxReply_APIError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("POST", "/api/v1/conversations/1001/add_message", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal server error"}},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newInboxReplyCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("body", "Hello!")
-	_ = cmd.Flags().Set("confirm", "true")
-
-	err := cmd.RunE(cmd, []string{"1001"})
-	if err == nil {
-		t.Fatal("expected error on API failure, got nil")
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,13 +13,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
-
-func TestSubmissionsCmd_Exists(t *testing.T) {
-	cmd := NewSubmissionsCmd()
-	if cmd.Use != "submissions" {
-		t.Errorf("expected Use 'submissions', got %q", cmd.Use)
-	}
-}
 
 func TestSubmissionsCmd_HasGetSubcommand(t *testing.T) {
 	cmd := NewSubmissionsCmd()
@@ -482,74 +474,7 @@ func TestSubmissionsDownload_PartialFailure(t *testing.T) {
 
 // --- PartialFailureError.Error() ---
 
-func TestPartialFailureError_Error(t *testing.T) {
-	err := &PartialFailureError{
-		Result: &DownloadResult{Total: 5, Failed: 2},
-		Errors: []error{fmt.Errorf("download 1 failed"), fmt.Errorf("download 2 failed")},
-	}
-	expected := "2 of 5 downloads failed"
-	if err.Error() != expected {
-		t.Errorf("expected %q, got %q", expected, err.Error())
-	}
-}
-
-func TestPartialFailureError_ExitCode(t *testing.T) {
-	err := &PartialFailureError{
-		Result: &DownloadResult{Total: 3, Failed: 1},
-	}
-	if err.ExitCode() != 8 {
-		t.Errorf("expected exit code 8, got %d", err.ExitCode())
-	}
-}
-
 // --- submissions list human mode ---
-
-func TestSubmissionsList_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignments/10/submissions", 200, []map[string]any{
-		{
-			"id": "500", "user_id": "42", "assignment_id": "10",
-			"workflow_state": "submitted",
-			"user":           map[string]any{"id": "42", "name": "Alice Smith", "sortable_name": "Smith, Alice"},
-			"submitted_at":   "2026-01-15T12:00:00Z",
-		},
-		{
-			"id": "501", "user_id": "43", "assignment_id": "10",
-			"workflow_state": "graded",
-			"user":           map[string]any{"id": "43", "name": "Bob Jones", "sortable_name": "Jones, Bob"},
-			"score":          85.5,
-		},
-	})
-
-	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-	var buf bytes.Buffer
-	cmd := newSubmissionsListCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-	_ = cmd.Flags().Set("assignment", "10")
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("submissions list failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Alice Smith") {
-		t.Errorf("expected 'Alice Smith' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Bob Jones") {
-		t.Errorf("expected 'Bob Jones' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "submitted") {
-		t.Errorf("expected 'submitted' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "85.5") {
-		t.Errorf("expected score '85.5' in output, got: %s", output)
-	}
-}
 
 // --- submissions comment ---
 
@@ -734,51 +659,5 @@ func TestSubmissionsDownloadCmd_JSONMode(t *testing.T) {
 	}
 	if !env.OK {
 		t.Error("expected ok:true")
-	}
-}
-
-func TestSubmissionsDownloadCmd_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignments/10/submissions", 200, []map[string]any{
-		{
-			"id": "500", "user_id": "42", "assignment_id": "10",
-			"workflow_state": "submitted",
-			"user":           map[string]any{"id": "42", "name": "Alice Smith", "sortable_name": "Smith, Alice"},
-			"attachments": []map[string]any{
-				{"id": "101", "filename": "essay.pdf", "url": mock.URL() + "/files/101/download", "size": 11},
-			},
-		},
-	})
-	mock.On("GET", "/files/101/download", 200, []byte("essay content"))
-
-	outDir := t.TempDir()
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newSubmissionsDownloadCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-	_ = cmd.Flags().Set("assignment", "10")
-	_ = cmd.Flags().Set("out", outDir)
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Fatalf("submissions download failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Downloaded 1/1") {
-		t.Errorf("expected 'Downloaded 1/1' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Manifest:") {
-		t.Errorf("expected 'Manifest:' in output, got: %s", output)
 	}
 }

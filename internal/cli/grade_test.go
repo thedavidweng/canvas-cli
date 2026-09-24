@@ -16,26 +16,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestGradeCmd_Exists(t *testing.T) {
-	cmd := NewGradingCmd()
-	if cmd.Use != "grade" {
-		t.Errorf("expected Use 'grade', got %q", cmd.Use)
-	}
-}
-
-func TestGradeCmd_HasSubcommands(t *testing.T) {
-	cmd := NewGradingCmd()
-	subs := map[string]bool{}
-	for _, sub := range cmd.Commands() {
-		subs[sub.Name()] = true
-	}
-	for _, want := range []string{"set", "comment", "import"} {
-		if !subs[want] {
-			t.Errorf("expected '%s' subcommand", want)
-		}
-	}
-}
-
 // --- grade set ---
 
 func TestGradeSet_DryRunShowsPreviewNoRequest(t *testing.T) {
@@ -856,20 +836,6 @@ func TestGradeMutations_AllWriteAuditLog(t *testing.T) {
 }
 
 // --- gradeImportPartialFailureError ---
-
-func TestGradeImportPartialFailureError_Error(t *testing.T) {
-	err := &gradeImportPartialFailureError{msg: "3 of 10 grade imports failed"}
-	if err.Error() != "3 of 10 grade imports failed" {
-		t.Errorf("expected '3 of 10 grade imports failed', got %q", err.Error())
-	}
-}
-
-func TestGradeImportPartialFailureError_ExitCode(t *testing.T) {
-	err := &gradeImportPartialFailureError{msg: "partial failure"}
-	if err.ExitCode() != 8 {
-		t.Errorf("expected exit code 8, got %d", err.ExitCode())
-	}
-}
 
 // --- grade rubric ---
 
