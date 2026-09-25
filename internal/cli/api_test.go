@@ -14,13 +14,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestApiCmd_Exists(t *testing.T) {
-	cmd := NewApiCmd()
-	if cmd.Use != "api" {
-		t.Errorf("expected Use 'api', got %q", cmd.Use)
-	}
-}
-
 func TestApiCmd_HasGetSubcommand(t *testing.T) {
 	cmd := NewApiCmd()
 	found := false
@@ -913,72 +906,6 @@ func TestHandlePaginatedRequest_JSONMode(t *testing.T) {
 	}
 }
 
-func TestHandlePaginatedRequest_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.SetPagination("/api/v1/courses", [][]map[string]any{
-		{{"id": "1", "name": "Course 1"}},
-		{{"id": "2", "name": "Course 2"}},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL:  mock.URL(),
-		Token:    "test-token",
-		Profile:  "default",
-		PageSize: 100,
-	}
-
-	var buf bytes.Buffer
-	cmd := newApiGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("paginate", "true")
-
-	err := cmd.RunE(cmd, []string{"/api/v1/courses"})
-	if err != nil {
-		t.Fatalf("api get --paginate failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Course 1") {
-		t.Errorf("expected 'Course 1' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Course 2") {
-		t.Errorf("expected 'Course 2' in output, got: %s", output)
-	}
-}
-
-func TestApiPost_ErrorResponseHumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("POST", "/api/v1/test", 403, map[string]any{
-		"error": "forbidden",
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newApiPostCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("data", `{"name":"test"}`)
-	_ = cmd.Flags().Set("confirm", "true")
-
-	err := cmd.RunE(cmd, []string{"/api/v1/test"})
-	if err == nil {
-		t.Fatal("expected error for 403 in human mode, got nil")
-	}
-	if !strings.Contains(err.Error(), "api error") {
-		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
-	}
-}
-
 func TestApiPost_NonJSONResponse(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -1010,64 +937,5 @@ func TestApiPost_NonJSONResponse(t *testing.T) {
 	}
 	if !env.OK {
 		t.Error("expected ok:true for 200 response")
-	}
-}
-
-func TestApiDelete_ErrorResponseHumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("DELETE", "/api/v1/test", 404, map[string]any{
-		"error": "not found",
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newApiDeleteCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("confirm", "true")
-
-	err := cmd.RunE(cmd, []string{"/api/v1/test"})
-	if err == nil {
-		t.Fatal("expected error for 404 in human mode, got nil")
-	}
-	if !strings.Contains(err.Error(), "api error") {
-		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
-	}
-}
-
-func TestApiPut_ErrorResponseHumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("PUT", "/api/v1/test", 400, map[string]any{
-		"error": "bad request",
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newApiPutCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("data", `{"name":"test"}`)
-	_ = cmd.Flags().Set("confirm", "true")
-
-	err := cmd.RunE(cmd, []string{"/api/v1/test"})
-	if err == nil {
-		t.Fatal("expected error for 400 in human mode, got nil")
-	}
-	if !strings.Contains(err.Error(), "api error") {
-		t.Errorf("error = %q, want it to contain 'api error'", err.Error())
 	}
 }

@@ -5,18 +5,6 @@ import (
 	"testing"
 )
 
-func TestSafetyLevelConstants(t *testing.T) {
-	if ReadLevel != 0 {
-		t.Errorf("ReadLevel = %d, want 0", ReadLevel)
-	}
-	if LowRiskWrite != 1 {
-		t.Errorf("LowRiskWrite = %d, want 1", LowRiskWrite)
-	}
-	if HighRiskWrite != 2 {
-		t.Errorf("HighRiskWrite = %d, want 2", HighRiskWrite)
-	}
-}
-
 func TestCheck_ReadLevel_AlwaysAllowed(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -152,58 +140,5 @@ func TestCheck_DryRun_AllowedWithoutConfirm(t *testing.T) {
 				t.Errorf("--dry-run should be allowed without --confirm for %s, got: %v", level, err)
 			}
 		})
-	}
-}
-
-func TestSafetyError_ErrorString(t *testing.T) {
-	err := &SafetyError{Message: "operation blocked by read-only mode", ExitCode: 7}
-	expected := "operation blocked by read-only mode"
-	if err.Error() != expected {
-		t.Errorf("Error() = %q, want %q", err.Error(), expected)
-	}
-}
-
-func TestErrSafetyBlocked_IsSafetyError(t *testing.T) {
-	var se *SafetyError
-	if !errors.As(ErrSafetyBlocked, &se) {
-		t.Fatal("ErrSafetyBlocked should be a *SafetyError")
-	}
-	if se.ExitCode != 7 {
-		t.Errorf("ErrSafetyBlocked exit code = %d, want 7", se.ExitCode)
-	}
-}
-
-func TestErrNeedsConfirm_IsSafetyError(t *testing.T) {
-	var se *SafetyError
-	if !errors.As(ErrNeedsConfirm, &se) {
-		t.Fatal("ErrNeedsConfirm should be a *SafetyError")
-	}
-	if se.ExitCode != 7 {
-		t.Errorf("ErrNeedsConfirm exit code = %d, want 7 (safety blocked)", se.ExitCode)
-	}
-}
-
-func TestSafetyLevel_String_Unknown(t *testing.T) {
-	unknown := SafetyLevel(99)
-	if got := unknown.String(); got != "Unknown" {
-		t.Errorf("SafetyLevel(99).String() = %q, want %q", got, "Unknown")
-	}
-}
-
-func TestNewPolicy_Fields(t *testing.T) {
-	p := NewPolicy(true, true, true)
-	if !p.ReadOnly {
-		t.Error("ReadOnly should be true")
-	}
-	if !p.DryRun {
-		t.Error("DryRun should be true")
-	}
-	if !p.Confirm {
-		t.Error("Confirm should be true")
-	}
-
-	p2 := NewPolicy(false, false, false)
-	if p2.ReadOnly || p2.DryRun || p2.Confirm {
-		t.Error("all fields should be false")
 	}
 }

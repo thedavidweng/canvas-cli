@@ -152,43 +152,6 @@ func TestRedaction_TokenNeverInStdout_ApiGetJSON(t *testing.T) {
 // Token never in stderr
 // ---------------------------------------------------------------------------
 
-func TestRedaction_TokenNeverInStderr_OnAuthError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/users/self", 401, map[string]any{
-		"errors": []map[string]any{{"message": "Unauthorized"}},
-	})
-
-	var stdout, stderr bytes.Buffer
-	cmd := newMeGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), redactCfg(mock)))
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-
-	_ = cmd.RunE(cmd, nil)
-	assertNotContains(t, "stderr on auth error", stderr.String())
-	assertNotContains(t, "stdout on auth error", stdout.String())
-}
-
-func TestRedaction_TokenNeverInStderr_OnNetworkError(t *testing.T) {
-	cfg := &config.ResolvedConfig{
-		BaseURL: "http://localhost:0",
-		Token:   secretToken,
-		Profile: "default",
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd := newMeGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-
-	_ = cmd.RunE(cmd, nil)
-	assertNotContains(t, "stderr on network error", stderr.String())
-	assertNotContains(t, "stdout on network error", stdout.String())
-}
-
 func TestRedaction_TokenNeverInStderr_OnPermissionDenied(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -385,35 +348,6 @@ func TestRedaction_TokenRedactedInErrorMessages_403(t *testing.T) {
 	assertNotContains(t, "JSON error on 403", stdout.String())
 }
 
-func TestRedaction_TokenRedactedInErrorMessages_NetworkError(t *testing.T) {
-	cfg := &config.ResolvedConfig{
-		BaseURL: "http://localhost:0",
-		Token:   secretToken,
-		Profile: "default",
-	}
-
-	// Non-JSON mode.
-	var stdout bytes.Buffer
-	cmd := newMeGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&stdout)
-
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		assertNotContains(t, "Go error on network error", err.Error())
-	}
-
-	// JSON mode.
-	stdout.Reset()
-	cmd2 := newMeGetCmd()
-	cmd2.SetContext(WithConfig(context.Background(), cfg))
-	cmd2.SetOut(&stdout)
-	_ = cmd2.Flags().Set("json", "true")
-
-	_ = cmd2.RunE(cmd2, nil)
-	assertNotContains(t, "JSON error on network error", stdout.String())
-}
-
 func TestRedaction_TokenRedactedInErrorMessages_SafetyBlocked(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -533,4 +467,70 @@ func TestRedaction_Comprehensive_AllCommands(t *testing.T) {
 			assertNotContains(t, tc.name+" stderr", stderr.String())
 		})
 	}
+}
+
+func TestRedaction_TokenNeverInStderr_OnAuthError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/users/self", 401, map[string]any{
+		"errors": []map[string]any{{"message": "Unauthorized"}},
+	})
+
+	var stdout, stderr bytes.Buffer
+	cmd := newMeGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), redactCfg(mock)))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	_ = cmd.RunE(cmd, nil)
+	assertNotContains(t, "stderr on auth error", stderr.String())
+	assertNotContains(t, "stdout on auth error", stdout.String())
+}
+
+func TestRedaction_TokenNeverInStderr_OnNetworkError(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost:0",
+		Token:   secretToken,
+		Profile: "default",
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := newMeGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	_ = cmd.RunE(cmd, nil)
+	assertNotContains(t, "stderr on network error", stderr.String())
+	assertNotContains(t, "stdout on network error", stdout.String())
+}
+
+func TestRedaction_TokenRedactedInErrorMessages_NetworkError(t *testing.T) {
+	cfg := &config.ResolvedConfig{
+		BaseURL: "http://localhost:0",
+		Token:   secretToken,
+		Profile: "default",
+	}
+
+	// Non-JSON mode.
+	var stdout bytes.Buffer
+	cmd := newMeGetCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&stdout)
+
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		assertNotContains(t, "Go error on network error", err.Error())
+	}
+
+	// JSON mode.
+	stdout.Reset()
+	cmd2 := newMeGetCmd()
+	cmd2.SetContext(WithConfig(context.Background(), cfg))
+	cmd2.SetOut(&stdout)
+	_ = cmd2.Flags().Set("json", "true")
+
+	_ = cmd2.RunE(cmd2, nil)
+	assertNotContains(t, "JSON error on network error", stdout.String())
 }

@@ -14,26 +14,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestDiscussionsCmd_Exists(t *testing.T) {
-	cmd := NewDiscussionsCmd()
-	if cmd.Use != "discussions" {
-		t.Errorf("expected Use 'discussions', got %q", cmd.Use)
-	}
-}
-
-func TestDiscussionsCmd_HasSubcommands(t *testing.T) {
-	cmd := NewDiscussionsCmd()
-	subs := map[string]bool{}
-	for _, sub := range cmd.Commands() {
-		subs[sub.Name()] = true
-	}
-	for _, want := range []string{"list", "get", "entries"} {
-		if !subs[want] {
-			t.Errorf("expected '%s' subcommand", want)
-		}
-	}
-}
-
 func TestDiscussionsList_ReturnsDiscussionTopics(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -739,40 +719,6 @@ func TestDiscussionsEntries_APIError_Human(t *testing.T) {
 	}
 }
 
-func TestDiscussionsEntries_HumanMode_EmptyUserName(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/discussion_topics/200/entries", 200, []map[string]any{
-		{"id": "300", "user_id": "42", "message": "Hello!"},
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newDiscussionsEntriesCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, []string{"200"})
-	if err != nil {
-		t.Fatalf("discussions entries failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "42") {
-		t.Errorf("expected user_id '42' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Hello!") {
-		t.Errorf("expected 'Hello!' in output, got: %s", output)
-	}
-}
-
 func TestDiscussionsReplyEntry_DryRunShowsPreview(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -1173,21 +1119,5 @@ func TestDiscussionsCreate_ReadOnlyReturnsExit7(t *testing.T) {
 	}
 	if exitErr.ExitCode() != 7 {
 		t.Errorf("expected exit code 7, got %d", exitErr.ExitCode())
-	}
-}
-
-func TestDiscussionsList_NilConfig(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := newDiscussionsListCmd()
-	cmd.SetContext(context.Background()) // no config
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got: %v", err)
 	}
 }

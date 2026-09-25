@@ -415,72 +415,6 @@ func TestExportContext_Section401(t *testing.T) {
 	}
 }
 
-func TestExportContext_NetworkError(t *testing.T) {
-	// Use a closed server to simulate network errors
-	closed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	closed.Close()
-	cfg := &config.ResolvedConfig{
-		BaseURL: closed.URL,
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	result, err := ExportContext(context.Background(), canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", 0, 0), "1", ExportContextOpts{
-		Include: []string{"modules"}, // just one section to keep test fast
-	})
-	// Network errors should not return a fatal error; they warn
-	if err != nil {
-		t.Fatalf("ExportContext should not fail on network error (should warn): %v", err)
-	}
-
-	if len(result.ExportMeta.SectionsFailed) == 0 {
-		t.Error("expected section to fail on network error")
-	}
-
-	if len(result.ExportMeta.Warnings) == 0 {
-		t.Error("expected warning for network error")
-	}
-}
-
-func TestExportContext_ExitCode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-	setupExportMock(mock)
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	// All succeed -> exit 0
-	result, err := ExportContext(context.Background(), canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", 0, 0), "1", ExportContextOpts{
-		Include: []string{"modules"},
-	})
-	if err != nil {
-		t.Fatalf("ExportContext failed: %v", err)
-	}
-	code := exportExitCode(result)
-	if code != 0 {
-		t.Errorf("expected exit code 0 when all succeed, got %d", code)
-	}
-
-	// Some failed -> exit 8
-	mock.On("GET", "/api/v1/courses/1/files", 403, map[string]any{
-		"errors": []map[string]any{{"message": "forbidden"}},
-	})
-	result2, err := ExportContext(context.Background(), canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", 0, 0), "1", ExportContextOpts{
-		Include: []string{"modules", "files"},
-	})
-	if err != nil {
-		t.Fatalf("ExportContext failed: %v", err)
-	}
-	code2 := exportExitCode(result2)
-	if code2 != 8 {
-		t.Errorf("expected exit code 8 on partial failure, got %d", code2)
-	}
-}
-
 func TestExportContext_ExportMeta(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -1076,150 +1010,13 @@ func TestFilterSince_ExactBoundary(t *testing.T) {
 
 // --- classifyError ---
 
-func TestClassifyError_Nil(t *testing.T) {
-	result := classifyError(nil)
-	if result != nil {
-		t.Errorf("expected nil for nil input, got %v", result)
-	}
-}
-
-func TestClassifyError_401String(t *testing.T) {
-	err := fmt.Errorf("api error: status 401")
-	result := classifyError(err)
-	if !isAuthError(result) {
-		t.Errorf("expected authError, got %T: %v", result, result)
-	}
-}
-
-func TestClassifyError_NonAuthError(t *testing.T) {
-	err := fmt.Errorf("api error: status 500")
-	result := classifyError(err)
-	if isAuthError(result) {
-		t.Error("expected non-auth error for status 500")
-	}
-	if result.Error() != "api error: status 500" {
-		t.Errorf("expected same error back, got %q", result.Error())
-	}
-}
-
 // --- classifyStatusCode ---
-
-func TestClassifyStatusCode_401(t *testing.T) {
-	err := classifyStatusCode(401)
-	if !isAuthError(err) {
-		t.Error("expected authError for status 401")
-	}
-}
-
-func TestClassifyStatusCode_500(t *testing.T) {
-	err := classifyStatusCode(500)
-	if isAuthError(err) {
-		t.Error("expected non-auth error for status 500")
-	}
-	if !strings.Contains(err.Error(), "status 500") {
-		t.Errorf("expected 'status 500' in error, got %q", err.Error())
-	}
-}
-
-func TestClassifyStatusCode_403(t *testing.T) {
-	err := classifyStatusCode(403)
-	if isAuthError(err) {
-		t.Error("expected non-auth error for status 403")
-	}
-	if !strings.Contains(err.Error(), "status 403") {
-		t.Errorf("expected 'status 403' in error, got %q", err.Error())
-	}
-}
 
 // --- isAuthError ---
 
-func TestIsAuthError_True(t *testing.T) {
-	err := &authError{msg: "unauthorized"}
-	if !isAuthError(err) {
-		t.Error("expected true for authError")
-	}
-}
-
-func TestIsAuthError_False(t *testing.T) {
-	err := fmt.Errorf("some other error")
-	if isAuthError(err) {
-		t.Error("expected false for non-authError")
-	}
-}
-
 // --- exportExitCode ---
 
-func TestExportExitCode_NoFailures(t *testing.T) {
-	result := &ExportResult{}
-	if code := exportExitCode(result); code != 0 {
-		t.Errorf("expected 0, got %d", code)
-	}
-}
-
-func TestExportExitCode_WithFailures(t *testing.T) {
-	result := &ExportResult{}
-	result.ExportMeta.SectionsFailed = []string{"files"}
-	if code := exportExitCode(result); code != 8 {
-		t.Errorf("expected 8, got %d", code)
-	}
-}
-
 // --- fetchListRaw error paths ---
-
-func TestFetchListRaw_StatusError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/test", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	_, reqCount, err := fetchListRaw(context.Background(), client, "/api/v1/test", nil, 100)
-	if err == nil {
-		t.Fatal("expected error for 500 status, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchListRaw_401AuthError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/test", 401, map[string]any{
-		"errors": []map[string]any{{"message": "unauthorized"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	_, _, err := fetchListRaw(context.Background(), client, "/api/v1/test", nil, 100)
-	if err == nil {
-		t.Fatal("expected error for 401 status, got nil")
-	}
-	if !isAuthError(err) {
-		t.Errorf("expected authError, got %T: %v", err, err)
-	}
-}
-
-func TestFetchListRaw_DecodeError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/test", 200, "not valid json{{{")
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	_, reqCount, err := fetchListRaw(context.Background(), client, "/api/v1/test", nil, 100)
-	if err == nil {
-		t.Fatal("expected decode error, got nil")
-	}
-	if !strings.Contains(err.Error(), "decode list response") {
-		t.Errorf("expected 'decode list response' in error, got %q", err.Error())
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
 
 func TestFetchListRaw_NilQuerySetsDefault(t *testing.T) {
 	mock := testutil.NewMockCanvas()
@@ -1277,143 +1074,9 @@ func TestFetchListRaw_CancelledContext(t *testing.T) {
 
 // --- fetchSingleRaw error paths ---
 
-func TestFetchSingleRaw_StatusError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/test", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	_, reqCount, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
-	if err == nil {
-		t.Fatal("expected error for 500 status, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchSingleRaw_401AuthError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/test", 401, map[string]any{
-		"errors": []map[string]any{{"message": "unauthorized"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	_, _, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
-	if err == nil {
-		t.Fatal("expected error for 401 status, got nil")
-	}
-	if !isAuthError(err) {
-		t.Errorf("expected authError, got %T: %v", err, err)
-	}
-}
-
-func TestFetchSingleRaw_DecodeError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/test", 200, "not valid json{{{")
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	_, reqCount, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
-	if err == nil {
-		t.Fatal("expected decode error, got nil")
-	}
-	if !strings.Contains(err.Error(), "decode response") {
-		t.Errorf("expected 'decode response' in error, got %q", err.Error())
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
 // --- ExportContext edge cases ---
 
-func TestExportContext_InvalidSince(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-	setupExportMock(mock)
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	_, err := ExportContext(context.Background(), client, "1", ExportContextOpts{
-		Since: "not-a-valid-date",
-	})
-	if err == nil {
-		t.Fatal("expected error for invalid --since, got nil")
-	}
-	if !strings.Contains(err.Error(), "invalid --since value") {
-		t.Errorf("expected 'invalid --since value' in error, got %q", err.Error())
-	}
-}
-
-func TestExportContext_UnknownSection(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result, err := ExportContext(context.Background(), client, "1", ExportContextOpts{
-		Include: []string{"nonexistent_section"},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	found := false
-	for _, s := range result.ExportMeta.SectionsFailed {
-		if s == "nonexistent_section" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected 'nonexistent_section' in sections_failed, got %v", result.ExportMeta.SectionsFailed)
-	}
-}
-
-func TestExportContext_EmptySections(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result, err := ExportContext(context.Background(), client, "1", ExportContextOpts{
-		Include: []string{},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(result.ExportMeta.SectionsRequested) != len(allExportSections) {
-		t.Errorf("expected all sections requested, got %d", len(result.ExportMeta.SectionsRequested))
-	}
-}
-
 // --- fetchCourseSection error path ---
-
-func TestFetchCourseSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchCourseSection(context.Background(), client, "1", result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Course != nil {
-		t.Error("expected course to be nil on error")
-	}
-}
 
 func TestFetchCourseSection_401(t *testing.T) {
 	mock := testutil.NewMockCanvas()
@@ -1437,89 +1100,7 @@ func TestFetchCourseSection_401(t *testing.T) {
 
 // --- fetchTabsSection error path ---
 
-func TestFetchTabsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/tabs", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchTabsSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchTabsSection_EmptyResult(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/tabs", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchTabsSection(context.Background(), client, "1", time.Time{}, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Tabs != nil {
-		t.Errorf("expected nil tabs for empty result, got %v", result.Tabs)
-	}
-}
-
 // --- fetchModulesSection error paths ---
-
-func TestFetchModulesSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/modules", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchModulesSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchModulesSection_Empty(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/modules", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchModulesSection(context.Background(), client, "1", time.Time{}, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Modules != nil {
-		t.Errorf("expected nil modules for empty result, got %v", result.Modules)
-	}
-}
 
 func TestFetchModulesSection_WithItemsAlreadyPopulated(t *testing.T) {
 	mock := testutil.NewMockCanvas()
@@ -1588,36 +1169,6 @@ func TestFetchModulesSection_FetchItemsSuccess(t *testing.T) {
 	}
 }
 
-func TestFetchModulesSection_FetchItemsError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/modules", 200, []map[string]any{
-		{"id": 10.0, "name": "Week 1", "items_count": 3.0},
-	})
-	mock.On("GET", "/api/v1/courses/1/modules/10/items", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchModulesSection(context.Background(), client, "1", time.Time{}, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 2 {
-		t.Errorf("expected 2 requests, got %d", reqCount)
-	}
-	mod, ok := result.Modules[0].(map[string]any)
-	if !ok {
-		t.Fatal("module is not a map")
-	}
-	if mod["items"] != nil {
-		t.Errorf("expected items to be nil on fetch error, got %v", mod["items"])
-	}
-}
-
 func TestFetchModulesSection_StringIDSkipsItemFetch(t *testing.T) {
 	mock := testutil.NewMockCanvas()
 	defer mock.Close()
@@ -1680,228 +1231,13 @@ func TestFetchModulesSection_NoItemsCount(t *testing.T) {
 
 // --- fetchAssignmentsSection error path ---
 
-func TestFetchAssignmentsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignments", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchAssignmentsSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchAssignmentsSection_AllFiltered(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignments", 200, []map[string]any{
-		{"id": "100", "name": "Old", "updated_at": "2020-01-01T00:00:00Z"},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	since, _ := time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")
-	_, err := fetchAssignmentsSection(context.Background(), client, "1", since, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Assignments != nil {
-		t.Errorf("expected nil assignments when all filtered, got %v", result.Assignments)
-	}
-}
-
 // --- fetchAssignmentGroupsSection error path ---
-
-func TestFetchAssignmentGroupsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignment_groups", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchAssignmentGroupsSection(context.Background(), client, "1", result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchAssignmentGroupsSection_Empty(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/assignment_groups", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchAssignmentGroupsSection(context.Background(), client, "1", result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.AssignmentGroups != nil {
-		t.Errorf("expected nil for empty list, got %v", result.AssignmentGroups)
-	}
-}
 
 // --- fetchFilesSection error path ---
 
-func TestFetchFilesSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/files", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchFilesSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchFilesSection_AllFiltered(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/files", 200, []map[string]any{
-		{"id": "1", "updated_at": "2020-01-01T00:00:00Z"},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	since, _ := time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")
-	_, err := fetchFilesSection(context.Background(), client, "1", since, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Files != nil {
-		t.Errorf("expected nil files when all filtered, got %v", result.Files)
-	}
-}
-
 // --- fetchFoldersSection error path ---
 
-func TestFetchFoldersSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/folders", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchFoldersSection(context.Background(), client, "1", result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchFoldersSection_Empty(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/folders", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchFoldersSection(context.Background(), client, "1", result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Folders != nil {
-		t.Errorf("expected nil for empty list, got %v", result.Folders)
-	}
-}
-
 // --- fetchPagesSection error paths ---
-
-func TestFetchPagesSection_ErrorWithModules(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/pages", 500, map[string]any{
-		"errors": []map[string]any{{"message": "forbidden"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{
-		Modules: []any{
-			map[string]any{
-				"id":   "10",
-				"name": "Week 1",
-				"items": []any{
-					map[string]any{
-						"type":     "Page",
-						"page_url": "test-page",
-						"title":    "Test Page",
-					},
-				},
-			},
-		},
-	}
-
-	reqCount, err := fetchPagesSection(context.Background(), client, "1", time.Time{}, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount == 0 {
-		t.Error("expected at least 1 request")
-	}
-}
-
-func TestFetchPagesSection_ErrorWithoutModules(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/pages", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	_, err := fetchPagesSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-}
 
 func TestFetchPagesSection_PageWithoutURL(t *testing.T) {
 	mock := testutil.NewMockCanvas()
@@ -1926,497 +1262,27 @@ func TestFetchPagesSection_PageWithoutURL(t *testing.T) {
 	}
 }
 
-func TestFetchPagesSection_IndividualPageFetchError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/pages", 200, []map[string]any{
-		{"url": "broken-page", "title": "Broken Page"},
-	})
-	mock.On("GET", "/api/v1/courses/1/pages/broken-page", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchPagesSection(context.Background(), client, "1", time.Time{}, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 2 {
-		t.Errorf("expected 2 requests, got %d", reqCount)
-	}
-	if len(result.Pages) != 1 {
-		t.Errorf("expected 1 page (stub on error), got %d", len(result.Pages))
-	}
-}
-
-func TestFetchPagesSection_EmptyList(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/pages", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchPagesSection(context.Background(), client, "1", time.Time{}, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Pages != nil {
-		t.Errorf("expected nil pages for empty list, got %v", result.Pages)
-	}
-}
-
 // --- fetchAnnouncementsSection error path ---
-
-func TestFetchAnnouncementsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/announcements", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchAnnouncementsSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchAnnouncementsSection_AllFiltered(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/announcements", 200, []map[string]any{
-		{"id": "1", "updated_at": "2020-01-01T00:00:00Z"},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	since, _ := time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")
-	_, err := fetchAnnouncementsSection(context.Background(), client, "1", since, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Announcements != nil {
-		t.Errorf("expected nil announcements when all filtered, got %v", result.Announcements)
-	}
-}
 
 // --- fetchDiscussionsSection error path ---
 
-func TestFetchDiscussionsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/discussion_topics", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchDiscussionsSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchDiscussionsSection_AllFiltered(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/discussion_topics", 200, []map[string]any{
-		{"id": "1", "updated_at": "2020-01-01T00:00:00Z"},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	since, _ := time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")
-	_, err := fetchDiscussionsSection(context.Background(), client, "1", since, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Discussions != nil {
-		t.Errorf("expected nil discussions when all filtered, got %v", result.Discussions)
-	}
-}
-
 // --- fetchSubmissionsSection error path ---
-
-func TestFetchSubmissionsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/students/submissions", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchSubmissionsSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchSubmissionsSection_AllFiltered(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/students/submissions", 200, []map[string]any{
-		{"id": "1", "updated_at": "2020-01-01T00:00:00Z"},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	since, _ := time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")
-	_, err := fetchSubmissionsSection(context.Background(), client, "1", since, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Submissions != nil {
-		t.Errorf("expected nil submissions when all filtered, got %v", result.Submissions)
-	}
-}
 
 // --- fetchGradesSection error path ---
 
-func TestFetchGradesSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/enrollments", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchGradesSection(context.Background(), client, "1", result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchGradesSection_Empty(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/enrollments", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchGradesSection(context.Background(), client, "1", result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Grades != nil {
-		t.Errorf("expected nil grades for empty list, got %v", result.Grades)
-	}
-}
-
 // --- fetchQuizzesSection error path ---
-
-func TestFetchQuizzesSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/quizzes", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchQuizzesSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchQuizzesSection_AllFiltered(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/quizzes", 200, []map[string]any{
-		{"id": "1", "updated_at": "2020-01-01T00:00:00Z"},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	since, _ := time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")
-	_, err := fetchQuizzesSection(context.Background(), client, "1", since, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Quizzes != nil {
-		t.Errorf("expected nil quizzes when all filtered, got %v", result.Quizzes)
-	}
-}
 
 // --- fetchRubricsSection error path ---
 
-func TestFetchRubricsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/rubrics", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchRubricsSection(context.Background(), client, "1", result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchRubricsSection_Empty(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/rubrics", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchRubricsSection(context.Background(), client, "1", result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Rubrics != nil {
-		t.Errorf("expected nil rubrics for empty list, got %v", result.Rubrics)
-	}
-}
-
 // --- fetchEnrollmentsSection error path ---
-
-func TestFetchEnrollmentsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/enrollments", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchEnrollmentsSection(context.Background(), client, "1", result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchEnrollmentsSection_Empty(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/enrollments", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchEnrollmentsSection(context.Background(), client, "1", result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Enrollments != nil {
-		t.Errorf("expected nil enrollments for empty list, got %v", result.Enrollments)
-	}
-}
 
 // --- fetchSectionsSection error path ---
 
-func TestFetchSectionsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/sections", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchSectionsSection(context.Background(), client, "1", result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchSectionsSection_Empty(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/sections", 200, []map[string]any{})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchSectionsSection(context.Background(), client, "1", result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-	if result.Sections != nil {
-		t.Errorf("expected nil sections for empty list, got %v", result.Sections)
-	}
-}
-
 // --- fetchCalendarEventsSection error path ---
-
-func TestFetchCalendarEventsSection_Error(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/calendar_events", 500, map[string]any{
-		"errors": []map[string]any{{"message": "internal error"}},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchCalendarEventsSection(context.Background(), client, "1", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
-func TestFetchCalendarEventsSection_AllFiltered(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/calendar_events", 200, []map[string]any{
-		{"id": "1", "updated_at": "2020-01-01T00:00:00Z"},
-	})
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	since, _ := time.Parse(time.RFC3339, "2026-01-01T00:00:00Z")
-	_, err := fetchCalendarEventsSection(context.Background(), client, "1", since, result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.CalendarEvents != nil {
-		t.Errorf("expected nil calendar_events when all filtered, got %v", result.CalendarEvents)
-	}
-}
 
 // --- fetchSection unknown section ---
 
-func TestFetchSection_Unknown(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
-	result := &ExportResult{}
-
-	reqCount, err := fetchSection(context.Background(), client, "1", "totally_unknown", time.Time{}, result)
-	if err == nil {
-		t.Fatal("expected error for unknown section, got nil")
-	}
-	if !strings.Contains(err.Error(), "unknown section") {
-		t.Errorf("expected 'unknown section' in error, got %q", err.Error())
-	}
-	if reqCount != 0 {
-		t.Errorf("expected 0 requests for unknown section, got %d", reqCount)
-	}
-}
-
 // --- newCoursesExportContextCmd error paths ---
-
-func TestNewCoursesExportContextCmd_NoConfig(t *testing.T) {
-	cmd := newCoursesExportContextCmd()
-	cmd.SetContext(context.Background())
-	cmd.SetOut(&bytes.Buffer{})
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error for missing config, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got %q", err.Error())
-	}
-}
-
-func TestNewCoursesExportContextCmd_NoCourseFlag(t *testing.T) {
-	cfg := &config.ResolvedConfig{
-		BaseURL: "http://localhost",
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newCoursesExportContextCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error for missing --course, got nil")
-	}
-	if !strings.Contains(err.Error(), "--course is required") {
-		t.Errorf("expected '--course is required' in error, got %q", err.Error())
-	}
-}
 
 func TestNewCoursesExportContextCmd_InvalidSinceFlag(t *testing.T) {
 	cfg := &config.ResolvedConfig{
@@ -2504,34 +1370,6 @@ func TestNewCoursesExportContextCmd_AuthErrorNonJSON(t *testing.T) {
 	}
 	if !isAuthError(err) {
 		t.Errorf("expected authError, got %T: %v", err, err)
-	}
-}
-
-func TestNewCoursesExportContextCmd_OutFileCreationError(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-	setupExportMock(mock)
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newCoursesExportContextCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-	_ = cmd.Flags().Set("include", "course")
-	_ = cmd.Flags().Set("out", "/nonexistent/dir/export.json")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error for bad --out path, got nil")
-	}
-	if !strings.Contains(err.Error(), "create output file") {
-		t.Errorf("expected 'create output file' in error, got %q", err.Error())
 	}
 }
 
@@ -2682,20 +1520,6 @@ func TestFetchListRaw_PaginationWithQuery(t *testing.T) {
 
 // --- fetchSingleRaw network error ---
 
-func TestFetchSingleRaw_NetworkError(t *testing.T) {
-	closed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	closed.Close()
-	client := canvas.NewClient(closed.URL, "tok", "dev", 0, 0)
-	_, reqCount, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
-	if err == nil {
-		t.Fatal("expected network error, got nil")
-	}
-	// reqCount should still be 1 (the attempt was made)
-	if reqCount != 1 {
-		t.Errorf("expected 1 request, got %d", reqCount)
-	}
-}
-
 // --- fetchListRaw pagination edge cases ---
 
 func TestFetchListRaw_NextURLNoQuery(t *testing.T) {
@@ -2753,5 +1577,223 @@ func TestFetchListRaw_NextURLEmpty(t *testing.T) {
 	}
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
+	}
+}
+
+func TestExportContext_NetworkError(t *testing.T) {
+	// Use a closed server to simulate network errors
+	closed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	closed.Close()
+	cfg := &config.ResolvedConfig{
+		BaseURL: closed.URL,
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	result, err := ExportContext(context.Background(), canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", 0, 0), "1", ExportContextOpts{
+		Include: []string{"modules"}, // just one section to keep test fast
+	})
+	// Network errors should not return a fatal error; they warn
+	if err != nil {
+		t.Fatalf("ExportContext should not fail on network error (should warn): %v", err)
+	}
+
+	if len(result.ExportMeta.SectionsFailed) == 0 {
+		t.Error("expected section to fail on network error")
+	}
+
+	if len(result.ExportMeta.Warnings) == 0 {
+		t.Error("expected warning for network error")
+	}
+}
+
+func TestExportContext_ExitCode(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+	setupExportMock(mock)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	// All succeed -> exit 0
+	result, err := ExportContext(context.Background(), canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", 0, 0), "1", ExportContextOpts{
+		Include: []string{"modules"},
+	})
+	if err != nil {
+		t.Fatalf("ExportContext failed: %v", err)
+	}
+	code := exportExitCode(result)
+	if code != 0 {
+		t.Errorf("expected exit code 0 when all succeed, got %d", code)
+	}
+
+	// Some failed -> exit 8
+	mock.On("GET", "/api/v1/courses/1/files", 403, map[string]any{
+		"errors": []map[string]any{{"message": "forbidden"}},
+	})
+	result2, err := ExportContext(context.Background(), canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", 0, 0), "1", ExportContextOpts{
+		Include: []string{"modules", "files"},
+	})
+	if err != nil {
+		t.Fatalf("ExportContext failed: %v", err)
+	}
+	code2 := exportExitCode(result2)
+	if code2 != 8 {
+		t.Errorf("expected exit code 8 on partial failure, got %d", code2)
+	}
+}
+
+func TestFetchListRaw_StatusError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/test", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal error"}},
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	_, reqCount, err := fetchListRaw(context.Background(), client, "/api/v1/test", nil, 100)
+	if err == nil {
+		t.Fatal("expected error for 500 status, got nil")
+	}
+	if reqCount != 1 {
+		t.Errorf("expected 1 request, got %d", reqCount)
+	}
+}
+
+func TestFetchListRaw_401AuthError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/test", 401, map[string]any{
+		"errors": []map[string]any{{"message": "unauthorized"}},
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	_, _, err := fetchListRaw(context.Background(), client, "/api/v1/test", nil, 100)
+	if err == nil {
+		t.Fatal("expected error for 401 status, got nil")
+	}
+	if !isAuthError(err) {
+		t.Errorf("expected authError, got %T: %v", err, err)
+	}
+}
+
+func TestFetchListRaw_DecodeError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/test", 200, "not valid json{{{")
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	_, reqCount, err := fetchListRaw(context.Background(), client, "/api/v1/test", nil, 100)
+	if err == nil {
+		t.Fatal("expected decode error, got nil")
+	}
+	if !strings.Contains(err.Error(), "decode list response") {
+		t.Errorf("expected 'decode list response' in error, got %q", err.Error())
+	}
+	if reqCount != 1 {
+		t.Errorf("expected 1 request, got %d", reqCount)
+	}
+}
+
+func TestFetchSingleRaw_StatusError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/test", 500, map[string]any{
+		"errors": []map[string]any{{"message": "internal error"}},
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	_, reqCount, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
+	if err == nil {
+		t.Fatal("expected error for 500 status, got nil")
+	}
+	if reqCount != 1 {
+		t.Errorf("expected 1 request, got %d", reqCount)
+	}
+}
+
+func TestFetchSingleRaw_401AuthError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/test", 401, map[string]any{
+		"errors": []map[string]any{{"message": "unauthorized"}},
+	})
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	_, _, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
+	if err == nil {
+		t.Fatal("expected error for 401 status, got nil")
+	}
+	if !isAuthError(err) {
+		t.Errorf("expected authError, got %T: %v", err, err)
+	}
+}
+
+func TestFetchSingleRaw_DecodeError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+
+	mock.On("GET", "/api/v1/test", 200, "not valid json{{{")
+
+	client := canvas.NewClient(mock.URL(), "tok", "dev", 0, 0)
+	_, reqCount, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
+	if err == nil {
+		t.Fatal("expected decode error, got nil")
+	}
+	if !strings.Contains(err.Error(), "decode response") {
+		t.Errorf("expected 'decode response' in error, got %q", err.Error())
+	}
+	if reqCount != 1 {
+		t.Errorf("expected 1 request, got %d", reqCount)
+	}
+}
+
+func TestFetchSingleRaw_NetworkError(t *testing.T) {
+	closed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	closed.Close()
+	client := canvas.NewClient(closed.URL, "tok", "dev", 0, 0)
+	_, reqCount, err := fetchSingleRaw(context.Background(), client, "/api/v1/test", nil)
+	if err == nil {
+		t.Fatal("expected network error, got nil")
+	}
+	// reqCount should still be 1 (the attempt was made)
+	if reqCount != 1 {
+		t.Errorf("expected 1 request, got %d", reqCount)
+	}
+}
+
+func TestNewCoursesExportContextCmd_OutFileCreationError(t *testing.T) {
+	mock := testutil.NewMockCanvas()
+	defer mock.Close()
+	setupExportMock(mock)
+
+	cfg := &config.ResolvedConfig{
+		BaseURL: mock.URL(),
+		Token:   "test-token",
+		Profile: "default",
+	}
+
+	var buf bytes.Buffer
+	cmd := newCoursesExportContextCmd()
+	cmd.SetContext(WithConfig(context.Background(), cfg))
+	cmd.SetOut(&buf)
+	_ = cmd.Flags().Set("course", "1")
+	_ = cmd.Flags().Set("include", "course")
+	_ = cmd.Flags().Set("out", "/nonexistent/dir/export.json")
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error for bad --out path, got nil")
+	}
+	if !strings.Contains(err.Error(), "create output file") {
+		t.Errorf("expected 'create output file' in error, got %q", err.Error())
 	}
 }

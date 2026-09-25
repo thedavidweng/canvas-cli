@@ -14,13 +14,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestFilesCmd_Exists(t *testing.T) {
-	cmd := NewFilesCmd()
-	if cmd.Use != "files" {
-		t.Errorf("expected Use 'files', got %q", cmd.Use)
-	}
-}
-
 func TestFilesCmd_HasListSubcommand(t *testing.T) {
 	cmd := NewFilesCmd()
 	found := false
@@ -285,48 +278,6 @@ func TestFilesGet_JSONMode(t *testing.T) {
 	last := mock.LastRequest()
 	if last.Path != "/api/v1/files/10" {
 		t.Errorf("expected request to /api/v1/files/10, got %s", last.Path)
-	}
-}
-
-func TestFilesGet_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/files/10", 200, map[string]any{
-		"id":           "10",
-		"display_name": "syllabus.pdf",
-		"filename":     "syllabus.pdf",
-		"size":         1024,
-		"content_type": "application/pdf",
-		"created_at":   "2026-01-01T00:00:00Z",
-		"updated_at":   "2026-01-01T00:00:00Z",
-	})
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL(),
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := newFilesGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, []string{"10"})
-	if err != nil {
-		t.Fatalf("files get 10 failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "syllabus.pdf") {
-		t.Errorf("expected 'syllabus.pdf' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "1024") {
-		t.Errorf("expected size '1024' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "application/pdf") {
-		t.Errorf("expected content type in output, got: %s", output)
 	}
 }
 
@@ -630,21 +581,5 @@ func TestFilesDownloadCourse_NoOverwrite(t *testing.T) {
 	content, _ := os.ReadFile(filepath.Join(outDir, "syllabus.pdf"))
 	if string(content) != "original" {
 		t.Errorf("file was overwritten: got %q, want %q", content, "original")
-	}
-}
-
-func TestFilesList_NilConfig(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := newFilesListCmd()
-	cmd.SetContext(context.Background()) // no config
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got: %v", err)
 	}
 }

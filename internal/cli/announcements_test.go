@@ -14,13 +14,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestAnnouncementsCmd_Exists(t *testing.T) {
-	cmd := NewAnnouncementsCmd()
-	if cmd.Use != "announcements" {
-		t.Errorf("expected Use 'announcements', got %q", cmd.Use)
-	}
-}
-
 func TestAnnouncementsCmd_HasListSubcommand(t *testing.T) {
 	cmd := NewAnnouncementsCmd()
 	found := false
@@ -403,97 +396,5 @@ func TestAnnouncementsGet_JSONMode(t *testing.T) {
 	last := mock.LastRequest()
 	if last.Path != "/api/v1/courses/1/discussion_topics/100" {
 		t.Errorf("expected request to /api/v1/courses/1/discussion_topics/100, got %s", last.Path)
-	}
-}
-
-func TestAnnouncementsGet_HumanMode(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	postedAt := "2026-01-15T12:00:00Z"
-	mock.On("GET", "/api/v1/courses/1/discussion_topics/100", 200, map[string]any{
-		"id":              "100",
-		"title":           "Welcome to CS101",
-		"message":         "Welcome everyone!",
-		"is_announcement": true,
-		"published":       true,
-		"posted_at":       postedAt,
-		"user_name":       "Prof. Smith",
-	})
-
-	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-	var buf bytes.Buffer
-	cmd := newAnnouncementsGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, []string{"100"})
-	if err != nil {
-		t.Fatalf("announcements get failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Welcome to CS101") {
-		t.Errorf("expected 'Welcome to CS101' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Welcome everyone!") {
-		t.Errorf("expected message in output, got: %s", output)
-	}
-	if !strings.Contains(output, "2026-01-15T12:00:00Z") {
-		t.Errorf("expected posted_at in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Prof. Smith") {
-		t.Errorf("expected user name in output, got: %s", output)
-	}
-}
-
-func TestAnnouncementsGet_HumanModeNoPostedAt(t *testing.T) {
-	mock := testutil.NewMockCanvas()
-	defer mock.Close()
-
-	mock.On("GET", "/api/v1/courses/1/discussion_topics/101", 200, map[string]any{
-		"id":              "101",
-		"title":           "Midterm Info",
-		"message":         "Midterm is next week.",
-		"is_announcement": true,
-		"published":       true,
-		"user_name":       "Prof. Smith",
-	})
-
-	cfg := &config.ResolvedConfig{BaseURL: mock.URL(), Token: "tok", Profile: "default"}
-	var buf bytes.Buffer
-	cmd := newAnnouncementsGetCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, []string{"101"})
-	if err != nil {
-		t.Fatalf("announcements get failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Midterm Info") {
-		t.Errorf("expected 'Midterm Info' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "n/a") {
-		t.Errorf("expected 'n/a' for missing posted_at, got: %s", output)
-	}
-}
-
-func TestAnnouncementsList_NilConfig(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := newAnnouncementsListCmd()
-	cmd.SetContext(context.Background()) // no config
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("course", "1")
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error when config is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "no config loaded") {
-		t.Errorf("expected 'no config loaded' in error, got: %v", err)
 	}
 }

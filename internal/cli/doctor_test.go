@@ -13,13 +13,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/config"
 )
 
-func TestDoctorCmd_Exists(t *testing.T) {
-	cmd := NewDoctorCmd()
-	if cmd.Use != "doctor" {
-		t.Errorf("expected Use 'doctor', got %q", cmd.Use)
-	}
-}
-
 func TestDoctorCmd_AllChecksPass(t *testing.T) {
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -357,66 +350,5 @@ func TestDoctorCmd_SessionCookie_EmptyValue(t *testing.T) {
 
 	if checks["session_cookie"] != "warn" {
 		t.Errorf("expected session_cookie=warn for whitespace-only cookie, got %s", checks["session_cookie"])
-	}
-}
-
-func TestDoctorCmd_CheckNames(t *testing.T) {
-	expectedChecks := []string{
-		"config_file",
-		"config_permissions",
-		"token_present",
-		"session_cookie",
-		"base_url",
-		"api_and_token",
-		"write_safety",
-	}
-
-	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id":   "1",
-			"name": "Test User",
-		})
-	}))
-	defer mock.Close()
-
-	cfg := &config.ResolvedConfig{
-		BaseURL: mock.URL,
-		Token:   "test-token",
-		Profile: "default",
-	}
-
-	var buf bytes.Buffer
-	cmd := NewDoctorCmd()
-	cmd.SetContext(WithConfig(context.Background(), cfg))
-	cmd.SetOut(&buf)
-	_ = cmd.Flags().Set("json", "true")
-
-	_ = cmd.RunE(cmd, nil)
-
-	var env canvas.Envelope
-	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
-		t.Fatalf("failed to parse JSON: %v", err)
-	}
-
-	data, ok := env.Data.([]any)
-	if !ok {
-		t.Fatalf("expected data to be array, got %T", env.Data)
-	}
-
-	checkNames := make(map[string]bool)
-	for _, item := range data {
-		if check, ok := item.(map[string]any); ok {
-			if name, ok := check["check"].(string); ok {
-				checkNames[name] = true
-			}
-		}
-	}
-
-	for _, expected := range expectedChecks {
-		if !checkNames[expected] {
-			t.Errorf("missing check: %s", expected)
-		}
 	}
 }

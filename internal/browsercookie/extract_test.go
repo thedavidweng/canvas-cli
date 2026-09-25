@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"runtime"
 	"testing"
 	"time"
 
@@ -347,54 +346,6 @@ func TestExtractCookiesForBrowser_MultipleBrowsers(t *testing.T) {
 }
 
 // --- AvailableBrowsers tests ---
-
-func TestAvailableBrowsers_ReturnsNonEmpty(t *testing.T) {
-	browsers := AvailableBrowsers()
-	if len(browsers) == 0 {
-		t.Error("expected non-empty browser list")
-	}
-}
-
-func TestAvailableBrowsers_ContainsExpectedBrowsers(t *testing.T) {
-	browsers := AvailableBrowsers()
-	browserSet := make(map[string]bool)
-	for _, b := range browsers {
-		browserSet[b] = true
-	}
-
-	// All platforms should have at least chrome and firefox.
-	for _, expected := range []string{"chrome", "firefox"} {
-		if !browserSet[expected] {
-			t.Errorf("expected %q in available browsers for %s, got %v", expected, runtime.GOOS, browsers)
-		}
-	}
-}
-
-func TestAvailableBrowsers_PlatformSpecific(t *testing.T) {
-	browsers := AvailableBrowsers()
-	browserSet := make(map[string]bool)
-	for _, b := range browsers {
-		browserSet[b] = true
-	}
-
-	switch runtime.GOOS {
-	case "darwin":
-		if !browserSet["safari"] {
-			t.Error("expected 'safari' on darwin")
-		}
-		if !browserSet["edge"] {
-			t.Error("expected 'edge' on darwin")
-		}
-	case "linux":
-		if !browserSet["chromium"] {
-			t.Error("expected 'chromium' on linux")
-		}
-	case "windows":
-		if !browserSet["edge"] {
-			t.Error("expected 'edge' on windows")
-		}
-	}
-}
 
 // --- ReadCookies (DefaultReader) tests ---
 

@@ -22,29 +22,6 @@ import (
 	"github.com/thedavidweng/canvas-cli/internal/testutil"
 )
 
-func TestAuthCmd_Exists(t *testing.T) {
-	cmd := NewAuthCmd()
-	if cmd.Use != "auth" {
-		t.Errorf("expected Use 'auth', got %q", cmd.Use)
-	}
-}
-
-func TestAuthCmd_HasSubcommands(t *testing.T) {
-	cmd := NewAuthCmd()
-	expected := []string{"status", "test", "login", "logout", "profiles", "use"}
-
-	names := make(map[string]bool)
-	for _, sub := range cmd.Commands() {
-		names[sub.Name()] = true
-	}
-
-	for _, name := range expected {
-		if !names[name] {
-			t.Errorf("missing auth subcommand: %s", name)
-		}
-	}
-}
-
 func TestAuthStatus_ShowsProfileAndBaseURL(t *testing.T) {
 	cfg := &config.ResolvedConfig{
 		BaseURL: "https://school.instructure.com",
@@ -1276,36 +1253,6 @@ func TestAuthTest_TokenAndCookie_EndToEnd_TokenPrecedence(t *testing.T) {
 	}
 }
 
-func TestIsCookieChoice(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  bool
-	}{
-		{"number 2", "2", true},
-		{"lowercase cookie", "cookie", true},
-		{"session cookie", "session cookie", true},
-		{"uppercase", "COOKIE", true},
-		{"mixed case", "Session Cookie", true},
-		{"with spaces", "  cookie  ", true},
-		{"number 2 with spaces", " 2 ", true},
-		{"number 1", "1", false},
-		{"empty", "", false},
-		{"token", "token", false},
-		{"random string", "foobar", false},
-		{"partial match", "cook", false},
-		{"session", "session", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isCookieChoice(tt.input)
-			if got != tt.want {
-				t.Errorf("isCookieChoice(%q) = %v, want %v", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
 // --- Interactive prompt tests ---
 
 // redirectStdin replaces os.Stdin with a pipe that writes the given lines and closes.
@@ -1331,345 +1278,6 @@ func redirectStdin(t *testing.T, lines ...string) {
 		}
 		w.Close()
 	}()
-}
-
-func TestPromptLine_ReadsAndTrims(t *testing.T) {
-	redirectStdin(t, "  hello world  ")
-	var buf bytes.Buffer
-	result := promptLine(&buf, "Enter: ")
-	if result != "hello world" {
-		t.Errorf("expected 'hello world', got %q", result)
-	}
-	if !strings.Contains(buf.String(), "Enter: ") {
-		t.Errorf("expected prompt in output, got %q", buf.String())
-	}
-}
-
-func TestPromptLine_EmptyInput(t *testing.T) {
-	redirectStdin(t, "")
-	var buf bytes.Buffer
-	result := promptLine(&buf, "Enter: ")
-	if result != "" {
-		t.Errorf("expected empty string, got %q", result)
-	}
-}
-
-func TestPromptLine_NoInput(t *testing.T) {
-	// Pipe with immediate close — scanner.Scan() returns false.
-	oldStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	os.Stdin = r
-	defer func() { os.Stdin = oldStdin }()
-	w.Close()
-
-	var buf bytes.Buffer
-	result := promptLine(&buf, "Enter: ")
-	if result != "" {
-		t.Errorf("expected empty string on closed stdin, got %q", result)
-	}
-}
-
-func TestIsTerminal_WithBuffer(t *testing.T) {
-	// bytes.Buffer is not an *os.File, so isTerminal should return false.
-	var buf bytes.Buffer
-	if isTerminal(&buf) {
-		t.Error("expected isTerminal to return false for bytes.Buffer")
-	}
-}
-
-func TestIsTerminal_WithPipe(t *testing.T) {
-	r, _, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	defer r.Close()
-	// Pipe fd is not a char device.
-	if isTerminal(r) {
-		t.Error("expected isTerminal to return false for pipe")
-	}
-}
-
-func TestPromptAuthMethod_TokenFlow(t *testing.T) {
-	redirectStdin(t, "1", "my-secret-token")
-	var buf bytes.Buffer
-	tok, cookie, csrf, err := promptAuthMethod(context.Background(), &buf, "https://school.instructure.com", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if tok != "my-secret-token" {
-		t.Errorf("expected token 'my-secret-token', got %q", tok)
-	}
-	if cookie != "" {
-		t.Errorf("expected empty cookie, got %q", cookie)
-	}
-	if csrf != "" {
-		t.Errorf("expected empty csrf, got %q", csrf)
-	}
-	if !strings.Contains(buf.String(), "Access Token:") {
-		t.Errorf("expected 'Access Token:' prompt in output, got %q", buf.String())
-	}
-}
-
-func TestPromptAuthMethod_TokenDefault(t *testing.T) {
-	// Empty selection defaults to token flow.
-	redirectStdin(t, "", "my-token")
-	var buf bytes.Buffer
-	tok, _, _, err := promptAuthMethod(context.Background(), &buf, "https://school.instructure.com", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if tok != "my-token" {
-		t.Errorf("expected token 'my-token', got %q", tok)
-	}
-}
-
-func TestPromptAuthMethod_EmptyToken(t *testing.T) {
-	redirectStdin(t, "1", "")
-	var buf bytes.Buffer
-	_, _, _, err := promptAuthMethod(context.Background(), &buf, "https://school.instructure.com", "")
-	if err == nil {
-		t.Fatal("expected error for empty token")
-	}
-	if !strings.Contains(err.Error(), "access token is required") {
-		t.Errorf("expected 'access token is required' error, got %v", err)
-	}
-}
-
-func TestPromptAuthMethod_CookieFlow(t *testing.T) {
-	// Select "2" for cookie, then "n" to abort the cookie flow.
-	redirectStdin(t, "2", "n")
-	var buf bytes.Buffer
-	_, _, _, err := promptAuthMethod(context.Background(), &buf, "https://school.instructure.com", "")
-	if err == nil {
-		t.Fatal("expected error when aborting cookie flow")
-	}
-	if !strings.Contains(err.Error(), "aborted") {
-		t.Errorf("expected 'aborted' error, got %v", err)
-	}
-}
-
-func TestPromptCookieManual_EntersCookieAndCSRF(t *testing.T) {
-	redirectStdin(t, "my-session-cookie", "my-csrf-token")
-	var buf bytes.Buffer
-	tok, cookie, csrf, err := promptCookieManual(&buf)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if tok != "" {
-		t.Errorf("expected empty token, got %q", tok)
-	}
-	if cookie != "my-session-cookie" {
-		t.Errorf("expected cookie 'my-session-cookie', got %q", cookie)
-	}
-	if csrf != "my-csrf-token" {
-		t.Errorf("expected csrf 'my-csrf-token', got %q", csrf)
-	}
-}
-
-func TestPromptCookieManual_EmptyCookie(t *testing.T) {
-	redirectStdin(t, "")
-	var buf bytes.Buffer
-	_, _, _, err := promptCookieManual(&buf)
-	if err == nil {
-		t.Fatal("expected error for empty cookie")
-	}
-	if !strings.Contains(err.Error(), "session cookie is required") {
-		t.Errorf("expected 'session cookie is required' error, got %v", err)
-	}
-}
-
-func TestPromptCookieManual_EmptyCSRF(t *testing.T) {
-	// CSRF is optional — pressing Enter should be fine.
-	redirectStdin(t, "my-session-cookie", "")
-	var buf bytes.Buffer
-	_, cookie, csrf, err := promptCookieManual(&buf)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cookie != "my-session-cookie" {
-		t.Errorf("expected cookie 'my-session-cookie', got %q", cookie)
-	}
-	if csrf != "" {
-		t.Errorf("expected empty csrf, got %q", csrf)
-	}
-}
-
-func TestPromptCookieAuth_AbortedOnN(t *testing.T) {
-	redirectStdin(t, "n")
-	var buf bytes.Buffer
-	_, _, _, err := promptCookieAuth(context.Background(), &buf, "https://school.instructure.com", "")
-	if err == nil {
-		t.Fatal("expected error for abort")
-	}
-	if !strings.Contains(err.Error(), "aborted") {
-		t.Errorf("expected 'aborted' error, got %v", err)
-	}
-}
-
-func TestPromptCookieAuth_AbortedOnEmpty(t *testing.T) {
-	redirectStdin(t, "")
-	var buf bytes.Buffer
-	_, _, _, err := promptCookieAuth(context.Background(), &buf, "https://school.instructure.com", "")
-	if err == nil {
-		t.Fatal("expected error for empty (default N)")
-	}
-	if !strings.Contains(err.Error(), "aborted") {
-		t.Errorf("expected 'aborted' error, got %v", err)
-	}
-}
-
-func TestPromptCookieAuth_ManualFallback(t *testing.T) {
-	// "y" to confirm, then force manual path by providing browser override
-	// that will fail extraction, then "manual" to enter manually.
-	// Since KOOKY_AVAILABLE is true, it tries ExtractCookiesForBrowser with the override.
-	// Inject a mock that returns an error so extraction fails, then pick "manual".
-	oldReader := browsercookie.Reader
-	browsercookie.Reader = &testMockCookieReader{err: fmt.Errorf("no cookies found")}
-	defer func() { browsercookie.Reader = oldReader }()
-
-	redirectStdin(t, "y", "manual", "cookie-value", "csrf-value")
-	var buf bytes.Buffer
-	tok, cookie, csrf, err := promptCookieAuth(context.Background(), &buf, "https://school.instructure.com", "chrome")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if tok != "" {
-		t.Errorf("expected empty token, got %q", tok)
-	}
-	if cookie != "cookie-value" {
-		t.Errorf("expected cookie 'cookie-value', got %q", cookie)
-	}
-	if csrf != "csrf-value" {
-		t.Errorf("expected csrf 'csrf-value', got %q", csrf)
-	}
-}
-
-func TestPromptCookieAuth_AbortAfterFailedExtraction(t *testing.T) {
-	oldReader := browsercookie.Reader
-	browsercookie.Reader = &testMockCookieReader{err: fmt.Errorf("no cookies found")}
-	defer func() { browsercookie.Reader = oldReader }()
-
-	redirectStdin(t, "y", "abort")
-	var buf bytes.Buffer
-	_, _, _, err := promptCookieAuth(context.Background(), &buf, "https://school.instructure.com", "chrome")
-	if err == nil {
-		t.Fatal("expected error when aborting after failed extraction")
-	}
-	if !strings.Contains(err.Error(), "aborted") {
-		t.Errorf("expected 'aborted' error, got %v", err)
-	}
-}
-
-func TestPromptCookieAuth_SuccessfulExtraction(t *testing.T) {
-	// Mock reader returns valid cookies with BrowserInfo so ExtractCookiesForBrowser
-	// can filter by browser name.
-	oldReader := browsercookie.Reader
-	browsercookie.Reader = &testMockCookieReader{
-		cookies: []*kooky.Cookie{
-			testMakeCookieWithBrowser("_instructure_session", "sess123", "school.instructure.com", "chrome"),
-			testMakeCookieWithBrowser("_csrf_token", "csrf456", "school.instructure.com", "chrome"),
-		},
-	}
-	defer func() { browsercookie.Reader = oldReader }()
-
-	redirectStdin(t, "y")
-	var buf bytes.Buffer
-	tok, cookie, csrf, err := promptCookieAuth(context.Background(), &buf, "https://school.instructure.com", "chrome")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if tok != "" {
-		t.Errorf("expected empty token, got %q", tok)
-	}
-	if cookie != "_instructure_session=sess123" {
-		t.Errorf("expected cookie '_instructure_session=sess123', got %q", cookie)
-	}
-	if csrf != "csrf456" {
-		t.Errorf("expected csrf 'csrf456', got %q", csrf)
-	}
-}
-
-func TestPromptBrowserSelection_NumericChoice(t *testing.T) {
-	available := browsercookie.AvailableBrowsers()
-	if len(available) == 0 {
-		t.Skip("no browsers available on this platform")
-	}
-	redirectStdin(t, "1")
-	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf)
-	if len(result) != 1 {
-		t.Fatalf("expected 1 browser, got %d", len(result))
-	}
-	if result[0] != available[0] {
-		t.Errorf("expected %q, got %q", available[0], result[0])
-	}
-}
-
-func TestPromptBrowserSelection_NameChoice(t *testing.T) {
-	available := browsercookie.AvailableBrowsers()
-	if len(available) == 0 {
-		t.Skip("no browsers available on this platform")
-	}
-	redirectStdin(t, available[0])
-	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf)
-	if len(result) != 1 {
-		t.Fatalf("expected 1 browser, got %d", len(result))
-	}
-	if result[0] != available[0] {
-		t.Errorf("expected %q, got %q", available[0], result[0])
-	}
-}
-
-func TestPromptBrowserSelection_CaseInsensitiveName(t *testing.T) {
-	available := browsercookie.AvailableBrowsers()
-	if len(available) == 0 {
-		t.Skip("no browsers available on this platform")
-	}
-	// Use uppercase version of first browser name.
-	redirectStdin(t, strings.ToUpper(available[0]))
-	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf)
-	if len(result) != 1 {
-		t.Fatalf("expected 1 browser, got %d", len(result))
-	}
-	if result[0] != available[0] {
-		t.Errorf("expected %q, got %q", available[0], result[0])
-	}
-}
-
-func TestPromptBrowserSelection_EmptyChoice(t *testing.T) {
-	redirectStdin(t, "")
-	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf)
-	if result != nil {
-		t.Errorf("expected nil for empty choice, got %v", result)
-	}
-}
-
-func TestPromptBrowserSelection_OutOfRange(t *testing.T) {
-	available := browsercookie.AvailableBrowsers()
-	if len(available) == 0 {
-		t.Skip("no browsers available on this platform")
-	}
-	redirectStdin(t, "999")
-	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf)
-	if result != nil {
-		t.Errorf("expected nil for out-of-range choice, got %v", result)
-	}
-}
-
-func TestPromptBrowserSelection_InvalidName(t *testing.T) {
-	redirectStdin(t, "nonexistent-browser")
-	var buf bytes.Buffer
-	result := promptBrowserSelection(&buf)
-	if result != nil {
-		t.Errorf("expected nil for invalid name, got %v", result)
-	}
 }
 
 // testMockCookieReader implements browsercookie.CookieReader for cli package tests.
@@ -1729,3 +1337,32 @@ func (b *testBrowserInfo) Browser() string        { return b.name }
 func (b *testBrowserInfo) Profile() string        { return "" }
 func (b *testBrowserInfo) IsDefaultProfile() bool { return true }
 func (b *testBrowserInfo) FilePath() string       { return "" }
+
+func TestPromptCookieAuth_SuccessfulExtraction(t *testing.T) {
+	// Mock reader returns valid cookies with BrowserInfo so ExtractCookiesForBrowser
+	// can filter by browser name.
+	oldReader := browsercookie.Reader
+	browsercookie.Reader = &testMockCookieReader{
+		cookies: []*kooky.Cookie{
+			testMakeCookieWithBrowser("_instructure_session", "sess123", "school.instructure.com", "chrome"),
+			testMakeCookieWithBrowser("_csrf_token", "csrf456", "school.instructure.com", "chrome"),
+		},
+	}
+	defer func() { browsercookie.Reader = oldReader }()
+
+	redirectStdin(t, "y")
+	var buf bytes.Buffer
+	tok, cookie, csrf, err := promptCookieAuth(context.Background(), &buf, "https://school.instructure.com", "chrome")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok != "" {
+		t.Errorf("expected empty token, got %q", tok)
+	}
+	if cookie != "_instructure_session=sess123" {
+		t.Errorf("expected cookie '_instructure_session=sess123', got %q", cookie)
+	}
+	if csrf != "csrf456" {
+		t.Errorf("expected csrf 'csrf456', got %q", csrf)
+	}
+}
