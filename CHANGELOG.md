@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2](https://github.com/thedavidweng/canvas-cli/compare/v0.4.1...v0.4.2) (2026-10-11)
+
+
+### Documentation
+
+* refactor agent instructions with progressive disclosure ([#34](https://github.com/thedavidweng/canvas-cli/issues/34)) ([fab0f37](https://github.com/thedavidweng/canvas-cli/commit/fab0f37e03c39b33735d4da06637499a73f93aa9))
+
 ## [0.4.1](https://github.com/thedavidweng/canvas-cli/compare/v0.4.0...v0.4.1) (2026-09-21)
 
 
