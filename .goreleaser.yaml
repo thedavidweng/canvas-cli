@@ -21,6 +21,8 @@ builds:
       - amd64
       - arm64
     mod_timestamp: "{{ .CommitTimestamp }}"
+    hooks:
+      post: bash scripts/sign-and-notarize.sh "{{ .Os }}" "{{ .Path }}" "{{ .IsSnapshot }}"
 
 archives:
   - id: default
