@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.3](https://github.com/thedavidweng/canvas-cli/compare/v0.4.2...v0.4.3) (2026-10-17)
+
+
+### Bug Fixes
+
+* **release:** sign and notarize macOS executables ([#36](https://github.com/thedavidweng/canvas-cli/issues/36)) ([e144867](https://github.com/thedavidweng/canvas-cli/commit/e1448678eb9cf824b39e2b3f79c9ea35bea0f234))
+
 ## [0.4.2](https://github.com/thedavidweng/canvas-cli/compare/v0.4.1...v0.4.2) (2026-10-11)
 
 
