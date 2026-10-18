@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,13 @@ func newClientFromCfg(cfg *config.ResolvedConfig) *canvas.Client {
 	client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
 	if cfg.Token == "" && cfg.Cookie != "" {
 		client.WithCookie(cfg.Cookie, cfg.CSRFToken)
+	}
+	if cfg.OAuthTransport != nil {
+		client.SetHTTPClient(&http.Client{
+			Timeout:       cfg.TimeoutDuration,
+			Transport:     cfg.OAuthTransport,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		})
 	}
 	return client
 }

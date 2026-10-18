@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -46,6 +47,8 @@ type ResolvedConfig struct {
 	AuditPath        string
 	Warnings         []string
 	StartTime        time.Time
+	OAuth            *canvas.OAuthConfig
+	OAuthTransport   http.RoundTripper
 }
 
 // String returns a human-readable summary with sensitive values redacted.
@@ -131,6 +134,15 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 	}
 
 	token := choose(opts.Token, os.Getenv("CANVAS_TOKEN"), prof.Token)
+	var oauthConfig *canvas.OAuthConfig
+	if token == "" && prof.OAuth != nil && prof.OAuth.AccessToken != "" {
+		if baseURL != normalizeBaseURL(prof.BaseURL) {
+			return nil, fmt.Errorf("OAuth credentials require the profile's configured base URL")
+		}
+		oauthCopy := *prof.OAuth
+		oauthConfig = &oauthCopy
+		token = oauthCopy.AccessToken
+	}
 	if strings.HasPrefix(token, "env:") {
 		envKey := strings.TrimPrefix(token, "env:")
 		resolved := os.Getenv(envKey)
@@ -217,6 +229,7 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		AuditEnabled:     cfg.Audit.Enabled,
 		AuditPath:        cfg.Audit.Path,
 		Warnings:         warnings,
+		OAuth:            oauthConfig,
 	}, nil
 }
 

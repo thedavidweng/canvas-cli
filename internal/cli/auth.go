@@ -36,6 +36,8 @@ func NewAuthCmd() *cobra.Command {
 	cmd.AddCommand(newAuthLogoutCmd())
 	cmd.AddCommand(newAuthProfilesCmd())
 	cmd.AddCommand(newAuthUseCmd())
+	cmd.AddCommand(newAuthOAuthCmd())
+	cmd.AddCommand(newAuthRefreshCmd())
 
 	return cmd
 }
@@ -62,15 +64,20 @@ func newAuthStatusCmd() *cobra.Command {
 			} else if cookiePresent {
 				authMethod = "cookie (experimental)"
 			}
+			if cfg.OAuth != nil {
+				authMethod = "oauth"
+			}
+			status := map[string]any{
+				"profile": cfg.Profile, "base_url": cfg.BaseURL, "auth_method": authMethod,
+				"token_present": tokenPresent, "cookie_present": cookiePresent,
+			}
+			if cfg.OAuth != nil {
+				status["refresh_token_present"] = cfg.OAuth.RefreshToken != ""
+				status["expires_at"] = cfg.OAuth.ExpiresAt
+			}
 
 			if jsonMode {
-				env := output.NewSuccess(map[string]any{
-					"profile":        cfg.Profile,
-					"base_url":       cfg.BaseURL,
-					"auth_method":    authMethod,
-					"token_present":  tokenPresent,
-					"cookie_present": cookiePresent,
-				}, "auth.status", canvas.Meta{
+				env := output.NewSuccess(status, "auth.status", canvas.Meta{
 					Profile: cfg.Profile,
 					BaseURL: cfg.BaseURL,
 				})
@@ -81,6 +88,9 @@ func newAuthStatusCmd() *cobra.Command {
 			fmt.Fprintf(w, "Profile:    %s\n", cfg.Profile)
 			fmt.Fprintf(w, "Base URL:   %s\n", cfg.BaseURL)
 			fmt.Fprintf(w, "Auth:       %s\n", authMethod)
+			if cfg.OAuth != nil {
+				fmt.Fprintf(w, "Expires:    %s\nRefresh token present: %t\n", cfg.OAuth.ExpiresAt, cfg.OAuth.RefreshToken != "")
+			}
 			return nil
 		},
 	}
@@ -101,10 +111,7 @@ func newAuthTestCmd() *cobra.Command {
 
 			jsonMode, _ := cmd.Flags().GetBool("json")
 
-			client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", cfg.TimeoutDuration, cfg.Retries)
-			if cfg.Token == "" && cfg.Cookie != "" {
-				client.WithCookie(cfg.Cookie, cfg.CSRFToken)
-			}
+			client := newClientFromCfg(cfg)
 			resp, err := client.Do(cmd.Context(), "GET", "/api/v1/users/self", nil, nil)
 			if err != nil {
 				if jsonMode {
@@ -324,6 +331,7 @@ Supports multiple profiles for multiple institutions or users:
 			prof.Token = token
 			prof.Cookie = cookie
 			prof.CSRFToken = csrfToken
+			clearOAuthTokens(prof.OAuth)
 			existingCfg.Profiles[profileName] = prof
 			existingCfg.CurrentProfile = profileName
 
@@ -581,6 +589,7 @@ func newAuthLogoutCmd() *cobra.Command {
 			prof.Token = ""
 			prof.Cookie = ""
 			prof.CSRFToken = ""
+			clearOAuthTokens(prof.OAuth)
 			existingCfg.Profiles[cfg.Profile] = prof
 
 			if err := writeConfigFile(configPath, existingCfg); err != nil {
@@ -626,10 +635,10 @@ func newAuthProfilesCmd() *cobra.Command {
 					Current bool   `json:"current"`
 				}
 				var profiles []profileInfo
-				for name, prof := range existingCfg.Profiles {
+				for name := range existingCfg.Profiles {
 					profiles = append(profiles, profileInfo{
 						Name:    name,
-						BaseURL: prof.BaseURL,
+						BaseURL: existingCfg.Profiles[name].BaseURL,
 						Current: name == existingCfg.CurrentProfile,
 					})
 				}
@@ -638,12 +647,12 @@ func newAuthProfilesCmd() *cobra.Command {
 			}
 
 			w := cmd.OutOrStdout()
-			for name, prof := range existingCfg.Profiles {
+			for name := range existingCfg.Profiles {
 				marker := "  "
 				if name == existingCfg.CurrentProfile {
 					marker = "* "
 				}
-				fmt.Fprintf(w, "%s%s\t%s\n", marker, name, prof.BaseURL)
+				fmt.Fprintf(w, "%s%s\t%s\n", marker, name, existingCfg.Profiles[name].BaseURL)
 			}
 			return nil
 		},
@@ -703,11 +712,31 @@ func writeConfigFile(path string, cfg *canvas.Config) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	file, err := os.CreateTemp(dir, ".canvas-config-*")
+	if err != nil {
+		return fmt.Errorf("create config file: %w", err)
+	}
+	defer os.Remove(file.Name())
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return fmt.Errorf("write config: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close config: %w", err)
+	}
+	if err := os.Rename(file.Name(), path); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 
 	return nil
+}
+
+func clearOAuthTokens(o *canvas.OAuthConfig) {
+	if o != nil {
+		o.AccessToken = ""
+		o.RefreshToken = ""
+		o.ExpiresAt = ""
+	}
 }
 
 // isTerminal reports whether r is connected to a terminal.

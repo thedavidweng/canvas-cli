@@ -43,7 +43,20 @@ canvas auth logout
 canvas auth profiles
 canvas auth profiles --json
 canvas auth use PROFILE
+canvas auth oauth login --login-timeout 5m
+canvas auth oauth login --profile school --json
+canvas auth refresh --json
 ```
+
+OAuth login reads the selected profile's `oauth.client_id`, optional
+`oauth.client_secret` (both accept `env:NAME`) and registered
+`oauth.redirect_uri`. Open the authorization URL printed to stderr; the command
+serves the loopback callback, checks state and exchanges S256 PKCE credentials.
+It stores tokens in the 0600 config file. Secretless login requires a public-client
+Developer Key. `--login-timeout` is positive and defaults to `5m`.
+`auth refresh` saves any rotated refresh token. OAuth API calls refresh on 401
+at most once per command and retry replayable requests once. `auth status`
+reports presence and expiry only. See [authentication](docs/auth.md).
 
 ### me
 ```bash
