@@ -54,6 +54,17 @@ Every envelope carries a `meta` object. Core fields (always present): `schema_ve
 
 ## Error codes
 
+OAuth commands use the existing `CANVAS_AUTH_ERROR` / `auth` category (exit 3).
+`auth.oauth.login` and `auth.refresh` success data contains `profile`, `base_url`,
+`auth_method: "oauth"`, `token_present`, `refresh_token_present` and `expires_at`.
+`expires_at` is an RFC 3339 UTC timestamp or an empty string when the server
+does not supply a lifetime. `auth.status` adds `refresh_token_present` and
+`expires_at` only when OAuth is the active credential source. Token values,
+client secrets, authorization codes and PKCE verifiers are never included.
+The authorization URL is printed to stderr, keeping JSON stdout pure.
+OAuth JSON failures emit an error envelope and return the authentication exit
+code without printing a second error to stderr. No schema version change.
+
 | Code | Category | HTTP Status | Description |
 |---|---|---|---|
 | `CANVAS_API_ERROR` | `api` | other 4xx | Generic Canvas API error |

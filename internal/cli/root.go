@@ -119,6 +119,9 @@ func NewRootCmd(version string) *cobra.Command {
 		}
 
 		resolved.StartTime = start
+		if err := configureOAuth(resolved, configPath); err != nil {
+			return err
+		}
 		c.SetContext(WithConfig(c.Context(), resolved))
 		return nil
 	}
@@ -239,6 +242,8 @@ func commandSkipsFullConfig(cmd *cobra.Command) bool {
 		"canvas auth status",
 		"canvas auth profiles",
 		"canvas auth use",
+		"canvas auth oauth login",
+		"canvas auth refresh",
 		"canvas doctor":
 		return true
 	}

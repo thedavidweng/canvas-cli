@@ -131,7 +131,59 @@ Re-run `canvas auth login` to get a fresh cookie.
 
 ## OAuth2
 
-OAuth2 login for multi-user distribution is tracked in [#16](https://github.com/thedavidweng/canvas-cli/issues/16). Not yet implemented.
+OAuth2 uses a Canvas Developer Key with authorization code and S256 PKCE.
+The institution must enable the key and register the exact redirect URI,
+including the fixed port. Secretless authorization requires a key configured
+as a **public client**; confidential keys require a client secret too.
+
+Create a 0600 config file with a profile such as:
+
+```yaml
+current_profile: school
+profiles:
+  school:
+    base_url: https://school.instructure.com
+    oauth:
+      client_id: env:CANVAS_CLIENT_ID
+      redirect_uri: http://127.0.0.1:8765/oauth/callback
+      # Confidential keys only:
+      # client_secret: env:CANVAS_CLIENT_SECRET
+```
+
+Run `canvas auth oauth login` and open the URL printed to stderr in your browser.
+The command binds the registered loopback address before displaying the URL,
+checks callback state, exchanges the code with its PKCE verifier, and saves
+access/refresh tokens and expiry. `--login-timeout` defaults to `5m`; Ctrl-C
+cancels the command. The redirect must use HTTP with literal `127.0.0.1` or
+`[::1]`, a fixed nonzero port and a callback path. Canvas itself must use HTTPS;
+HTTP Canvas origins are accepted only for literal loopback test servers.
+
+Client ID, client secret, access token and refresh token accept `env:NAME`
+references. Login and refresh save newly issued tokens into the existing config
+using an atomic replacement with mode 0600. Client environment references and
+other profiles/settings are preserved. Refresh-token rotation is persisted;
+if Canvas omits a replacement refresh token, the previous one is retained.
+
+API commands refresh on a 401 at most once per invocation and replay the request
+once when the body can be recreated. Pagination and clients within the invocation
+share that refresh budget and use the replacement access token. Streaming bodies
+cannot be replayed; run `canvas auth refresh` before retrying an upload.
+OAuth requests require the exact configured Canvas origin (scheme, hostname and
+port); redirects are returned without following them. Use a separate profile
+for another origin. A PAT from flags/environment/profile takes precedence over
+OAuth. PAT/cookie login and logout clear stored OAuth tokens.
+
+`canvas auth refresh` refreshes explicitly. `canvas auth status --json` reports
+`auth_method: "oauth"`, token presence, refresh-token presence and `expires_at`;
+it never prints credential values. OAuth failures omit token endpoint bodies,
+authorization codes, PKCE verifiers and secret values.
+
+Protocol decisions and pinned upstream sources are recorded in
+[ADR 0007](adr/0007-canvas-oauth.md). Mock-server tests cover this flow.
+Real institution acceptance remains tracked in
+[#16](https://github.com/thedavidweng/canvas-cli/issues/16): an enabled Developer
+Key, exact registered redirect URI, institutional approval and a real Canvas user
+are still required to validate browser consent and real account reads.
 
 ## Auth commands
 
@@ -143,6 +195,8 @@ canvas auth login --base-url URL --cookie-env CANVAS_COOKIE
 canvas auth login --base-url URL --cookie-file /path/to/cookie
 canvas auth login --browser firefox
 canvas auth login
+canvas auth oauth login --login-timeout 5m
+canvas auth refresh
 canvas auth status
 canvas auth test
 canvas auth logout
@@ -150,6 +204,6 @@ canvas auth profiles
 canvas auth use PROFILE
 ```
 
-`auth status` shows token and cookie presence but never the values.
+`auth status` shows credential presence and OAuth expiry but never credential values.
 
-`auth test` calls the current user endpoint and returns clear JSON in `--json` mode. Works with both token and cookie auth.
+`auth test` calls the current user endpoint and returns clear JSON in `--json` mode. Works with token, OAuth and cookie auth.

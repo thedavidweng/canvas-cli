@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/thedavidweng/canvas-cli/internal/canvas"
 	"github.com/thedavidweng/canvas-cli/internal/config"
 	"github.com/thedavidweng/canvas-cli/internal/output"
 )
@@ -230,10 +229,10 @@ func checkAPIAndToken(ctx context.Context, cfg *config.ResolvedConfig, timeout t
 		}
 	}
 
-	client := canvas.NewClient(cfg.BaseURL, cfg.Token, "dev", timeout, 0)
-	if cfg.Token == "" && cfg.Cookie != "" {
-		client.WithCookie(cfg.Cookie, cfg.CSRFToken)
-	}
+	clientCfg := *cfg
+	clientCfg.TimeoutDuration = timeout
+	clientCfg.Retries = 0
+	client := newClientFromCfg(&clientCfg)
 	resp, err := client.Do(ctx, "GET", "/api/v1/users/self", nil, nil)
 	if err != nil {
 		return DoctorCheck{

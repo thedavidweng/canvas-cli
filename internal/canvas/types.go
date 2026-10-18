@@ -300,16 +300,28 @@ type Config struct {
 
 // Profile holds per-profile connection and behavior settings.
 type Profile struct {
-	BaseURL       string `yaml:"base_url"`
-	Token         string `yaml:"token"`
-	Cookie        string `yaml:"cookie,omitempty"`
-	CSRFToken     string `yaml:"csrf_token,omitempty"`
-	Timeout       string `yaml:"timeout,omitempty"`
-	Retries       int    `yaml:"retries,omitempty"`
-	PageSize      int    `yaml:"page_size,omitempty"`
-	ReadOnly      bool   `yaml:"read_only,omitempty"`
-	DefaultCourse string `yaml:"default_course,omitempty"`
+	BaseURL       string       `yaml:"base_url"`
+	Token         string       `yaml:"token"`
+	Cookie        string       `yaml:"cookie,omitempty"`
+	CSRFToken     string       `yaml:"csrf_token,omitempty"`
+	Timeout       string       `yaml:"timeout,omitempty"`
+	Retries       int          `yaml:"retries,omitempty"`
+	PageSize      int          `yaml:"page_size,omitempty"`
+	ReadOnly      bool         `yaml:"read_only,omitempty"`
+	DefaultCourse string       `yaml:"default_course,omitempty"`
+	OAuth         *OAuthConfig `yaml:"oauth,omitempty"`
 }
+
+type OAuthConfig struct {
+	ClientID     string `yaml:"client_id"`
+	ClientSecret string `yaml:"client_secret,omitempty"`
+	RedirectURI  string `yaml:"redirect_uri"`
+	AccessToken  string `yaml:"access_token,omitempty"`
+	RefreshToken string `yaml:"refresh_token,omitempty"`
+	ExpiresAt    string `yaml:"expires_at,omitempty"`
+}
+
+func (o OAuthConfig) String() string { return "OAuth configuration (credentials redacted)" }
 
 // OutputConfig controls output formatting.
 type OutputConfig struct {
