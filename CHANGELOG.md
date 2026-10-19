@@ -10,9 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Features
 
 * add PKCE verifier helpers ([f03158b](https://github.com/thedavidweng/canvas-cli/commit/f03158b2734b582a83a6093e7dcbcd05d48a76fa))
-* add PKCE verifier helpers ([024fd33](https://github.com/thedavidweng/canvas-cli/commit/024fd334ba5f1d0da07629af6992eb65c3fbc7aa))
 * complete Canvas OAuth PKCE flow ([0daaed8](https://github.com/thedavidweng/canvas-cli/commit/0daaed8f6ac3e3dbd4ab4220cb1b615b585559fa))
-* complete Canvas OAuth PKCE flow ([197cc65](https://github.com/thedavidweng/canvas-cli/commit/197cc65061f9f0ed9a1b1670e783d590615d7a54))
 
 ## [0.4.3](https://github.com/thedavidweng/canvas-cli/compare/v0.4.2...v0.4.3) (2026-10-17)
 
