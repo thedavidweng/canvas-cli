@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0](https://github.com/thedavidweng/canvas-cli/compare/v0.4.3...v0.5.0) (2026-10-18)
+
+
+### Features
+
+* add PKCE verifier helpers ([f03158b](https://github.com/thedavidweng/canvas-cli/commit/f03158b2734b582a83a6093e7dcbcd05d48a76fa))
+* complete Canvas OAuth PKCE flow ([0daaed8](https://github.com/thedavidweng/canvas-cli/commit/0daaed8f6ac3e3dbd4ab4220cb1b615b585559fa))
+
 ## [0.4.3](https://github.com/thedavidweng/canvas-cli/compare/v0.4.2...v0.4.3) (2026-10-17)
 
 
