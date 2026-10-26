@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.1](https://github.com/thedavidweng/canvas-cli/compare/v0.5.0...v0.5.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ci:** select the exact source-built linter binary ([#46](https://github.com/thedavidweng/canvas-cli/issues/46)) ([088c8e1](https://github.com/thedavidweng/canvas-cli/commit/088c8e118c47c4e59f3048bc76ace26ea711b734))
+
 ## [0.5.0](https://github.com/thedavidweng/canvas-cli/compare/v0.4.3...v0.5.0) (2026-10-18)
 
 
