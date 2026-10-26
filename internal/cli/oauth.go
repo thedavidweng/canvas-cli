@@ -254,8 +254,8 @@ func receiveOAuthCode(ctx context.Context, cmd *cobra.Command, client oauth.Clie
 		return reply.code, reply.err
 	case <-ctx.Done():
 		return "", fmt.Errorf("OAuth login canceled or timed out")
-	case <-serveErr:
-		return "", fmt.Errorf("OAuth callback listener stopped")
+	case err := <-serveErr:
+		return "", fmt.Errorf("OAuth callback listener stopped: %w", err)
 	}
 }
 
