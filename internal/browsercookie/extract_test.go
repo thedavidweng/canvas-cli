@@ -44,11 +44,9 @@ func (m *MockCookieReader) ReadCookies(ctx context.Context, filters ...kooky.Fil
 // Helper to create a test cookie.
 func makeCookie(name, value string) *kooky.Cookie {
 	return &kooky.Cookie{
-		Cookie: http.Cookie{
-			Name:   name,
-			Value:  value,
-			Domain: "canvas.school.edu",
-		},
+		Name:     name,
+		Value:    value,
+		Domain:   "canvas.school.edu",
 		Creation: time.Now(),
 	}
 }

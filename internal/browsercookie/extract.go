@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/browserutils/kooky"
@@ -42,11 +43,8 @@ func scanCookies(cookies kooky.Cookies) (sessionCookie, csrfToken string) {
 			continue
 		}
 		if sessionCookie == "" {
-			for _, sessionName := range sessionCookieNames {
-				if cookie.Name == sessionName {
-					sessionCookie = cookie.Name + "=" + cookie.Value
-					break
-				}
+			if slices.Contains(sessionCookieNames, cookie.Name) {
+				sessionCookie = cookie.Name + "=" + cookie.Value
 			}
 		}
 	}
@@ -71,12 +69,7 @@ func IsSessionCookie(cookie *http.Cookie) bool {
 	if cookie == nil {
 		return false
 	}
-	for _, name := range sessionCookieNames {
-		if cookie.Name == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(sessionCookieNames, cookie.Name)
 }
 
 // IsCSRFCookie reports whether cookie is the Canvas CSRF token cookie.

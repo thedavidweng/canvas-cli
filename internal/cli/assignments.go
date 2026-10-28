@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -305,13 +306,7 @@ func newAssignmentsSubmitCmd() *cobra.Command {
 			}
 
 			if len(assignment.SubmissionTypes) > 0 {
-				allowed := false
-				for _, t := range assignment.SubmissionTypes {
-					if t == submissionType {
-						allowed = true
-						break
-					}
-				}
+				allowed := slices.Contains(assignment.SubmissionTypes, submissionType)
 				if !allowed {
 					return fmt.Errorf("assignment %s does not accept %s submission (allowed: %s)",
 						assignmentID, submissionType, strings.Join(assignment.SubmissionTypes, ", "))

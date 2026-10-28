@@ -34,8 +34,7 @@ func exitCode(err error) int {
 		return exitErr.ExitCode()
 	}
 	// Check for *safety.SafetyError which has ExitCode as a field.
-	var se *safety.SafetyError
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[*safety.SafetyError](err); ok {
 		return se.ExitCode
 	}
 	return output.CodeGenericError

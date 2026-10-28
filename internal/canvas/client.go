@@ -223,8 +223,7 @@ func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 
 	resp, err := hc.Do(req)
 	if err != nil {
-		var csErr *CookieSessionExpiredError
-		if errors.As(err, &csErr) {
+		if csErr, ok := errors.AsType[*CookieSessionExpiredError](err); ok {
 			return nil, csErr
 		}
 		return nil, err

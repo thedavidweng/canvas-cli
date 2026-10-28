@@ -120,8 +120,7 @@ func (e *exitError) ExitCode() int { return e.exitCode }
 func checkSafetyLevel(cfg *config.ResolvedConfig, dryRun, confirm bool, level safety.SafetyLevel) error {
 	policy := safety.NewPolicy(cfg.ReadOnly, dryRun, confirm)
 	if err := policy.Check(level); err != nil {
-		var se *safety.SafetyError
-		if errors.As(err, &se) {
+		if se, ok := errors.AsType[*safety.SafetyError](err); ok {
 			return &exitError{msg: se.Message, exitCode: se.ExitCode}
 		}
 		return err

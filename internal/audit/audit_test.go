@@ -72,7 +72,7 @@ func TestWriteEvent_EachLineValidJSON(t *testing.T) {
 
 	a := NewAuditor(path, true)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		ev := testEvent()
 		ev.Command = "test.command"
 		if err := a.WriteEvent(ev); err != nil {

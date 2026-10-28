@@ -15,7 +15,7 @@ import (
 // splitCSV splits a comma-separated string into trimmed, non-empty parts.
 func splitCSV(s string) []string {
 	var parts []string
-	for _, p := range strings.Split(s, ",") {
+	for p := range strings.SplitSeq(s, ",") {
 		p = strings.TrimSpace(p)
 		if p != "" {
 			parts = append(parts, p)

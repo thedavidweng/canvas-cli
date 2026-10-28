@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -24,14 +25,14 @@ func TestListAnnouncements(t *testing.T) {
 				ID:             "10",
 				Title:          "Exam moved to Friday",
 				Message:        "The midterm has been rescheduled.",
-				PostedAt:       strPtr("2026-06-01T10:00:00Z"),
+				PostedAt:       new("2026-06-01T10:00:00Z"),
 				IsAnnouncement: true,
 			},
 			{
 				ID:             "11",
 				Title:          "Office hours canceled",
 				Message:        "No office hours this week.",
-				PostedAt:       strPtr("2026-06-10T09:00:00Z"),
+				PostedAt:       new("2026-06-10T09:00:00Z"),
 				IsAnnouncement: true,
 			},
 		})
@@ -53,13 +54,7 @@ func TestListAnnouncements(t *testing.T) {
 
 	// Verify context_codes[]=course_42 was sent
 	ctxCodes := gotQuery["context_codes[]"]
-	found := false
-	for _, code := range ctxCodes {
-		if code == "course_42" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(ctxCodes, "course_42")
 	if !found {
 		t.Errorf("context_codes[] does not contain course_42, got: %v", ctxCodes)
 	}
@@ -251,8 +246,4 @@ func TestCreateAnnouncementError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for 500, got nil")
 	}
-}
-
-func strPtr(s string) *string {
-	return &s
 }

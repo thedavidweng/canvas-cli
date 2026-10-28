@@ -143,8 +143,8 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 		oauthConfig = &oauthCopy
 		token = oauthCopy.AccessToken
 	}
-	if strings.HasPrefix(token, "env:") {
-		envKey := strings.TrimPrefix(token, "env:")
+	if after, ok0 := strings.CutPrefix(token, "env:"); ok0 {
+		envKey := after
 		resolved := os.Getenv(envKey)
 		if resolved == "" {
 			return nil, fmt.Errorf("token references env var %q which is not set", envKey)
@@ -153,8 +153,8 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 	}
 
 	cookie := choose(opts.Cookie, os.Getenv("CANVAS_COOKIE"), prof.Cookie)
-	if strings.HasPrefix(cookie, "env:") {
-		envKey := strings.TrimPrefix(cookie, "env:")
+	if after, ok0 := strings.CutPrefix(cookie, "env:"); ok0 {
+		envKey := after
 		resolved := os.Getenv(envKey)
 		if resolved == "" {
 			return nil, fmt.Errorf("cookie references env var %q which is not set", envKey)
@@ -164,8 +164,8 @@ func Resolve(opts Options, cfg *canvas.Config) (*ResolvedConfig, error) {
 
 	// --- Resolve CSRF Token (env > file, same env: pattern) ---
 	csrfToken := prof.CSRFToken
-	if strings.HasPrefix(csrfToken, "env:") {
-		envKey := strings.TrimPrefix(csrfToken, "env:")
+	if after, ok0 := strings.CutPrefix(csrfToken, "env:"); ok0 {
+		envKey := after
 		resolved := os.Getenv(envKey)
 		if resolved == "" {
 			return nil, fmt.Errorf("csrf_token references env var %q which is not set", envKey)

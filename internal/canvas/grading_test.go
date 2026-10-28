@@ -214,8 +214,8 @@ func TestImportGrades(t *testing.T) {
 		score1 := 88.0
 		score2 := 72.0
 		_ = json.NewEncoder(w).Encode([]Submission{
-			{ID: "601", UserID: "789", AssignmentID: "301", Score: &score1, Grade: strPtr("B+")},
-			{ID: "602", UserID: "790", AssignmentID: "301", Score: &score2, Grade: strPtr("C-")},
+			{ID: "601", UserID: "789", AssignmentID: "301", Score: &score1, Grade: new("B+")},
+			{ID: "602", UserID: "790", AssignmentID: "301", Score: &score2, Grade: new("C-")},
 		})
 	}))
 	defer srv.Close()

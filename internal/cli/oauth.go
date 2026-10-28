@@ -60,8 +60,8 @@ func oauthClient(prof *canvas.Profile) (oauth.Client, error) {
 }
 
 func oauthEnv(value string) (string, error) {
-	if strings.HasPrefix(value, "env:") {
-		value = os.Getenv(strings.TrimPrefix(value, "env:"))
+	if after, ok := strings.CutPrefix(value, "env:"); ok {
+		value = os.Getenv(after)
 		if value == "" {
 			return "", fmt.Errorf("OAuth credential environment variable is not set")
 		}

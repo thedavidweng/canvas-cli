@@ -27,8 +27,8 @@ func ParseLinkHeader(header string) map[string]string {
 		return links
 	}
 
-	parts := strings.Split(header, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(header, ",")
+	for part := range parts {
 		part = strings.TrimSpace(part)
 		sections := strings.Split(part, ";")
 		if len(sections) < 2 {
@@ -43,8 +43,8 @@ func ParseLinkHeader(header string) map[string]string {
 
 		for _, s := range sections[1:] {
 			s = strings.TrimSpace(s)
-			if strings.HasPrefix(s, "rel=") {
-				rel := strings.TrimPrefix(s, "rel=")
+			if after, ok := strings.CutPrefix(s, "rel="); ok {
+				rel := after
 				rel = strings.Trim(rel, `"`)
 				rel = strings.ToLower(rel)
 				links[rel] = linkURL

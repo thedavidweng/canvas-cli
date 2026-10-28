@@ -15,7 +15,7 @@ func BenchmarkParseLinkHeader(b *testing.B) {
 }
 
 func BenchmarkBackoffDelay(b *testing.B) {
-	for attempt := 0; attempt < 5; attempt++ {
+	for attempt := range 5 {
 		b.Run(fmt.Sprintf("attempt-%d", attempt), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				backoffDelay(attempt)
