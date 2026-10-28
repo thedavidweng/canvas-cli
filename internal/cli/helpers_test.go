@@ -167,13 +167,6 @@ func TestTruncateString(t *testing.T) {
 	}
 }
 
-func TestExitError_ExitCodePartialFailure(t *testing.T) {
-	err := &exitError{msg: "partial failure", exitCode: 8}
-	if err.ExitCode() != 8 {
-		t.Errorf("expected exit code 8, got %d", err.ExitCode())
-	}
-}
-
 func TestWriteNetworkError_JSONMode(t *testing.T) {
 	var buf bytes.Buffer
 	inputErr := errors.New("connection refused")

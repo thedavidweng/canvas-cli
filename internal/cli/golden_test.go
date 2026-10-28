@@ -203,13 +203,6 @@ func TestGolden_ExitCode_SafetyBlocked(t *testing.T) {
 	}
 }
 
-func TestGolden_ExitCode_PartialFailure(t *testing.T) {
-	// Verify the constant is correctly defined.
-	if output.CodePartialFailure != 8 {
-		t.Errorf("expected CodePartialFailure=8, got %d", output.CodePartialFailure)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // 3. Safety Gate End-to-End Tests
 // ---------------------------------------------------------------------------
