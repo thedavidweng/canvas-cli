@@ -26,7 +26,7 @@ type oauthURLWriter struct {
 
 func (w *oauthURLWriter) Write(p []byte) (int, error) {
 	n, e := w.Buffer.Write(p)
-	for _, line := range strings.Split(string(p), "\n") {
+	for line := range strings.SplitSeq(string(p), "\n") {
 		if strings.Contains(line, "/login/oauth2/auth?") {
 			w.visit(strings.TrimSpace(line))
 		}

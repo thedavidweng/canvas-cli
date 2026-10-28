@@ -272,8 +272,7 @@ func Execute(version string) int {
 // output, so its message is printed to stderr; errors that already emitted
 // their own output (e.g. a JSON envelope) implement ExitCode() and stay silent.
 func reportExit(err error) int {
-	var ee *exitError
-	if errors.As(err, &ee) {
+	if ee, ok := errors.AsType[*exitError](err); ok {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", ee.msg)
 		return ee.exitCode
 	}

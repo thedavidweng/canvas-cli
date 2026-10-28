@@ -62,7 +62,7 @@ func newApiGetCmd() *cobra.Command {
 
 			query := url.Values{}
 			if queryStr != "" {
-				for _, pair := range strings.Split(queryStr, ",") {
+				for pair := range strings.SplitSeq(queryStr, ",") {
 					parts := strings.SplitN(pair, "=", 2)
 					if len(parts) == 2 {
 						query.Set(parts[0], parts[1])

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -365,13 +366,7 @@ func TestExportContext_Section403(t *testing.T) {
 	}
 
 	// files should be in failed sections
-	found := false
-	for _, s := range result.ExportMeta.SectionsFailed {
-		if s == "files" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(result.ExportMeta.SectionsFailed, "files")
 	if !found {
 		t.Errorf("expected 'files' in sections_failed, got %v", result.ExportMeta.SectionsFailed)
 	}

@@ -341,8 +341,8 @@ Supports multiple profiles for multiple institutions or users:
 
 			if token != "" {
 				resolvedToken := token
-				if strings.HasPrefix(token, "env:") {
-					resolvedToken = os.Getenv(strings.TrimPrefix(token, "env:"))
+				if after, ok := strings.CutPrefix(token, "env:"); ok {
+					resolvedToken = os.Getenv(after)
 				}
 
 				if resolvedToken != "" {
@@ -373,12 +373,12 @@ Supports multiple profiles for multiple institutions or users:
 				}
 			} else if cookie != "" {
 				resolvedCookie := cookie
-				if strings.HasPrefix(cookie, "env:") {
-					resolvedCookie = os.Getenv(strings.TrimPrefix(cookie, "env:"))
+				if after, ok := strings.CutPrefix(cookie, "env:"); ok {
+					resolvedCookie = os.Getenv(after)
 				}
 				resolvedCSRF := csrfToken
-				if strings.HasPrefix(csrfToken, "env:") {
-					resolvedCSRF = os.Getenv(strings.TrimPrefix(csrfToken, "env:"))
+				if after, ok := strings.CutPrefix(csrfToken, "env:"); ok {
+					resolvedCSRF = os.Getenv(after)
 				}
 
 				if resolvedCookie != "" {

@@ -1312,11 +1312,9 @@ func (m *testMockCookieReader) ReadCookies(ctx context.Context, filters ...kooky
 // testMakeCookie creates a kooky.Cookie for test purposes.
 func testMakeCookie(name, value, domain string) *kooky.Cookie {
 	return &kooky.Cookie{
-		Cookie: http.Cookie{
-			Name:   name,
-			Value:  value,
-			Domain: domain,
-		},
+		Name:   name,
+		Value:  value,
+		Domain: domain,
 	}
 }
 

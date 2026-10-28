@@ -227,8 +227,8 @@ func TestShouldRetryBackoffIncreases(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader("")),
 	}
 
-	var delays []time.Duration
-	for attempt := 0; attempt < 3; attempt++ {
+	delays := make([]time.Duration, 0, 3)
+	for attempt := range 3 {
 		_, delay := ShouldRetry(resp, attempt, 3)
 		delays = append(delays, delay)
 	}

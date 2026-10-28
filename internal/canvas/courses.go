@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 )
 
 // ListCourses returns all courses for the authenticated user.
@@ -42,13 +43,7 @@ func GetCourse(ctx context.Context, client *Client, courseID string, query url.V
 	query = copied
 
 	includes := query["include[]"]
-	hasTerm := false
-	for _, inc := range includes {
-		if inc == "term" {
-			hasTerm = true
-			break
-		}
-	}
+	hasTerm := slices.Contains(includes, "term")
 	if !hasTerm {
 		query.Add("include[]", "term")
 	}

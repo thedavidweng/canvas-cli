@@ -57,7 +57,7 @@ func (t Table) Render(w io.Writer, noColor bool) error {
 	fmt.Fprintln(w)
 
 	for _, row := range t.Rows {
-		for i := 0; i < numCols; i++ {
+		for i := range numCols {
 			if i > 0 {
 				fmt.Fprint(w, "  ")
 			}
