@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2](https://github.com/thedavidweng/canvas-cli/compare/v0.5.1...v0.5.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **release:** shorten cask description and generate valid completions ([#49](https://github.com/thedavidweng/canvas-cli/issues/49)) ([7b6f8c2](https://github.com/thedavidweng/canvas-cli/commit/7b6f8c2833409d41d380872b9b261c2552968bb4))
+
 ## [0.5.1](https://github.com/thedavidweng/canvas-cli/compare/v0.5.0...v0.5.1) (2026-10-26)
 
 
