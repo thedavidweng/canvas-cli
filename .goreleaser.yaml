@@ -101,20 +101,5 @@ nfpms:
       - apk
     bindir: /usr/bin
 
-homebrew_casks:
-  - name: canvas
-    binaries:
-      - canvas
-    generate_completions_from_executable:
-      executable: "canvas"
-      args:
-        - completion
-    repository:
-      owner: thedavidweng
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: "https://github.com/thedavidweng/canvas-cli"
-    description: "Agent-friendly CLI for Canvas LMS courses, assignments, and submissions"
-
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
