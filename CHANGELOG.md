@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.3](https://github.com/thedavidweng/canvas-cli/compare/v0.5.2...v0.5.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **ci:** upload Go coverage report ([#55](https://github.com/thedavidweng/canvas-cli/issues/55)) ([6aa9f94](https://github.com/thedavidweng/canvas-cli/commit/6aa9f944ce6a9cfdb92be7b742be4084d4156ec6))
+
 ## [0.5.2](https://github.com/thedavidweng/canvas-cli/compare/v0.5.1...v0.5.2) (2026-10-28)
 
 
